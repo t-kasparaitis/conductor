@@ -1,106 +1,62 @@
-# Conductor Plugin
+# Conductor
 
-**Measure twice, code once.**
+Conductor is a set of agent skills that enable **Spec-Driven Development**. 
 
-Conductor is a plugin for AI coding agents (including Antigravity and Claude
-Code) that enables **Spec-Driven Development**. It turns your agent into a
-proactive project manager that follows a strict protocol to specify, plan, and
-implement software features and bug fixes.
+This is a stripped-down fork of
+[gemini-cli-extensions/conductor](https://github.com/gemini-cli-extensions/conductor)
+(by Google, Apache-2.0). See [Changes from upstream](#changes-from-upstream). I've introduced and used conductor (at work) outside of Gemini extensively as an alternative to plan mode that is offered by other harnesses/agents.
 
-Instead of just writing code, Conductor ensures a consistent, high-quality
-lifecycle for every task: **Context -> Spec & Plan -> Implement**.
-
-The philosophy behind Conductor is simple: control your code. By treating
-context as a managed artifact alongside your code, you transform your repository
-into a single source of truth that drives every agent interaction with deep,
-persistent project awareness.
+A while ago it was a noticeable difference between sending a prompt off, and using plan mode. Conductor to me felt like plan mode elevated and so I wanted to make a personal flavor.
 
 --------------------------------------------------------------------------------
 
-## 🛠 Installation Guide
+## Install
 
-Conductor is packaged as a standard agent plugin, compatible across modern AI
-coding agents. Choose the installation method for your environment below.
+The skills follow the [Agent Skills](https://agentskills.io) open standard
+(`SKILL.md` folders), so they work in any agent that supports it — Claude Code,
+Codex CLI, Gemini CLI, Cursor, Copilot, and others. There is nothing to build
+or install: the agent just needs to find the `skills/` folders.
 
-### 1. Antigravity
+Clone it, then link the skills into the agents you use. Both scripts cover
+Claude Code (`~/.claude/skills/`) and Codex CLI (`~/.agents/skills/`), and
+because they link rather than copy, `git pull` or local edits are live
+immediately in every agent.
 
-#### A. End-User Installation (Recommended)
-
-Install directly from GitHub in a single command:
+**Linux (any distro) and macOS:**
 
 ```bash
-agy plugins install https://github.com/gemini-cli-extensions/conductor
+git clone https://github.com/t-kasparaitis/conductor.git
+cd conductor
+./link.sh              # ./link.sh --remove to uninstall
 ```
 
-#### B. Developer Installation (Live-Sync Global Link)
+**Windows (PowerShell):**
 
-If you are a developer or contributor who wants to fork the repository, write
-custom skills, or modify rule configurations, clone the repository locally and
-link it:
+```powershell
+git clone https://github.com/t-kasparaitis/conductor.git
+cd conductor
+powershell -ExecutionPolicy Bypass -File link.ps1    # add -Remove to uninstall
+```
 
-1.  Clone the repository:
+`link.ps1` uses directory junctions, which behave like symlinks but need no
+admin rights or Developer Mode. Don't run `link.sh` from Git Bash on Windows —
+`ln -s` there silently copies instead of linking (the script detects this and
+points you to `link.ps1`).
 
-    ```bash
-    git clone https://github.com/gemini-cli-extensions/conductor.git
-    cd conductor
-    ```
-
-2.  Link globally for Antigravity:
-
-    ```bash
-    mkdir -p ~/.gemini/config/plugins/ && ln -sfn "$(pwd)" ~/.gemini/config/plugins/conductor
-    ```
-
-*Why this method?* Creating a symlink acts as a live development link. Any edits
-you make in your local Git branch are instantly loaded in real-time without
-reinstalling!
-
-#### C. Workspace-Level Isolation
-
-If you want to isolate Conductor strictly inside a specific Git project:
-
-1.  Create the local plugins directory in your target project's root:
-
-    ```bash
-    mkdir -p .agents/plugins/
-    ```
-
-2.  Link Conductor to your local project:
-
-    ```bash
-    ln -sfn /absolute/path/to/cloned/conductor .agents/plugins/conductor
-    ```
-
---------------------------------------------------------------------------------
-
-### 2. Claude Code
-
-#### End-User Installation
-
-Register the marketplace repository and install the Conductor plugin directly in
-your Claude Code session:
+**Any platform, no scripts:** copy the folders instead. You lose live updates —
+re-copy after a `git pull`:
 
 ```bash
-/plugin marketplace add gemini-cli-extensions/conductor
-/plugin install conductor
+cp -r skills/* ~/.claude/skills/   # Claude Code
+cp -r skills/* ~/.agents/skills/   # Codex CLI
 ```
 
---------------------------------------------------------------------------------
-
-## 🔄 Uninstallation
-
-To safely remove Conductor from your environment:
-
-*   **Antigravity:**
-    *   **CLI Installation:** Run `agy plugins uninstall conductor`
-    *   **Global Link:** Run `rm -f ~/.gemini/config/plugins/conductor`
-    *   **Workspace Link:** Run `rm -f .agents/plugins/conductor`
-*   **Claude Code:** Run `/plugin remove conductor` and `/plugin marketplace
-    remove gemini-cli-extensions/conductor`
+For per-project installs, link (or copy) into the project's `.claude/skills/`
+or `.agents/skills/` directory instead of the home directory.
 
 --------------------------------------------------------------------------------
 
-## 🚀 Features
+## Features
 
 -   **Plan before you build**: Create specs and plans that guide the agent for
     new and existing codebases.
@@ -108,8 +64,6 @@ To safely remove Conductor from your environment:
     and product goals.
 -   **Iterate safely**: Review plans before code is written, keeping you firmly
     in the loop.
--   **Work as a team**: Set project-level context for your product, tech stack,
-    and workflow preferences that become a shared foundation for your team.
 -   **Build on existing projects**: Intelligent initialization for both new
     (Greenfield) and existing (Brownfield) projects.
 -   **Smart revert**: A git-aware revert command that understands logical units
@@ -117,206 +71,87 @@ To safely remove Conductor from your environment:
 
 --------------------------------------------------------------------------------
 
-## 🎨 Adaptive User Experience (UX Layer)
+## Usage & Lifecycle
 
-Conductor natively adapts its user interface to match the specific visual
-capabilities of your active developer environment (IDE chat box, terminal
-console, or web editor).
-
-This is powered by the integrated **View Layer UX Adapter**:
-
-*   **Interactive GUI Modals:** If your host editor supports visual interactive
-    dialog elements, Conductor will automatically capture selections, decision
-    interviews, and track options as native graphical modal dialog windows.
-    *   `rules/`: Custom adapter rules tailored for visual IDE environments
-        (like Antigravity).
-*   **Graceful CLI Fallback:** If you are operating in a plain text terminal
-    console (such as Claude Code), Conductor automatically detects the console
-    environment and adapts all interactive steps into clean, structured
-    text-based choice menus with bracketed numbers (e.g., `[1] Option A, [2]
-    Option B`).
-
-This dynamic, semantic adaptation occurs natively behind the scenes with **zero
-configuration required**, ensuring the optimal developer experience regardless
-of your chosen workflow environment.
-
---------------------------------------------------------------------------------
-
-## 📖 Usage & Lifecycle
-
-Conductor manages the entire lifecycle of your development tasks through
-namespace-grouped commands.
-
-> [!NOTE] **Note on Token Consumption:** Conductor's spec-driven approach
-> involves reading and analyzing your project's context, specifications, and
-> plans. This can lead to increased token consumption, especially in larger
-> projects or during extensive planning and implementation phases. You can check
-> the token consumption in the current session by running `/stats model` (in
-> compatible clients).
+Invoke skills by name (`/conductor-setup` in Claude Code, `$conductor-setup` in
+Codex CLI) or with natural language — agents match your intent against each
+skill's description ("Let's start a new track to add a login screen").
 
 ### 1. Set Up the Project (Run Once)
 
-When you run `/conductor:conductor-setup`, Conductor helps you define the core
-components of your project context. This context is then used for building new
-components or features by you or anyone on your team.
+`conductor-setup` defines the core project context, used for everything built
+afterward:
 
--   **Product**: Define project context (e.g. users, product goals, high-level
-    features).
--   **Product guidelines**: Define standards (e.g. prose style, brand messaging,
-    visual identity).
--   **Tech stack**: Configure technical preferences (e.g. language, database,
-    frameworks).
--   **Workflow**: Set team preferences (e.g. TDD, commit strategy). Uses
-    `workflow.md` as a customizable template.
+-   **Product**: users, product goals, high-level features
+-   **Product guidelines**: prose style, brand messaging, visual identity
+-   **Tech stack**: language, database, frameworks
+-   **Workflow**: team preferences (TDD, commit strategy)
 
-**Generated Artifacts:**
-
--   `conductor/product.md`
--   `conductor/product-guidelines.md`
--   `conductor/tech-stack.md`
--   `conductor/workflow.md`
--   `conductor/code_styleguides/`
--   `conductor/tracks.md`
-
-```bash
-/conductor:conductor-setup
-```
+Generated artifacts: `conductor/product.md`, `conductor/product-guidelines.md`,
+`conductor/tech-stack.md`, `conductor/workflow.md`,
+`conductor/code_styleguides/`, `conductor/tracks.md`
 
 ### 2. Start a New Track (Feature or Bug)
 
-When you’re ready to take on a new feature or bug fix, run
-`/conductor:conductor-new-track`. This initializes a **track** — a high-level
-unit of work. Conductor helps you generate two critical artifacts:
+`conductor-new-track` initializes a **track** — a high-level unit of work —
+and generates:
 
--   **Specs**: The detailed requirements for the specific job. What are we
-    building and why?
--   **Plan**: An actionable to-do list containing phases, tasks, and sub-tasks.
+-   **Spec**: detailed requirements — what are we building and why?
+-   **Plan**: an actionable to-do list of phases, tasks, and sub-tasks.
 
-**Generated Artifacts:**
-
--   `conductor/tracks/<track_id>/spec.md`
--   `conductor/tracks/<track_id>/plan.md`
--   `conductor/tracks/<track_id>/metadata.json`
-
-```bash
-/conductor:conductor-new-track
-# OR with a description
-/conductor:conductor-new-track "Add a dark mode toggle to the settings page"
-```
+Generated artifacts: `conductor/tracks/<track_id>/spec.md`, `plan.md`,
+`metadata.json`
 
 ### 3. Implement the Track
 
-Once you approve the plan, run `/conductor:conductor-implement`. Your coding
-agent then works through the `plan.md` file, checking off tasks as it completes
-them.
+Once you approve the plan, `conductor-implement` works through `plan.md`,
+checking off tasks as it completes them.
 
-**Updated Artifacts:**
+### Supporting skills
 
--   `conductor/tracks.md` (Status updates)
--   `conductor/tracks/<track_id>/plan.md` (Status updates)
--   Project context files (Synchronized on completion)
+Command              | Description
+:------------------- | :----------
+`conductor-status`   | High-level overview of project and track progress.
+`conductor-review`   | Reviews completed work against guidelines and the plan; appends a `Review Fixes` phase for issues found.
+`conductor-revert`   | Git-aware revert of a track, phase, or task — rolls back the commits and resets task state to pending.
 
-```bash
-/conductor:conductor-implement
-```
+### Task corrections
 
-During implementation, you can also monitor, revert, or review work using the
-following commands:
+1.  **In-flight**: notice a gap while the agent is coding — say so in chat; it
+    adapts and verifies before finalizing the task.
+2.  **After completion**: run `conductor-review` to audit changes, run tests,
+    and track fixes in `plan.md`.
+3.  **Fundamentally flawed**: run `conductor-revert` for a safe git rollback
+    and a fresh start on the task.
 
-*   **Check status**: Get a high-level overview of your project's progress.
-
-    ```bash
-    /conductor:conductor-status
-    ```
-
-*   **Revert work**: Safely undo a feature, phase, or a specific task.
-
-    ```bash
-    /conductor:conductor-revert
-    ```
-
-*   **Review work**: Review completed work against guidelines and the plan.
-
-    ```bash
-    /conductor:conductor-review
-    ```
+> **Note on token consumption:** the spec-driven approach reads and analyzes
+> your project's context, specs, and plans, which increases token usage —
+> especially in larger projects.
 
 --------------------------------------------------------------------------------
 
-## 📋 Commands Reference
+## Changes from upstream
 
-Command                          | Description                                                                             | Generated Artifacts
-:------------------------------- | :-------------------------------------------------------------------------------------- | :------------------
-`/conductor:conductor-setup`     | Scaffolds the project and sets up the Conductor environment. Run this once per project. | `conductor/product.md`<br>`conductor/product-guidelines.md`<br>`conductor/tech-stack.md`<br>`conductor/workflow.md`<br>`conductor/tracks.md`
-`/conductor:conductor-new-track` | Starts a new feature or bug track. Generates `spec.md` and `plan.md`.                   | `conductor/tracks/<id>/spec.md`<br>`conductor/tracks/<id>/plan.md`<br>`conductor/tracks.md`
-`/conductor:conductor-implement` | Executes the tasks defined in the current track's plan.                                 | `conductor/tracks.md`<br>`conductor/tracks/<id>/plan.md`
-`/conductor:conductor-status`    | Displays the current progress of the tracks file and active tracks.                     | Reads `conductor/tracks.md`
-`/conductor:conductor-revert`    | Reverts a track, phase, or task by analyzing git history.                               | Reverts git history
-`/conductor:conductor-review`    | Reviews completed work against guidelines and the plan.                                 | Reads `plan.md`, `product-guidelines.md`
+This fork keeps the six skills intact and removes everything that isn't needed
+to run them as plain Agent Skills:
 
---------------------------------------------------------------------------------
-
-## 💡 Best Practices for Task Corrections
-
-When a task or phase in your Conductor project wasn't completed correctly, you
-have three native recovery flows:
-
-1.  **Agile In-Flight Corrections**: If you notice an implementation gap while
-    the agent is actively coding, specify the fix directly in the chat. The
-    agent will natively adapt its coding loop and verify the fix before
-    finalizing the task.
-2.  **Review Corrections (`/conductor:conductor-review`)**: If issues are caught
-    after a task/phase is marked completed, run the review command. The review
-    agent will audit changes, verify style guides, execute tests, and append a
-    `Review Fixes` tracking phase to `plan.md` to resolve them.
-3.  **Safe State Reversions (`/conductor:conductor-revert`)**: If a task
-    implementation is fundamentally flawed and needs a complete reset, run the
-    revert command. This rolls back specific Git commits safely and resets the
-    task state back to pending `[ ]` so you can prompt a fresh approach.
+-   Removed Claude Code plugin/marketplace packaging (`plugin.json`,
+    `.claude-plugin/`) — install is a symlink instead.
+-   Removed the Antigravity-specific UI rules (`rules/`).
+-   Inlined `scripts/resume.py` into the setup skill as plain instructions —
+    the repo is now pure markdown with no runtime dependencies.
+-   Removed Google's `CONTRIBUTING.md`/CLA and `VERSION`.
+-   Added `link.sh` (Linux/macOS) and `link.ps1` (Windows junctions) and
+    rewrote this README for agent-agnostic use.
 
 --------------------------------------------------------------------------------
 
-## 🚂 Getting Started (Natural Language Triggering)
+## Credits & License
 
-Once Conductor is installed in your environment, you don't need to memorize
-slash commands. You can interact with Conductor natively using natural language.
-Your active agent will dynamically recognize your intent and execute the
-corresponding Conductor protocol in the background:
-
--   **To Scaffold a Project**: > *"Let's create a new Conductor project"* or
-    *"Run setup for Conductor"*
--   **To Plan a Feature**: > *"Let's start a new track to add a login screen"*
-    or *"Create a plan for the dark mode track"*
--   **To Execute the Plan**: > *"Start implementing the active plan"* or
-    *"Proceed with the implementation"*
--   **To Check Progress**: > *"How is our track progress going?"* or *"Show the
-    current project status"*
--   **To Revert or Fix a Task**: > *"Revert the last completed task"* or *"Let's
-    review the completed phase"*
-
---------------------------------------------------------------------------------
-
-## 📂 Repository Structure
-
--   `/skills`: The protocol logic (`SKILL.md`) for each command.
--   `/rules`: Platform-specific operational rules files.
-
---------------------------------------------------------------------------------
-
-## 🎓 Resources
-
--   [Antigravity Plugins Documentation](https://antigravity.google/docs/plugins):
-    Official guidelines for using plugins in Antigravity.
--   [Claude Code Plugins Documentation](https://code.claude.com/docs/en/discover-plugins):
-    Guidelines for managing plugins in Claude Code.
--   [GitHub Issues](https://github.com/gemini-cli-extensions/conductor/issues):
-    Report bugs or request features.
--   The team gratefully acknowledges Keith Ballinger's original
-    [.conductor](https://github.com/keithballinger/.conductor) project as the
-    groundwork for this repository.
-
---------------------------------------------------------------------------------
-
-## ⚖ License
-
--   License: [Apache License 2.0](LICENSE)
+-   Forked from [gemini-cli-extensions/conductor](https://github.com/gemini-cli-extensions/conductor),
+    Copyright Google LLC.
+-   Upstream in turn acknowledges Keith Ballinger's original
+    [.conductor](https://github.com/keithballinger/.conductor) project as its
+    groundwork.
+-   License: [Apache License 2.0](LICENSE) (unchanged from upstream; see
+    [NOTICE](NOTICE)).
