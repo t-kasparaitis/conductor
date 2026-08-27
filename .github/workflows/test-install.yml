@@ -4,8 +4,13 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   linux-macos:
+    env:
+      CONDUCTOR_HOME: ${{ runner.temp }}/conductor-home
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -18,7 +23,7 @@ jobs:
         run: |
           for skill in skills/*/; do
             name="$(basename "$skill")"
-            for dir in "$HOME/.claude/skills" "$HOME/.agents/skills"; do
+            for dir in "$CONDUCTOR_HOME/.claude/skills" "$CONDUCTOR_HOME/.agents/skills"; do
               grep -q "^name: $name" "$dir/$name/SKILL.md" || { echo "FAIL: $dir/$name"; exit 1; }
             done
           done
@@ -28,18 +33,47 @@ jobs:
       - name: Existing real directory is not clobbered
         run: |
           ./link.sh --remove
-          mkdir -p "$HOME/.claude/skills/conductor-setup"
-          touch "$HOME/.claude/skills/conductor-setup/user-file.md"
+          mkdir -p "$CONDUCTOR_HOME/.claude/skills/conductor-setup"
+          touch "$CONDUCTOR_HOME/.claude/skills/conductor-setup/user-file.md"
           ./link.sh
-          test -f "$HOME/.claude/skills/conductor-setup/user-file.md"
-          rm -rf "$HOME/.claude/skills/conductor-setup"
+          test -f "$CONDUCTOR_HOME/.claude/skills/conductor-setup/user-file.md"
+          rm -rf "$CONDUCTOR_HOME/.claude/skills/conductor-setup"
+      - name: Unrelated link is not clobbered or removed
+        run: |
+          ./link.sh --remove
+          mkdir -p "$CONDUCTOR_HOME/foreign-skill"
+          ln -s "$CONDUCTOR_HOME/foreign-skill" "$CONDUCTOR_HOME/.claude/skills/conductor-setup"
+          ./link.sh
+          test "$(readlink "$CONDUCTOR_HOME/.claude/skills/conductor-setup")" = "$CONDUCTOR_HOME/foreign-skill"
+          ./link.sh --remove
+          test -L "$CONDUCTOR_HOME/.claude/skills/conductor-setup"
+          rm "$CONDUCTOR_HOME/.claude/skills/conductor-setup"
       - name: Remove
         run: |
           ./link.sh
           ./link.sh --remove
-          test -z "$(find "$HOME/.claude/skills" "$HOME/.agents/skills" -type l 2>/dev/null)"
+          test -z "$(find "$CONDUCTOR_HOME/.claude/skills" "$CONDUCTOR_HOME/.agents/skills" -type l 2>/dev/null)"
+      - name: Rejects unknown arguments
+        run: |
+          if ./link.sh --rmeove 2>/dev/null; then echo "FAIL: unknown argument accepted"; exit 1; fi
+          if ./link.sh --remove extra 2>/dev/null; then echo "FAIL: extra argument accepted"; exit 1; fi
+          echo "unknown arguments rejected"
+      - name: Fails loudly on empty skills directory
+        run: |
+          empty="${{ runner.temp }}/empty-checkout"
+          mkdir -p "$empty/skills"
+          cp link.sh "$empty/"
+          if CONDUCTOR_HOME="${{ runner.temp }}/empty-home" "$empty/link.sh" 2>/dev/null; then
+            echo "FAIL: empty skills directory accepted"; exit 1
+          fi
+          if [ -e "${{ runner.temp }}/empty-home" ]; then
+            echo "FAIL: created target dirs despite empty checkout"; exit 1
+          fi
+          echo "empty checkout rejected"
 
   windows:
+    env:
+      CONDUCTOR_HOME: ${{ runner.temp }}\conductor-home
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +84,7 @@ jobs:
         shell: powershell
         run: |
           foreach ($skill in Get-ChildItem -Directory skills) {
-            foreach ($dir in @("$HOME\.claude\skills", "$HOME\.agents\skills")) {
+            foreach ($dir in @("$env:CONDUCTOR_HOME\.claude\skills", "$env:CONDUCTOR_HOME\.agents\skills")) {
               $f = Join-Path $dir "$($skill.Name)\SKILL.md"
               if (-not (Select-String -Path $f -Pattern "^name: $($skill.Name)" -Quiet)) {
                 Write-Error "FAIL: $f"; exit 1
@@ -65,13 +99,46 @@ jobs:
         shell: powershell
         run: |
           .\link.ps1 -Remove
-          New-Item -ItemType Directory -Force "$HOME\.claude\skills\conductor-setup" | Out-Null
-          New-Item -ItemType File "$HOME\.claude\skills\conductor-setup\user-file.md" | Out-Null
+          New-Item -ItemType Directory -Force "$env:CONDUCTOR_HOME\.claude\skills\conductor-setup" | Out-Null
+          New-Item -ItemType File "$env:CONDUCTOR_HOME\.claude\skills\conductor-setup\user-file.md" | Out-Null
           .\link.ps1
-          if (-not (Test-Path "$HOME\.claude\skills\conductor-setup\user-file.md")) { exit 1 }
-          Remove-Item -Recurse -Force "$HOME\.claude\skills\conductor-setup"
+          if (-not (Test-Path "$env:CONDUCTOR_HOME\.claude\skills\conductor-setup\user-file.md")) { exit 1 }
+          Remove-Item -Recurse -Force "$env:CONDUCTOR_HOME\.claude\skills\conductor-setup"
+      - name: Unrelated junction is not clobbered or removed
+        shell: powershell
+        run: |
+          .\link.ps1 -Remove
+          $foreign = New-Item -ItemType Directory -Force "$env:CONDUCTOR_HOME\foreign-skill"
+          $link = "$env:CONDUCTOR_HOME\.claude\skills\conductor-setup"
+          New-Item -ItemType Junction -Path $link -Target $foreign.FullName | Out-Null
+          .\link.ps1
+          if ((Get-Item $link).Target -ne $foreign.FullName) { exit 1 }
+          .\link.ps1 -Remove
+          if (-not (Test-Path $link)) { exit 1 }
+          (Get-Item $link).Delete()
       - name: Remove
         shell: powershell
         run: |
           .\link.ps1
           .\link.ps1 -Remove
+          $links = Get-ChildItem "$env:CONDUCTOR_HOME\.claude\skills", "$env:CONDUCTOR_HOME\.agents\skills" -Recurse -Attributes ReparsePoint
+          if ($links) { Write-Error "Managed junctions remain after removal"; exit 1 }
+      - name: Rejects unknown arguments
+        shell: powershell
+        run: |
+          $failed = $false
+          try { .\link.ps1 -Rmeove } catch { $failed = $true }
+          if (-not $failed) { Write-Error "unknown argument accepted"; exit 1 }
+          Write-Host "unknown arguments rejected"
+      - name: Fails loudly on empty skills directory
+        shell: powershell
+        run: |
+          $empty = "$env:RUNNER_TEMP\empty-checkout"
+          New-Item -ItemType Directory -Force "$empty\skills" | Out-Null
+          Copy-Item link.ps1 $empty
+          $env:CONDUCTOR_HOME = "$env:RUNNER_TEMP\empty-home"
+          $failed = $false
+          try { & "$empty\link.ps1" } catch { $failed = $true }
+          if (-not $failed) { Write-Error "empty skills directory accepted"; exit 1 }
+          if (Test-Path "$env:RUNNER_TEMP\empty-home") { Write-Error "created target dirs despite empty checkout"; exit 1 }
+          Write-Host "empty checkout rejected"
