@@ -2,6 +2,9 @@
 # discovered by Claude Code (~\.claude\skills) and Codex CLI (~\.agents\skills).
 # Junctions work like symlinks but require no admin rights or Developer Mode.
 # Run with -Remove to delete the junctions instead.
+# CmdletBinding makes this an advanced script so unknown arguments are
+# rejected instead of silently collecting in $args.
+[CmdletBinding()]
 param([switch]$Remove)
 
 $ErrorActionPreference = "Stop"
