@@ -1,0 +1,12 @@
+Conductor (personal fork)
+
+This is a modified version of Conductor:
+https://github.com/gemini-cli-extensions/conductor
+Copyright Google LLC, licensed under the Apache License, Version 2.0.
+
+Modifications Copyright 2026 Tomas Kasparaitis, under the same license.
+Summary of modifications: removed host-specific packaging (Claude Code plugin
+metadata, Antigravity rules), inlined the setup resumption script as markdown
+instructions, added a symlink-based install script, and rewrote the README for
+agent-agnostic use as plain Agent Skills. The skill protocols themselves are
+substantially unchanged. See the git history for the full record.

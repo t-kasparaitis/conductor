@@ -47,13 +47,19 @@ Example (for a new project):
 
 ### 1.2 Audit Artifacts & Resumption Check
 
-Run the automated directory resumption script: `python3 scripts/resume.py`
+Check which setup artifacts already exist in the `conductor/` directory, in this order:
 
-Read the returned JSON object from `stdout`. **Do NOT mention the script name or path to the user.**
+1. `conductor/product.md` (Product Definition)
+2. `conductor/product-guidelines.md` (Product Guidelines)
+3. `conductor/tech-stack.md` (Technology Stack)
+4. `conductor/code_styleguides/` (Code Style Guides)
+5. `conductor/workflow.md` (Workflow Configuration)
 
-- If `setup_complete` is `true`, announce that the project is already initialized and **HALT** execution.
+Setup is complete if `conductor/index.md` exists. The next pending step is the first item in the list above that is missing.
+
+- If setup is complete, announce that the project is already initialized and **HALT** execution.
 - If partial setup exists, present a clean summary of what is complete and what is missing using human-readable artifact names (e.g., `tech-stack.md`). Do NOT use internal section numbers (e.g., avoid "Section 2.3").
-- Identify the pending step from `next_step` (e.g., "Technology Stack") and advise that setup can be resumed from there.
+- Identify the pending step (e.g., "Technology Stack") and advise that setup can be resumed from there.
 
 ## 2. Interactive Scaffolding & Context Gathering
 

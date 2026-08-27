@@ -1,0 +1,77 @@
+name: test-install
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux-macos:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install links
+        run: ./link.sh
+      - name: Verify skills resolve through links
+        run: |
+          for skill in skills/*/; do
+            name="$(basename "$skill")"
+            for dir in "$HOME/.claude/skills" "$HOME/.agents/skills"; do
+              grep -q "^name: $name" "$dir/$name/SKILL.md" || { echo "FAIL: $dir/$name"; exit 1; }
+            done
+          done
+          echo "all links resolve"
+      - name: Idempotent re-run
+        run: ./link.sh
+      - name: Existing real directory is not clobbered
+        run: |
+          ./link.sh --remove
+          mkdir -p "$HOME/.claude/skills/conductor-setup"
+          touch "$HOME/.claude/skills/conductor-setup/user-file.md"
+          ./link.sh
+          test -f "$HOME/.claude/skills/conductor-setup/user-file.md"
+          rm -rf "$HOME/.claude/skills/conductor-setup"
+      - name: Remove
+        run: |
+          ./link.sh
+          ./link.sh --remove
+          test -z "$(find "$HOME/.claude/skills" "$HOME/.agents/skills" -type l 2>/dev/null)"
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install junctions
+        shell: powershell
+        run: .\link.ps1
+      - name: Verify skills resolve through junctions
+        shell: powershell
+        run: |
+          foreach ($skill in Get-ChildItem -Directory skills) {
+            foreach ($dir in @("$HOME\.claude\skills", "$HOME\.agents\skills")) {
+              $f = Join-Path $dir "$($skill.Name)\SKILL.md"
+              if (-not (Select-String -Path $f -Pattern "^name: $($skill.Name)" -Quiet)) {
+                Write-Error "FAIL: $f"; exit 1
+              }
+            }
+          }
+          Write-Host "all junctions resolve"
+      - name: Idempotent re-run
+        shell: powershell
+        run: .\link.ps1
+      - name: Existing real directory is not clobbered
+        shell: powershell
+        run: |
+          .\link.ps1 -Remove
+          New-Item -ItemType Directory -Force "$HOME\.claude\skills\conductor-setup" | Out-Null
+          New-Item -ItemType File "$HOME\.claude\skills\conductor-setup\user-file.md" | Out-Null
+          .\link.ps1
+          if (-not (Test-Path "$HOME\.claude\skills\conductor-setup\user-file.md")) { exit 1 }
+          Remove-Item -Recurse -Force "$HOME\.claude\skills\conductor-setup"
+      - name: Remove
+        shell: powershell
+        run: |
+          .\link.ps1
+          .\link.ps1 -Remove
