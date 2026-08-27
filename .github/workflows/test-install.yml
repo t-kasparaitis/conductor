@@ -9,14 +9,16 @@ permissions:
 
 jobs:
   linux-macos:
-    env:
-      CONDUCTOR_HOME: ${{ runner.temp }}/conductor-home
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      # The runner context is not available in job-level env, so stage the
+      # isolated install home through GITHUB_ENV instead.
+      - name: Isolate install home
+        run: echo "CONDUCTOR_HOME=$RUNNER_TEMP/conductor-home" >> "$GITHUB_ENV"
       - name: Install links
         run: ./link.sh
       - name: Verify skills resolve through links
@@ -60,23 +62,25 @@ jobs:
           echo "unknown arguments rejected"
       - name: Fails loudly on empty skills directory
         run: |
-          empty="${{ runner.temp }}/empty-checkout"
+          empty="$RUNNER_TEMP/empty-checkout"
           mkdir -p "$empty/skills"
           cp link.sh "$empty/"
-          if CONDUCTOR_HOME="${{ runner.temp }}/empty-home" "$empty/link.sh" 2>/dev/null; then
+          if CONDUCTOR_HOME="$RUNNER_TEMP/empty-home" "$empty/link.sh" 2>/dev/null; then
             echo "FAIL: empty skills directory accepted"; exit 1
           fi
-          if [ -e "${{ runner.temp }}/empty-home" ]; then
+          if [ -e "$RUNNER_TEMP/empty-home" ]; then
             echo "FAIL: created target dirs despite empty checkout"; exit 1
           fi
           echo "empty checkout rejected"
 
   windows:
-    env:
-      CONDUCTOR_HOME: ${{ runner.temp }}\conductor-home
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Isolate install home
+        shell: powershell
+        run: |
+          "CONDUCTOR_HOME=$env:RUNNER_TEMP\conductor-home" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Install junctions
         shell: powershell
         run: .\link.ps1
