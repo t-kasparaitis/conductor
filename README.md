@@ -66,8 +66,6 @@ or `.agents/skills/` directory instead of the home directory.
     in the loop.
 -   **Build on existing projects**: Intelligent initialization for both new
     (Greenfield) and existing (Brownfield) projects.
--   **Smart revert**: A git-aware revert command that understands logical units
-    of work (tracks, phases, tasks) rather than just commit hashes.
 
 --------------------------------------------------------------------------------
 
@@ -113,7 +111,6 @@ Command              | Description
 :------------------- | :----------
 `conductor-status`   | High-level overview of project and track progress.
 `conductor-review`   | Reviews completed work against guidelines and the plan; appends a `Review Fixes` phase for issues found.
-`conductor-revert`   | Git-aware revert of a track, phase, or task — rolls back the commits and resets task state to pending.
 
 ### Task corrections
 
@@ -121,8 +118,9 @@ Command              | Description
     adapts and verifies before finalizing the task.
 2.  **After completion**: run `conductor-review` to audit changes, run tests,
     and track fixes in `plan.md`.
-3.  **Fundamentally flawed**: run `conductor-revert` for a safe git rollback
-    and a fresh start on the task.
+3.  **Fundamentally flawed**: discard the work with standard git tools —
+    abandon the branch (cherry-picking anything worth keeping) or reset to a
+    known-good commit — and start the task fresh.
 
 > **Note on token consumption:** the spec-driven approach reads and analyzes
 > your project's context, specs, and plans, which increases token usage —
@@ -132,12 +130,20 @@ Command              | Description
 
 ## Changes from upstream
 
-This fork keeps the six skills intact and removes everything that isn't needed
+This fork keeps the core skills intact and removes everything that isn't needed
 to run them as plain Agent Skills:
 
 -   Removed Claude Code plugin/marketplace packaging (`plugin.json`,
     `.claude-plugin/`) — install is a symlink instead.
 -   Removed the Antigravity-specific UI rules (`rules/`).
+-   Removed the skill catalogs (`assets/catalog.md`) and the interactive
+    skill-recommendation/installation steps from `conductor-setup` and
+    `conductor-new-track` — the catalog was a stale, GCP-centric list with
+    mostly dead links, and downloading skills via `curl` at plan time isn't
+    something this fork wants.
+-   Removed the `conductor-revert` skill. In practice, flawed work is better
+    handled with plain git: abandon the branch (cherry-picking what's worth
+    keeping) or reset to a known-good commit, then restart the task.
 -   Inlined `scripts/resume.py` into the setup skill as plain instructions —
     the repo is now pure markdown with no runtime dependencies.
 -   Removed Google's `CONTRIBUTING.md`/CLA and `VERSION`.

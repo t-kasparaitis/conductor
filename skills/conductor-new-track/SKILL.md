@@ -109,35 +109,7 @@ Adhere to this sequence precisely.
     -   Ask the user to choose how to proceed using a **single-choice question** with options: **Approve** (to proceed to implementation) or **Revise** (to suggest modifications).
     -   Await user feedback and revise the `plan.md` content until confirmed.
 
-### 2.4 Interactive Skill Recommendation
-
-1.  **Analyze Needs & Trust Model:**
-    -   Read the skill catalog from `assets/catalog.md` (relative to this skill's directory).
-    -   Analyze the confirmed `spec.md` and `plan.md` against the `Detection Signals` in the loaded `catalog.md`.
-    -   Identify any relevant skills that are NOT yet installed.
-    -   **Trust Assessment:** Note the `Party` status (1p or 3p) for each identified skill.
-
-2.  **Recommendation & Installation Loop:**
-    -   **Identify Recommendations:** If relevant missing skills are found, present them to the user, explaining their value for the current track.
-    -   **Trust Disclosure:** For each recommendation, disclose its status:
-        -   **1p (Official):** Present as a verified Conductor skill.
-        -   **3p (Community):** Present as a third-party skill. You MUST warn the user: *"Attention: This is a third-party skill. It will be installed as a frozen version (commit <sha>) for your safety."*
-    -   **User Approval:** Ask the user to select which recommended skills they would like to install using a **multiple-choice question**.
-    -   **Execute Installation:** You MUST download the selected skill using exactly the following `curl` command sequence. Do not modify the parameters or add flags:
-
-        ```bash
-        mkdir -p .agents/skills/<skill_name>
-        curl -sSL <URL>SKILL.md -o .agents/skills/<skill_name>/SKILL.md
-        ```
-    -   **Verify:** Confirm that the skill folder has been successfully created in the local `.agents/skills/` directory.
-    -   **If no missing skills found:** Skip this section.
-
-3.  **Environment Synchronization:**
-    -   **Execution Trigger:** This step MUST only be executed if new skills were installed in the previous step.
-    -   **Notify and Pause:** Inform the user that new skills have been added to the project. Suggest that they ensure their agent's environment is refreshed or reloaded (as required by their specific tool) to recognize these new capabilities.
-    -   **Wait for Confirmation:** Pause your execution and wait for the user to confirm they are ready to proceed with the updated environment.
-
-### 2.5 Create Track Artifacts and Registry Update
+### 2.4 Create Track Artifacts and Registry Update
 
 1.  **Strategic Action:** Explain that you are about to "commit the track to history." This involves creating a dedicated workspace for the track, initializing its metadata, and updating the central registry so that your progress is trackable by any tool or collaborator.
 
