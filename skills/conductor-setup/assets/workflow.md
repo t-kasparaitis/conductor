@@ -103,12 +103,11 @@ When an implemented task or phase requires corrections, amendments, or additions
     clients). The review agent will automatically append a `Review Fixes` phase
     to `plan.md` so that correction tasks are formally tracked and
     checkpointed.
-3.  **Logical State Reversions (`conductor-revert`):** If a task implementation
-    is fundamentally flawed or needs to be redone, instruct the agent to revert
-    the changes (e.g., *"revert the last task"* or triggering the action
-    manually in compatible clients). This safely rolls back associated git
-    commits and resets the task state in `plan.md` back to pending `[ ]` to
-    allow a clean restart.
+3.  **Fundamentally Flawed Work:** If a task implementation is fundamentally
+    flawed or needs to be redone, discard it with standard git tools instead of
+    patching on top of it — abandon the branch (optionally cherry-picking any
+    commits worth keeping) or reset to a known-good commit, then set the
+    affected task states in `plan.md` back to pending `[ ]` and restart cleanly.
 
 ### Phase Completion Verification and Checkpointing Protocol
 

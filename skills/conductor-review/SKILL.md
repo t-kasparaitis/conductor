@@ -216,7 +216,5 @@ Before starting the review process, you MUST locate and read the project's found
 Once the review process and any subsequent actions (fixes, commits, cleanup) are finished, announce the final status.
 
 1.  **Final Report:** Summarize the review findings and any actions taken (e.g., "Review complete, fixes applied and committed").
-2.  **Optional Revert Suggestion:** If the review reveals fundamental issues that cannot be easily fixed, ask the user if they would like to revert any specific unit of work (tasks or phases) identified during the review using a **Yes/No question**.
-3.  **Internal Handoff (Optional):**
-    - If the user explicitly asks to revert work, you MUST use the `conductor-revert` skill to guide them through the process.
-    - Otherwise, inform the user they can use the `conductor-status` skill to see the current project overview, or use the `conductor-revert` skill manually if they decide to revert work later.
+2.  **Fundamental Issues:** If the review reveals fundamental issues that cannot be easily fixed, recommend discarding the affected work with standard git tools (e.g., abandoning the branch or resetting to a known-good commit) and starting the task fresh, rather than patching on top of a flawed foundation.
+3.  **Internal Handoff (Optional):** Inform the user they can use the `conductor-status` skill to see the current project overview.

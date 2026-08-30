@@ -170,42 +170,13 @@ Configure the operational rules for the project.
 3. **Explain:** Before copying, explain that the `workflow.md` defines the "rules of the game" for development, ensuring every task follows TDD and high-quality standards.
 4. **Write Action:** Copy `assets/workflow.md` to `conductor/workflow.md` and apply user choices if customized.
 
-### 2.6 Agent Skill Selection (Optional)
-
-1. **Analyze Needs & Trust Model:**
-    - Read the skill catalog from `assets/catalog.md` (relative to this skill's directory).
-    - Analyze the project context (e.g., `product.md`, `tech-stack.md`) against the `Detection Signals` in the loaded `catalog.md` to identify relevant skills NOT yet installed.
-    - **Trust Disclosure:** For each recommendation, disclose the `Party` status:
-        - **1p (Official):** Present as a verified, official Conductor skill.
-        - **3p (Community):** Present as a third-party skill. You MUST warn the user: *"Warning: This is a third-party skill. It will be installed as a frozen version (commit <sha>) for your safety."*
-
-2. **Recommendation & Installation Loop:**
-    - **Identify Recommendations:** If relevant missing skills are found, present them to the user, explaining their value for the project.
-    - **Trust Disclosure:** For each recommendation, disclose its status:
-        - **1p (Official):** Present as a verified Conductor skill.
-        - **3p (Community):** Present as a third-party skill. You MUST warn the user: *"Attention: This is a third-party skill. It will be installed as a frozen version (commit <sha>) for your safety."*
-    - **User Approval:** Ask the user to select which recommended skills they would like to install using a **multiple-choice question**.
-    - **Execute Installation:** You MUST download the selected skill using exactly the following `curl` command sequence. Do not modify the parameters or add flags:
-      
-        ```bash
-        mkdir -p .agents/skills/<skill_name>
-        curl -sSL <URL>SKILL.md -o .agents/skills/<skill_name>/SKILL.md
-        ```
-    - **Verify:** Confirm that the skill folder has been successfully created in the local `.agents/skills/` directory.
-    - **If no missing skills found:** Skip this section.
-
-3. **Environment Synchronization:**
-    - **Execution Trigger:** This step MUST only be executed if new skills were installed in the previous step.
-    - **Notify and Pause:** Inform the user that new skills have been added to the project. Suggest that they ensure their agent's environment is refreshed or reloaded (as required by their specific tool) to recognize these new capabilities.
-    - **Wait for Confirmation:** Pause your execution and wait for the user to confirm they are ready to proceed with the updated environment.
-
 ## 3. The Handshake (Index Generation)
 
 Create `conductor/index.md`. This is the **Single Source of Truth** for all tools.
 
 1.  **Explain:** Explain that the `index.md` is the "Handshake" of the project. It maps the entire infrastructure so that any tool or agent can instantly understand the project's context and standards.
 
-2.  **Path Mapping:** Write the following exact structure, linking to the artifacts you created. Include the "Capabilities" section only if you installed agent skills: 
+2.  **Path Mapping:** Write the following exact structure, linking to the artifacts you created: 
 
 ```markdown
 
@@ -221,10 +192,6 @@ Create `conductor/index.md`. This is the **Single Source of Truth** for all tool
 
     -   [Workflow](./workflow.md)
     -   [Code Style Guides](./code_styleguides/)
-
-    ## Capabilities
-
-    -   [Agent Skills](../.agents/skills/)
 ```
 
 3.  **Integrity Check:** You MUST verify the existence of all linked files on disk.
