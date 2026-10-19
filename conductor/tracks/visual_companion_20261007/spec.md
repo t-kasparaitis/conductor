@@ -132,9 +132,10 @@ The repository is public, so the companion must work for anyone who clones it.
     macOS's bundled `python3`); on Windows the launcher is `py -3`. No
     POSIX-only calls; paths via `pathlib`; `--open` uses the system default
     browser on every OS.
--   **Browsers:** current Chrome, Edge and Firefox, plus Safari (the default
-    browser `--open` lands in on macOS). Only web-platform features with
-    support across all four (no vendor prefixes, no Chromium-only APIs).
+-   **Browsers:** current Chrome is preferred and Firefox is the second
+    choice; both are tested. Other browsers (Edge, Safari, ...) are untested,
+    but the code sticks to standard web-platform features (no Chromium-only
+    APIs) so they have a fair chance of working.
     Pointer events for mouse/touch/pen; wheel handling copes with both pixel
     and line `deltaMode` (Firefox).
 -   **Persistence:** everything that matters is a file under `conductor/` and
@@ -160,8 +161,7 @@ The repository is public, so the companion must work for anyone who clones it.
     snapshot), draw a diagram and resolve feedback.
 6.  `link.sh` / `link.ps1` install the new skill with no changes; CI passes.
 7.  CI runs the Python tests on Ubuntu, macOS and Windows (Python 3.9 and
-    latest), and browser end-to-end tests in Chromium, Firefox and WebKit, plus
-    Edge on the Windows runner.
+    latest), and browser end-to-end tests in Chrome and Firefox on all three.
 8.  Feedback written on Windows round-trips byte-identical (UTF-8, LF) on
     Linux/macOS, and ten simultaneous submissions yield ten distinct IDs.
 

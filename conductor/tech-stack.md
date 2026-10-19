@@ -14,8 +14,8 @@
 -   **Vanilla HTML/CSS/JS** for the viewer UI — no build step, no CDN, works
     offline.
 -   **Tests:** Python `unittest` (stdlib) for the parser/server.
--   **Support targets:** Linux, macOS, Windows; Python 3.9+; current Chrome,
-    Edge, Firefox and Safari.
+-   **Support targets:** Linux, macOS, Windows; Python 3.9+. Browsers:
+    Chrome (preferred), then Firefox; others untested.
 -   **Browser tests:** small standard-library drivers in `tests/browser.py` —
     the Chrome DevTools protocol for Chrome, Chromium and Edge, and WebDriver
     BiDi for Firefox. Run locally when a browser is installed, and in CI.
@@ -25,3 +25,8 @@
 > repo otherwise never touches; the drivers cover Chromium, Edge and Firefox
 > with nothing to install. Safari isn't automated: it needs `safaridriver` on
 > a Mac, so Safari support rests on the feature audit and manual checks.
+
+> **2026-10-19:** Narrowed browser support to Chrome (preferred) and Firefox
+> (second). Edge, Safari and other browsers are untested; the code still
+> avoids Chromium-only APIs, so they will probably work. Edge left the CI
+> matrix.

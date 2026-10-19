@@ -176,9 +176,10 @@ python3 skills/conductor-view/scripts/serve.py --root /path/to/project --open
     copied for you to paste to the agent.
 -   **Share a snapshot:** `serve.py --export view.html` writes one self-contained
     read-only file.
--   Tested in current Chrome, Edge and Firefox on Linux, macOS and Windows.
-    Safari is checked against its feature support but not yet tested on a
-    real Mac. File formats are in
+-   **Browsers:** Chrome is the preferred browser and Firefox the second
+    choice; both are tested on Linux, macOS and Windows. Others (Edge, Safari
+    and the rest) are untested; they may well work, but no promises. File
+    formats are in
     [`references/file-contract.md`](skills/conductor-view/references/file-contract.md).
 
 > **Note on token consumption:** the spec-driven approach reads and analyzes
