@@ -119,6 +119,25 @@ class HomeBrowserTest(UserHome, ServerTest):
         self.open("#/?q=zzz", ready="document.querySelector('.empty')")
         self.assertIn("No tracks match", self.js("document.querySelector('.empty').textContent"))
 
+    def test_archived_tracks_open_read_only(self):
+        self.open(f"#/{self.alpha}/old_1/spec", ready="document.querySelector('.overview')")
+        self.assertIn("Archived track", self.js("document.querySelector('.archived-banner').textContent"))
+        self.assertEqual(self.js("document.querySelectorAll('.comment-btn, .review-actions').length"), 0)
+        self.assertTrue(self.js("document.querySelector('details.side-archive').open"))
+        # A live track still has its buttons.
+        self.open(f"#/{self.alpha}/now_1/plan", ready="document.querySelector('.overview')")
+        self.assertGreater(self.js("document.querySelectorAll('.comment-btn').length"), 0)
+        self.assertEqual(self.js("document.querySelectorAll('.archived-banner').length"), 0)
+
+    def test_track_page_sidebar_belongs_to_its_project(self):
+        self.open("#/beta/b_only/plan", ready="document.querySelector('.overview')")
+        self.assertEqual(self.js("[...document.querySelectorAll('#sidebar [data-track]')].map(a => a.dataset.track)"),
+                         ["b_only", "shared_1"])
+        self.assertEqual(self.js("document.querySelector('#project-switch').value"), "beta")
+        self.b.click(".back-link")
+        self.b.wait("document.querySelector('.proj-card')")
+        self.assertEqual(self.js("location.hash"), "#/")
+
     def test_unknown_links_go_home(self):
         self.open("#/nope/zzz/plan", ready="document.querySelector('.proj-card')")
         self.assertEqual(self.js("location.hash"), "#/")

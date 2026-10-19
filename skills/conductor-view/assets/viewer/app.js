@@ -180,7 +180,9 @@
   const STATUS_LABEL = { pending: "Pending", in_progress: "In progress", done: "Done", new: "New" };
   const statusIcon = (s) => `<span class="st st-${s}" role="img" aria-label="${STATUS_LABEL[s] || s}"></span>`;
   const commentIcon = '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
-  const commentBtn = (target, label = "Comment") => SNAPSHOT ? "" : `<button class="comment-btn" data-comment="${esc(target)}">${commentIcon}${label}</button>`;
+  // Snapshots and archived tracks are read-only: no comment or review buttons.
+  let readOnly = false;
+  const commentBtn = (target, label = "Comment") => readOnly ? "" : `<button class="comment-btn" data-comment="${esc(target)}">${commentIcon}${label}</button>`;
 
   const shaChips = (x) => (x.shas || (x.sha ? [x.sha] : [])).map((h) => `<span class="sha">${esc(h.slice(0, 7))}</span>`).join("");
 
@@ -421,6 +423,7 @@
 
   function renderTrack(t) {
     const ctx = { track: t };
+    readOnly = !!SNAPSHOT || !!t.archived;
     const { done, total, tasks } = trackTotals(t);
     const status = (t.registry && t.registry.status) || t.metadata.status || "new";
     const openFb = t.feedback.filter((f) => f.status === "open").length;
@@ -447,9 +450,10 @@
 
     return `
       ${SNAPSHOT ? `<div class="snapshot-banner">Read-only snapshot — feedback is disabled. Run <code>serve.py</code> for the live view.</div>` : ""}
+      ${t.archived ? `<div class="banner archived-banner"><div><strong>Archived track</strong> · read-only. It lives in <code>conductor/archive/${esc(t.id)}/</code>.</div></div>` : ""}
       <div class="eyebrow">
         <span class="chip type">${esc(t.metadata.type || "track")}</span>
-        <span class="chip st-${esc(status)}">${esc(STATUS_LABEL[status] || status)}</span>
+        ${t.archived ? `<span class="chip">Archived</span>` : `<span class="chip st-${esc(status)}">${esc(STATUS_LABEL[status] || status)}</span>`}
         <span class="chip mono">${esc(t.id)}</span>
         ${created ? `<span class="chip mono">${esc(created)}</span>` : ""}
         ${badge(dSpec, "Spec")}${badge(dPlan, "Plan")}
@@ -460,7 +464,7 @@
           <h1 class="track-title">${esc(trackTitle(t))}</h1>
           <p class="track-sub">${esc((t.registry && t.registry.description) || t.metadata.description || "")}</p>
         </div>
-        ${SNAPSHOT ? "" : `<div class="review-actions">
+        ${readOnly ? "" : `<div class="review-actions">
           <button class="btn" data-decide="revise">↺ Request changes</button>
           <button class="btn good" data-decide="approve:spec">✓ Approve spec</button>
           <button class="btn primary" data-decide="approve:plan">✓ Approve plan</button>
