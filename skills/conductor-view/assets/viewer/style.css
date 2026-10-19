@@ -496,3 +496,14 @@ details.tgroup[open] summary h3::before { content: "▾ "; }
 .port-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
 .port-input { width: 120px; }
 .trow.g-now .trow-sub, .fchip[aria-pressed="true"] .count { color: var(--text-2); }
+.row-actions { margin-left: auto; display: inline-flex; gap: 2px; opacity: 0; }
+.trow:hover .row-actions, .row-actions:focus-within { opacity: 1; }
+.link-btn.danger, .btn.danger { color: var(--danger); }
+.btn.primary.danger { background: var(--danger); border-color: var(--danger); color: var(--accent-ink); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.chip.req { white-space: normal; }
+.dlg-text { margin: 0; color: var(--text-2); font-size: 13px; }
+.gitcheck ul { margin: 4px 0 0; padding-left: 18px; }
+.gitcheck ul ul { max-height: 120px; overflow: auto; }
+.gitcheck { margin: 0; }
+@media (max-width: 760px) { .row-actions { opacity: 1; } }

@@ -346,8 +346,25 @@
         ${safetyChip(g)}
         ${g && g.branch ? `<span class="chip mono" title="The track's branch">⎇ ${esc(g.branch)}</span>` : ""}
         ${g && g.last_activity ? `<span class="muted small" title="${esc(new Date(g.last_activity * 1000).toLocaleString())}">${esc(ago(g.last_activity))}</span>` : ""}
+        ${requestChips(p.id, t)}
+        ${SNAPSHOT ? "" : `<span class="row-actions">${requestButtons(p.id, t)}</span>`}
       </div>
     </li>`;
+  }
+
+  const REQ = {
+    archive: { verb: "Archive", done: "Archive requested" },
+    restore: { verb: "Restore", done: "Restore requested" },
+    delete: { verb: "Delete", done: "Delete requested" },
+  };
+  function requestChips(pid, t) {
+    return (t.requests || []).map((r) => `<span class="chip wait req" title="The agent acts on it the next time it reads feedback. Say “check feedback” in chat.">${esc(REQ[r.kind].done)} · waiting for the agent</span>
+      ${SNAPSHOT || LOCAL ? "" : `<button class="link-btn" data-withdraw="${esc(r.id)}" data-project="${esc(pid)}" data-track="${esc(t.id)}">Withdraw</button>`}`).join("");
+  }
+  function requestButtons(pid, t) {
+    const pending = new Set((t.requests || []).map((r) => r.kind));
+    const kinds = (t.archived ? ["restore", "delete"] : ["archive", "delete"]).filter((k) => !pending.has(k));
+    return kinds.map((k) => `<button class="link-btn${k === "delete" ? " danger" : ""}" data-request="${k}" data-project="${esc(pid)}" data-track="${esc(t.id)}" aria-label="${REQ[k].verb} ${esc(t.title)}">${REQ[k].verb}</button>`).join("");
   }
 
   function matchesSearch(t) {
@@ -451,7 +468,9 @@
 
     return `
       ${SNAPSHOT ? `<div class="snapshot-banner">Read-only snapshot — feedback is disabled. Run <code>serve.py</code> for the live view.</div>` : ""}
-      ${t.archived ? `<div class="banner archived-banner"><div><strong>Archived track</strong> · read-only. It lives in <code>conductor/archive/${esc(t.id)}/</code>.</div></div>` : ""}
+      ${t.archived ? `<div class="banner archived-banner"><div><strong>Archived track</strong> · read-only. It lives in <code>conductor/archive/${esc(t.id)}/</code>.</div>
+        ${SNAPSHOT ? "" : `<div class="banner-actions">${trackRequestButtons(t)}</div>`}</div>` : ""}
+      ${trackRequests(t)}
       <div class="eyebrow">
         <span class="chip type">${esc(t.metadata.type || "track")}</span>
         ${t.archived ? `<span class="chip">Archived</span>` : `<span class="chip st-${esc(status)}">${esc(STATUS_LABEL[status] || status)}</span>`}
@@ -483,6 +502,20 @@
         ${tab === "spec" && sections.filter((x) => x.title).length > 1 ? specNav(t, sections) : ""}
       </div>
       <section id="tab-body">${body}</section>`;
+  }
+
+  function trackSummary(t) {
+    const p = projectById(project);
+    return p && p.tracks.find((x) => x.id === t.id);
+  }
+  function trackRequests(t) {
+    const s = trackSummary(t);
+    if (!s || !s.requests.length) return "";
+    return `<div class="banner req-banner"><div>${requestChips(project, s)}</div></div>`;
+  }
+  function trackRequestButtons(t) {
+    const s = trackSummary(t);
+    return s ? requestButtons(project, s) : "";
   }
 
   // One group per phase, sized by its task count: a numbered phase bar on top,
@@ -1013,6 +1046,7 @@
   }
 
   document.addEventListener("submit", async (ev) => {
+    if (ev.target.id === "req-form") { ev.preventDefault(); return sendRequest(ev.target); }
     if (ev.target.id === "port-form") {
       ev.preventDefault();
       const raw = $("#port-input").value.trim();
@@ -1034,17 +1068,96 @@
     }
   });
 
+  /* ---------------- archive / restore / delete requests ---------------- */
+
+  function gitReport(d, kind) {
+    if (!d) return "";
+    if (!d.git) return `<div class="banner warn gitcheck"><div><strong>Not a git repo.</strong> Nothing protects these files${kind === "delete" ? ": a delete can't be undone" : ""}.</div></div>`;
+    const lost = kind === "delete";
+    const items = [];
+    if (d.uncommitted_files.length) items.push(`<li><strong>${d.uncommitted} uncommitted file${d.uncommitted === 1 ? "" : "s"}</strong>${lost ? " would be lost" : " (the agent commits them with the move)"}:<ul class="mono small">${d.uncommitted_files.map((f) => `<li>${esc(f)}</li>`).join("")}</ul></li>`);
+    if (d.unpushed_commits.length && d.remote) items.push(`<li><strong>${d.unpushed} commit${d.unpushed === 1 ? "" : "s"} only on this machine</strong>${d.branch ? ` (branch <code>${esc(d.branch)}</code>)` : ""}:<ul class="mono small">${d.unpushed_commits.map((c) => `<li>${esc(c)}</li>`).join("")}</ul></li>`);
+    if (!d.remote) items.push(`<li>The repo has <strong>no remote</strong>: committed history stays on this machine only.</li>`);
+    const safe = !d.uncommitted && (!d.unpushed || !d.remote) && d.remote;
+    const fetched = d.remote ? `<p class="muted small">“Pushed” is as of the last fetch${d.last_fetch ? ` (${esc(ago(d.last_fetch))})` : " (never fetched here)"}.</p>` : "";
+    return `<div class="banner ${safe ? "" : "warn"} gitcheck"><div>${safe
+      ? `<strong>Safe.</strong> Committed and pushed${d.landed ? `, and landed in <code>${esc(d.main)}</code>` : ""}. ${lost ? "Its history stays in git after the delete." : ""}`
+      : `<strong>Before you ${kind}:</strong><ul>${items.join("")}</ul>`}${fetched}</div></div>`;
+  }
+  const unsafe = (d) => d && (!d.git || d.uncommitted > 0 || (d.remote && d.unpushed > 0));
+
+  async function requestDialog(kind, pid, tid) {
+    const p = projectById(pid), t = p && p.tracks.find((x) => x.id === tid);
+    if (!t) return;
+    const what = {
+      archive: `The agent moves it to <code>conductor/archive/${esc(tid)}/</code>, takes it out of <code>tracks.md</code> and commits. You can restore it later.`,
+      restore: `The agent moves it back to <code>conductor/tracks/${esc(tid)}/</code>, adds it to <code>tracks.md</code> again and commits.`,
+      delete: `The agent removes its folder and its <code>tracks.md</code> entry and commits, after checking with you once more in chat.`,
+    }[kind];
+    openDialog(`<form id="req-form" data-kind="${kind}" data-project="${esc(pid)}" data-track="${esc(tid)}">
+      <div class="composer-head"><span class="composer-kind" id="dlg-title">${REQ[kind].verb} “${esc(t.title)}”${kind === "delete" ? " for good" : ""}?</span>
+        <span class="composer-target">${esc(p.name)} · <span class="mono">${esc(tid)}</span></span></div>
+      <p class="dlg-text">${what} The viewer only files the request; nothing changes until your agent acts on it.</p>
+      <div class="dlg-git">${LOCAL ? "" : `<p class="muted small">Checking git…</p>`}</div>
+      ${kind === "delete" ? `<label class="dlg-label" for="req-confirm">Type <code>${esc(tid)}</code> to confirm</label>
+        <input id="req-confirm" class="dlg-input" autocomplete="off" spellcheck="false" aria-label="Type the track id to confirm">` : ""}
+      <textarea id="req-note" class="dlg-input" rows="2" placeholder="Optional note for the agent" aria-label="Note for the agent"></textarea>
+      ${dialogFoot(true, LOCAL ? "Copy request" : REQ[kind].verb)}</form>`, kind === "delete" ? "#req-confirm" : "#req-note");
+    const submit = $("#req-form [type=submit]");
+    if (kind === "delete") { submit.classList.add("danger"); submit.disabled = true; }
+    if (LOCAL) return;
+    try {
+      const d = await getJSON(`api/git?project=${enc(pid)}&track=${enc(tid)}`);
+      if (!$("#req-form")) return;
+      $(".dlg-git").innerHTML = gitReport(d, kind);
+      if (kind === "delete" && unsafe(d)) submit.textContent = "Delete anyway";
+    } catch (e) { $(".dlg-git").innerHTML = `<p class="muted small">Couldn't check git: ${esc(e.message)}</p>`; }
+  }
+
+  async function sendRequest(form) {
+    const { kind, project: pid, track: tid } = form.dataset;
+    const text = $("#req-note").value.trim();
+    if (LOCAL) {
+      const block = window.ConductorLocal.feedbackForChat(tid, kind, "track", `${REQ[kind].verb} this track. ${text}`.trim());
+      try { await navigator.clipboard.writeText(block); $("#dlg").close(); toast("Copied. Paste it to your agent."); }
+      catch { $("#req-note").value = block; $("#req-note").select(); toast("Press Ctrl+C (⌘C on a Mac) to copy, then paste it to your agent."); }
+      return;
+    }
+    try {
+      const j = await postJSON("api/feedback", { project: pid, track: tid, kind, text, confirm: kind === "delete" ? $("#req-confirm").value.trim() : undefined });
+      $("#dlg").close();
+      toast(j.existing ? `Already requested (${j.id}). Tell your agent “check feedback”.` : `${REQ[kind].done} (${j.id}). Tell your agent “check feedback”.`);
+      await loadHome(); if (state && state.project_id === pid) await loadProject(); render(true);
+    } catch (e) { $(".dlg-status").textContent = e.message; }
+  }
+
+  async function withdraw(pid, tid, id) {
+    try {
+      await postJSON("api/feedback/withdraw", { project: pid, track: tid, id });
+      toast(`Withdrew ${id}.`);
+      await loadHome(); if (state && state.project_id === pid) await loadProject(); render(true);
+    } catch (e) { toast(e.message); }
+  }
+
+  document.addEventListener("input", (ev) => {
+    if (ev.target.id !== "req-confirm") return;
+    const form = $("#req-form");
+    form.querySelector("[type=submit]").disabled = ev.target.value.trim() !== form.dataset.track;
+  });
+
   async function homeAction(url, body, done) {
     try { const j = await postJSON(url, body); if (done) toast(done(j)); await loadHome(); render(true); }
     catch (e) { toast(e.message); }
   }
 
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-view],[data-setting],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter],[data-status],[data-forget],[data-restore],[data-dismiss],[data-dialog],[data-find],[data-close],[data-reset],[data-tidy],[data-follow],[data-port-clear]");
+    const el = ev.target.closest("[data-view],[data-setting],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter],[data-status],[data-forget],[data-restore],[data-dismiss],[data-dialog],[data-find],[data-close],[data-reset],[data-tidy],[data-follow],[data-port-clear],[data-request],[data-withdraw]");
     if (!el) return;
     if (el.dataset.dialog) return el.dataset.dialog === "find" ? findDialog(null) : addDialog();
     if ("find" in el.dataset) return runFind();
     if ("close" in el.dataset) return $("#dlg").close();
+    if (el.dataset.request) return requestDialog(el.dataset.request, el.dataset.project, el.dataset.track);
+    if (el.dataset.withdraw) return withdraw(el.dataset.project, el.dataset.track, el.dataset.withdraw);
     if (el.dataset.view) { view = el.dataset.view; settingsScope = project ? "project" : "main"; writeHash(); render(); window.scrollTo(0, 0); }
     else if (el.dataset.setting) { if (el.getAttribute("aria-checked") !== "true") saveSetting(el.dataset.setting, el.dataset.value, el.dataset.scope || "project"); }
     else if (el.dataset.reset) saveSetting(el.dataset.reset, null, el.dataset.scope, el.dataset.project);

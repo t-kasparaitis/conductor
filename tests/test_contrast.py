@@ -23,6 +23,7 @@ PAIRS = [
     ("text", "prog-soft", "panel"), ("text-2", "prog-soft", "panel"), ("text", "prog-soft", "bg"),
     ("text", "accent-soft", "panel"), ("text-2", "accent-soft", "panel"),
     ("text", "panel-2", None), ("text-2", "panel-2", None), ("muted", "panel-2", None),
+    ("accent-ink", "danger", None),
 ]
 
 
