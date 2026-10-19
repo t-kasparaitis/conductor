@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conductor View</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 18 L10 6 L14 13 L16 10 L20 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="10" cy="6" r="1.8" fill="currentColor"/></svg>
+    <span>conductor<span class="brand-dim">/view</span></span>
+  </div>
+  <div class="project" id="project"></div>
+  <div class="topbar-right">
+    <span class="live" id="live" title="Watching conductor/ for changes"><span class="live-dot"></span><span id="live-text">live</span></span>
+    <button class="icon-btn" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+<div class="layout">
+  <nav class="sidebar" id="sidebar" aria-label="Tracks"></nav>
+  <main id="main" tabindex="-1"></main>
+</div>
+
+<dialog id="composer" class="composer">
+  <form method="dialog" id="composer-form">
+    <div class="composer-head">
+      <span class="composer-kind" id="composer-kind">Comment</span>
+      <span class="composer-target" id="composer-target"></span>
+    </div>
+    <textarea id="composer-text" rows="6" placeholder="What should the agent change, clarify or consider?"></textarea>
+    <div class="composer-foot">
+      <span class="muted small">Saved to <code id="composer-file">feedback.md</code> · Ctrl+Enter to send</span>
+      <div class="composer-actions">
+        <button type="button" class="btn ghost" id="composer-cancel">Cancel</button>
+        <button type="submit" class="btn primary" id="composer-send">Send</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="map.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
