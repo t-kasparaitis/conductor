@@ -414,6 +414,7 @@
           <p class="track-sub">${projects.length} project${projects.length === 1 ? "" : "s"} · ${all.filter((t) => !t.archived).length} tracks${n("now") ? ` · ${n("now")} in progress now` : ""}</p></div>
       </div>
       <div class="home-tools">
+        ${SNAPSHOT || LOCAL ? "" : `<div class="home-actions"><button class="btn" data-dialog="find">${searchIcon}Find projects</button><button class="btn" data-dialog="add">＋ Add by path</button></div>`}
         <input type="search" id="home-search" placeholder="Search tracks by name or id" aria-label="Search tracks" value="${esc(homeUi.q)}">
         <div class="fchips" role="group" aria-label="Filter by status">${chips}</div>
       </div>
@@ -707,6 +708,7 @@
   /* ---------------- workflow settings ---------------- */
 
   const homeIcon = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3.5 11.5 12 4l8.5 7.5M6 10v9.5h4.5V15h3v4.5H18V10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+  const searchIcon = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15 15 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
   const gearIcon = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
 
   function settingDef(key) {
@@ -853,14 +855,94 @@
     writeHash();
   }
 
+  /* ---------------- find / add projects ---------------- */
+
+  function openDialog(html, focus) {
+    const d = $("#dlg");
+    d.innerHTML = html;
+    if (!d.open) d.showModal();
+    const f = focus && d.querySelector(focus);
+    if (f) f.focus();
+  }
+  const dialogFoot = (primary, label) => `<div class="composer-foot"><span class="dlg-status muted small" role="status"></span>
+    <div class="composer-actions"><button type="button" class="btn ghost" data-close>Cancel</button>${primary ? `<button type="submit" class="btn primary">${label}</button>` : ""}</div></div>`;
+
+  function addDialog() {
+    openDialog(`<form id="add-form"><div class="composer-head"><span class="composer-kind" id="dlg-title">Add a project by path</span>
+        <span class="composer-target">A folder that contains <code>conductor/index.md</code>. Only listed here; nothing in it changes.</span></div>
+      <input type="text" id="add-path" class="dlg-input" placeholder="/home/you/code/my-project" aria-label="Project folder path" autocomplete="off" spellcheck="false">
+      ${dialogFoot(true, "Add")}</form>`, "#add-path");
+  }
+
+  function findDialog(found) {
+    const results = !found ? "" : !found.found.length
+      ? `<p class="muted">No Conductor projects found${found.truncated ? " before the search stopped" : ""}. Try other folders or a deeper search.</p>`
+      : `<ul class="found">${found.found.map((f, i) => `<li><label><input type="checkbox" name="pick" value="${i}"${f.registered ? " checked disabled" : " checked"}>
+          <span><strong>${esc(f.name)}</strong> <span class="mono muted small">${esc(f.path)}</span>${f.registered ? ` <span class="chip ok">already added</span>` : ""}</span></label></li>`).join("")}</ul>
+        ${found.truncated ? `<p class="muted small">The search stopped early (time or result limit). Search a narrower folder to see more.</p>` : ""}`;
+    const fresh = found ? found.found.filter((f) => !f.registered).length : 0;
+    openDialog(`<form id="find-form"><div class="composer-head"><span class="composer-kind" id="dlg-title">Find projects</span>
+        <span class="composer-target">Looks for folders containing <code>conductor/index.md</code>. Skips hidden, dependency and build folders.</span></div>
+      <label class="dlg-label" for="find-roots">Folders to search, one per line</label>
+      <textarea id="find-roots" class="dlg-input" rows="2" placeholder="Leave empty to search your home folder">${esc(((found && found.query) || []).join("\n"))}</textarea>
+      <label class="dlg-label" for="find-depth">How deep <select id="find-depth">${[2, 3, 4, 5, 6].map((n) => `<option${n === ((found && found.depth) || 4) ? " selected" : ""}>${n}</option>`).join("")}</select> folders</label>
+      <div class="dlg-row"><button type="button" class="btn" data-find>${searchIcon}Search</button></div>
+      <div class="dlg-results">${results}</div>
+      ${dialogFoot(fresh > 0, `Add selected`)}</form>`, found ? null : "#find-roots");
+    findDialog.last = found;
+  }
+
+  async function runFind() {
+    const roots = $("#find-roots").value.split("\n").map((s) => s.trim()).filter(Boolean);
+    const depth = +$("#find-depth").value;
+    $(".dlg-status").textContent = "Searching…";
+    try {
+      const found = await postJSON("api/scan", { roots: roots.length ? roots : null, depth });
+      findDialog({ ...found, query: roots });
+    } catch (e) { $(".dlg-status").textContent = e.message; }
+  }
+
+  async function addPaths(paths) {
+    const added = [];
+    for (const path of paths) {
+      try { added.push(await postJSON("api/projects", { action: "add", path })); }
+      catch (e) { $(".dlg-status").textContent = e.message; return null; }
+    }
+    $("#dlg").close();
+    await loadHome();
+    render(true);
+    return added;
+  }
+
+  document.addEventListener("submit", async (ev) => {
+    if (ev.target.id === "add-form") {
+      ev.preventDefault();
+      const path = $("#add-path").value.trim();
+      if (!path) return $("#add-path").focus();
+      const added = await addPaths([path]);
+      if (added) { toast(added[0].added ? `Added ${added[0].id}.` : `${added[0].id} was already added.`); location.hash = projectHref(added[0].id); }
+    } else if (ev.target.id === "find-form") {
+      ev.preventDefault();
+      const found = findDialog.last;
+      if (!found) return runFind();
+      const picks = [...document.querySelectorAll('#find-form input[name=pick]:checked:not(:disabled)')].map((c) => found.found[+c.value].path);
+      if (!picks.length) { $(".dlg-status").textContent = "Tick at least one project."; return; }
+      const added = await addPaths(picks);
+      if (added) toast(`Added ${added.length} project${added.length === 1 ? "" : "s"}.`);
+    }
+  });
+
   async function homeAction(url, body, done) {
     try { const j = await postJSON(url, body); if (done) toast(done(j)); await loadHome(); render(true); }
     catch (e) { toast(e.message); }
   }
 
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-view],[data-setting],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter],[data-status],[data-forget],[data-restore],[data-dismiss]");
+    const el = ev.target.closest("[data-view],[data-setting],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter],[data-status],[data-forget],[data-restore],[data-dismiss],[data-dialog],[data-find],[data-close]");
     if (!el) return;
+    if (el.dataset.dialog) return el.dataset.dialog === "find" ? findDialog(null) : addDialog();
+    if ("find" in el.dataset) return runFind();
+    if ("close" in el.dataset) return $("#dlg").close();
     if (el.dataset.view) { view = el.dataset.view; settingsScope = project ? "project" : "main"; writeHash(); render(); window.scrollTo(0, 0); }
     else if (el.dataset.setting) { if (el.getAttribute("aria-checked") !== "true") saveSetting(el.dataset.setting, el.dataset.value); }
     else if (el.dataset.tab) { tab = el.dataset.tab; writeHash(); render(); settle(); }

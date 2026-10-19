@@ -138,6 +138,36 @@ class HomeBrowserTest(UserHome, ServerTest):
         self.b.wait("document.querySelector('.proj-card')")
         self.assertEqual(self.js("location.hash"), "#/")
 
+    def test_add_by_path(self):
+        gamma = self.beta.parent / "gamma"
+        (gamma / "conductor").mkdir(parents=True)
+        (gamma / "conductor/index.md").write_text("# G\n")
+        self.open(ready="document.querySelector('[data-dialog=add]')")
+        self.b.click("[data-dialog=add]")
+        self.js("document.querySelector('#add-path').value = " + repr(str(self.beta.parent / "nope")))
+        self.b.click("#add-form [type=submit]")
+        self.b.wait("document.querySelector('.dlg-status').textContent.includes('conductor/index.md')")
+        self.js("document.querySelector('#add-path').value = " + repr(str(gamma)))
+        self.b.click("#add-form [type=submit]")
+        self.b.wait("location.hash === '#/gamma' && document.querySelector('#proj-gamma.focused')")
+        self.assertFalse(self.js("document.querySelector('#dlg').open"))
+
+    def test_find_projects(self):
+        for name in ("one", "two"):
+            (self.beta.parent / "found" / name / "conductor").mkdir(parents=True)
+            (self.beta.parent / "found" / name / "conductor/index.md").write_text("# P\n")
+        self.open(ready="document.querySelector('[data-dialog=find]')")
+        self.b.click("[data-dialog=find]")
+        self.js("document.querySelector('#find-roots').value = " + repr(str(self.beta.parent)))
+        self.b.click("[data-find]")
+        self.b.wait("document.querySelectorAll('.found li').length === 3")
+        rows = self.js("[...document.querySelectorAll('.found li')].map(li => [li.textContent.trim().split(/\\s+/)[0], li.querySelector('input').disabled])")
+        self.assertEqual(rows, [["beta", True], ["one", False], ["two", False]])
+        self.js("document.querySelectorAll('.found input')[2].checked = false")
+        self.b.click("#find-form [type=submit]")
+        self.b.wait("document.querySelectorAll('.proj-card').length === 3")
+        self.assertEqual(sorted(e["id"] for e in serve.registered_projects()), ["beta", "one"])
+
     def test_unknown_links_go_home(self):
         self.open("#/nope/zzz/plan", ready="document.querySelector('.proj-card')")
         self.assertEqual(self.js("location.hash"), "#/")
