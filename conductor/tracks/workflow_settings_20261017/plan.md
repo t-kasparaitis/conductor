@@ -30,7 +30,7 @@
 ## Phase 4: Viewer
 
 - [x] Task: `POST /api/settings` with tests (valid, unknown key/value, non-object, cross-origin, broken file, missing file) 7e8b395
-- [ ] Task: Settings page — option cards, defaults, source flags, option details; workflow chips in every track header
+- [x] Task: Settings page — option cards, defaults, source flags, option details; workflow chips in every track header 9fb7efd
 
 ## Phase 5: Track Verification
 
