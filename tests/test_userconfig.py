@@ -107,6 +107,32 @@ class ConfigTest(UserHome):
             serve.set_config("colour", "red")
 
 
+class PortPriorityTest(UserHome):
+    def resolve(self, flag=None, env=None):
+        with mock.patch.dict(os.environ, {"CONDUCTOR_VIEW_PORT": env} if env is not None else {}):
+            if env is None:
+                os.environ.pop("CONDUCTOR_VIEW_PORT", None)
+            return serve.resolve_port(flag)
+
+    def test_default(self):
+        self.assertEqual(self.resolve(), (4177, "default", []))
+
+    def test_each_source_beats_the_next(self):
+        serve.set_config("port", 5100)
+        self.assertEqual(self.resolve()[:2], (5100, "config.json"))
+        self.assertEqual(self.resolve(env="5200")[:2], (5200, "CONDUCTOR_VIEW_PORT"))
+        self.assertEqual(self.resolve(flag=5300, env="5200")[:2], (5300, "--port"))
+        self.assertEqual(self.resolve(flag=0)[:2], (0, "--port"))  # 0 = any free port
+
+    def test_invalid_values_are_skipped_with_a_warning(self):
+        (self.home / "config.json").write_text('{"port": "high"}')
+        port, source, warnings = self.resolve(env="99999")
+        self.assertEqual((port, source), (4177, "default"))
+        self.assertEqual(len(warnings), 2)
+        self.assertIn("CONDUCTOR_VIEW_PORT", warnings[0])
+        self.assertIn("config.json", warnings[1])
+
+
 class UnreadableFileTest(UserHome):
     def break_file(self, name="projects.json", text='{"projects": [,]}'):
         (self.home / name).write_text(text)

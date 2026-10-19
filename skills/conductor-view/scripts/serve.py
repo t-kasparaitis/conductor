@@ -704,7 +704,7 @@ def load_config() -> dict:
 def set_config(key: str, value) -> dict:
     if key != "port":
         raise ValueError("unknown config key")
-    if value is not None and (isinstance(value, bool) or not isinstance(value, int) or not 1024 <= value <= 65535):
+    if value is not None and not _valid_port(value):
         raise ValueError("port must be a whole number from 1024 to 65535")
 
     def change(data):
@@ -717,11 +717,35 @@ def set_config(key: str, value) -> dict:
     return _update_user_json("config.json", change)
 
 
+def _valid_port(value) -> bool:
+    return not isinstance(value, bool) and isinstance(value, int) and 1024 <= value <= 65535
+
+
+def resolve_port(flag: int | None) -> tuple[int, str, list[str]]:
+    """(port, where it came from, warnings). --port beats CONDUCTOR_VIEW_PORT
+    beats config.json beats 4177. Invalid values are skipped with a warning."""
+    warnings: list[str] = []
+    if flag is not None:
+        return flag, "--port", warnings
+    env = os.environ.get("CONDUCTOR_VIEW_PORT", "").strip()
+    if env:
+        if env.isdigit() and _valid_port(int(env)):
+            return int(env), "CONDUCTOR_VIEW_PORT", warnings
+        warnings.append(f"ignoring CONDUCTOR_VIEW_PORT={env!r}: use a number from 1024 to 65535")
+    saved = load_config().get("port")
+    if saved is not None:
+        if _valid_port(saved):
+            return saved, "config.json", warnings
+        warnings.append(f"ignoring port {saved!r} in config.json: use a number from 1024 to 65535")
+    return DEFAULT_PORT, "default", warnings
+
+
 # ---------------------------------------------------------------- server
 
 
 class Handler(BaseHTTPRequestHandler):
     root: Path = Path(".")
+    port_source = "default"
     server_version = "conductor-view/0.1"
     timeout = 15  # seconds a client may stall mid-request before its connection is dropped
 
@@ -885,7 +909,9 @@ def main(argv=None) -> int:
             stream.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description="Conductor visual companion")
     ap.add_argument("--root", default=".", help="project root containing conductor/ (default: .)")
-    ap.add_argument("--port", type=int, default=4177, help="port on 127.0.0.1 (0 = any free port)")
+    ap.add_argument("--port", type=int, default=None,
+                    help="port on 127.0.0.1 (0 = any free port). Default: CONDUCTOR_VIEW_PORT, "
+                         "else the port saved in the viewer settings, else 4177")
     ap.add_argument("--open", action="store_true", help="open the browser")
     ap.add_argument("--export", metavar="FILE", help="write a read-only single-file snapshot and exit")
     ap.add_argument("--watch", action="store_true",
@@ -907,10 +933,14 @@ def main(argv=None) -> int:
             pass
         return 0
     Handler.root = root
+    port, source, warnings = resolve_port(args.port)
+    for w in warnings:
+        print(f"warning: {w}", file=sys.stderr, flush=True)
+    Handler.port_source = source
     httpd = None
     # Walk up from the requested port: reuse this project's viewer if one is
     # already running, otherwise take the first free port.
-    for port in ([args.port + i for i in range(20)] if args.port else [0]):
+    for port in ([port + i for i in range(20)] if port else [0]):
         if port and existing_viewer(port, root):
             url = f"http://127.0.0.1:{port}/"
             print(f"conductor-view already running for this project: {url}", flush=True)
