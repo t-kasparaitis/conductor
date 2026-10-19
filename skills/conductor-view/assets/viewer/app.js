@@ -805,7 +805,35 @@
     }
     if (S.error) return head + `<div class="error-card">${esc(S.error)}</div>`;
     if (!S.schema) return head + `<div class="empty"><strong>Settings schema not found</strong>Expected <code>conductor-setup/assets/settings.schema.json</code> next to this skill.<pre class="md">${esc(JSON.stringify(S.values, null, 2))}</pre></div>`;
-    return head + (main ? exceptionList() : "") + settingsGroups(S, main ? "main" : "project");
+    return head + (main ? exceptionList() : "") + settingsGroups(S, main ? "main" : "project") + (main ? portSection() : "");
+  }
+
+  const PORT_SOURCE = { "--port": "the --port flag", CONDUCTOR_VIEW_PORT: "the CONDUCTOR_VIEW_PORT environment variable", "config.json": "your saved port", default: "the default" };
+  function portSection() {
+    const P = home && home.port;
+    if (!P) return "";
+    const overridden = P.saved && (P.source === "--port" || P.source === "CONDUCTOR_VIEW_PORT");
+    return `<section class="set-group" id="port">
+      <h2>Viewer port</h2>
+      <p class="muted">The viewer only listens on this computer (127.0.0.1). Pick another port if ${P.default} clashes with something else you run.</p>
+      <div class="setting">
+        <div class="setting-head"><h3>Port</h3><span class="chip mono">now: ${P.value}</span><span class="chip">from ${esc(PORT_SOURCE[P.source] || P.source)}</span></div>
+        <form class="port-form" id="port-form" novalidate>
+          <label class="dlg-label" for="port-input">Saved port</label>
+          <input id="port-input" class="dlg-input port-input" type="number" min="1024" max="65535" inputmode="numeric" placeholder="${P.default}" value="${P.saved ?? ""}">
+          <button type="submit" class="btn primary">Save</button>
+          ${P.saved ? `<button type="button" class="btn ghost" data-port-clear>Use default (${P.default})</button>` : ""}
+        </form>
+        <p class="muted small">Takes effect the next time the viewer starts: stop it (Ctrl+C where it runs), then run <code>${esc(P.restart)}</code>. Priority: <code>--port</code>, then <code>CONDUCTOR_VIEW_PORT</code>, then the saved port, then ${P.default}.${overridden ? ` <strong>Right now ${esc(PORT_SOURCE[P.source])} overrides your saved port.</strong>` : ""}</p>
+      </div></section>`;
+  }
+
+  async function savePort(value) {
+    try {
+      await postJSON("api/config", { key: "port", value });
+      toast(value === null ? "Saved: the viewer will use the default port next time it starts." : `Saved port ${value}. It applies the next time the viewer starts.`);
+      await loadHome(); render(true);
+    } catch (e) { toast(e.message); }
   }
 
   async function saveSetting(key, value, scope, pid) {
@@ -985,7 +1013,11 @@
   }
 
   document.addEventListener("submit", async (ev) => {
-    if (ev.target.id === "add-form") {
+    if (ev.target.id === "port-form") {
+      ev.preventDefault();
+      const raw = $("#port-input").value.trim();
+      savePort(raw ? Number(raw) : null);
+    } else if (ev.target.id === "add-form") {
       ev.preventDefault();
       const path = $("#add-path").value.trim();
       if (!path) return $("#add-path").focus();
@@ -1008,7 +1040,7 @@
   }
 
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-view],[data-setting],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter],[data-status],[data-forget],[data-restore],[data-dismiss],[data-dialog],[data-find],[data-close],[data-reset],[data-tidy],[data-follow]");
+    const el = ev.target.closest("[data-view],[data-setting],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter],[data-status],[data-forget],[data-restore],[data-dismiss],[data-dialog],[data-find],[data-close],[data-reset],[data-tidy],[data-follow],[data-port-clear]");
     if (!el) return;
     if (el.dataset.dialog) return el.dataset.dialog === "find" ? findDialog(null) : addDialog();
     if ("find" in el.dataset) return runFind();
@@ -1018,6 +1050,7 @@
     else if (el.dataset.reset) saveSetting(el.dataset.reset, null, el.dataset.scope, el.dataset.project);
     else if (el.dataset.tidy) tidy(el.dataset.tidy);
     else if (el.dataset.follow) followMain();
+    else if ("portClear" in el.dataset) savePort(null);
     else if (el.dataset.tab) { tab = el.dataset.tab; writeHash(); render(); settle(); }
     else if (el.dataset.diagram) openDiagram(el.dataset.diagram);
     else if (el.dataset.comment) compose("comment", el.dataset.comment);

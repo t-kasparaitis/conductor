@@ -87,5 +87,22 @@ class SettingsPageTest(UserHome, ServerTest):
         self.assertEqual(self.js("location.hash"), f"#/{self.pid}/settings")
 
 
+    def test_port_can_be_saved_and_cleared(self):
+        self.open("#/settings", ready="document.querySelector('#port-form')")
+        self.assertIn(f"now: {self.port}", self.js("document.querySelector('#port').textContent"))
+        self.js("document.querySelector('#port-input').value = '80'")
+        self.b.click("#port-form [type=submit]")
+        self.b.wait("document.querySelector('#toast').textContent.includes('1024')")
+        self.assertFalse((self.home / "config.json").exists())
+        self.js("document.querySelector('#port-input').value = '5222'")
+        self.b.click("#port-form [type=submit]")
+        self.b.wait("document.querySelector('[data-port-clear]')")
+        self.assertEqual(json.loads((self.home / "config.json").read_text()), {"port": 5222})
+        self.assertIn("next time the viewer starts", self.js("document.querySelector('#port').textContent"))
+        self.b.click("[data-port-clear]")
+        self.b.wait("!document.querySelector('[data-port-clear]')")
+        self.assertEqual(json.loads((self.home / "config.json").read_text()), {})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -494,3 +494,5 @@ details.tgroup[open] summary h3::before { content: "▾ "; }
 .exc-name:hover { text-decoration: underline; }
 .exc ul { list-style: none; margin: 6px 0 0; padding: 0; }
 .exc li li { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+.port-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.port-input { width: 120px; }
