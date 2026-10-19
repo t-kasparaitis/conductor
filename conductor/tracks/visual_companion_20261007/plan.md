@@ -54,6 +54,6 @@
 - [x] Task: End-to-end run with Codex CLI and Claude Code: start, diagram, feedback round-trip (Codex uses your account — ask first)
     - [x] Codex CLI 0.150 in a throwaway project: couldn't open a socket in its sandbox, so it gave the start command as the skill says; resolved a `revise` item correctly; drew a valid 7-node diagram with a tour and linked it from the plan
     - [x] Claude Code: the scenario agents and this session
-- [~] Task: Feedback round 1 — edge labels no longer run under nodes (column gaps fit the longest label; labels slide along the curve to clear nodes); big maps open at a readable zoom from their left edge; Codex's diagram kept as a test fixture
+- [x] Task: Feedback round 1 — edge labels no longer run under nodes (column gaps fit the longest label; labels slide along the curve to clear nodes); big maps open at a readable zoom from their left edge; Codex's diagram kept as a test fixture 69d704b
 - [ ] Task: Manual smoke test on real Windows (Edge, `py -3`) — needs you or a machine. No Mac is available, so Safari stays audited but untested (README says so)
 - [~] Task: Try it with the user, iterate on feedback, sign-off (Refer to workflow.md)
