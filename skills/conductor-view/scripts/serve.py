@@ -374,6 +374,13 @@ def append_feedback(root: Path, payload: dict) -> dict:
         return _append_item(fb, tid, kind, target, text)
 
 
+def _umask() -> int:
+    # Read without a race: only called under WRITE_LOCK, and set straight back.
+    current = os.umask(0o022)
+    os.umask(current)
+    return current
+
+
 def _write_atomic(path: Path, content: str) -> None:
     """Write via temp file + os.replace so a crash never leaves a truncated file.
     Always LF line endings, on every OS."""
@@ -381,6 +388,12 @@ def _write_atomic(path: Path, content: str) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
             f.write(content)
+        # mkstemp creates the file owner-only; keep the target's mode, or the usual default for a new file.
+        try:
+            mode = path.stat().st_mode & 0o777
+        except FileNotFoundError:
+            mode = 0o666 & ~_umask()
+        os.chmod(tmp, mode)
         os.replace(tmp, path)
     except BaseException:
         try:
@@ -411,6 +424,7 @@ def _append_item(fb: Path, tid: str, kind: str, target: str, text: str) -> dict:
 class Handler(BaseHTTPRequestHandler):
     root: Path = Path(".")
     server_version = "conductor-view/0.1"
+    timeout = 15  # seconds a client may stall mid-request before its connection is dropped
 
     def log_message(self, fmt, *args):  # quiet
         pass
@@ -460,7 +474,12 @@ class Handler(BaseHTTPRequestHandler):
         host = self.headers.get("Host", "")
         if origin and origin.split("://", 1)[-1] != host:
             return self._json({"error": "cross-origin"}, HTTPStatus.FORBIDDEN)
-        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length < 0:
+            return self._json({"error": "bad Content-Length"}, HTTPStatus.BAD_REQUEST)
         if length > MAX_BODY:
             return self._json({"error": "too large"}, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
         try:
