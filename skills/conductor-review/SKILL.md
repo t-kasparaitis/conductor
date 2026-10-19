@@ -75,6 +75,7 @@ Before starting the review process, you MUST locate and read the project's found
         -   If relevant skills (e.g., `gcp-*`) are found, enable specialized feedback for those domains.
 2.  **Load Track Context (if reviewing a track):**
     -   Read the track's `plan.md`.
+    -   **Open Feedback:** If the track has a `feedback.md` (from the `conductor-view` viewer), every `open` item is a finding: list it with its target, and treat `revise` items as at least **Medium**.
     -   **Extract Commits:** Parse `plan.md` to find recorded git commit hashes (usually in the "Completed" tasks or "History" section).
     -   **Determine Revision Range:** Identify the start (first commit parent) and end (last commit).
 3.  **Load and Analyze Changes (Smart Chunking):**

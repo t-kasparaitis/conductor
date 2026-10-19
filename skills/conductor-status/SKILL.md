@@ -70,4 +70,5 @@ Follow this sequence to provide a status overview.
     -   **Phases (total):** The total number of major phases.
     -   **Tasks (total):** The total number of tasks.
     -   **Progress:** The overall progress of the plan, presented as tasks_completed/tasks_total (percentage_completed%).
+    -   **Open Feedback:** For each track with a `feedback.md` (from the `conductor-view` viewer), the number of `open` items, so the user knows what's waiting. Omit this line if there are none.
     -   **Workflow:** The active settings on one line, marking any that come from defaults rather than `settings.json`, e.g. `trunk · commit per task · push: ask · notes off · tests with each task · verification at track end`, plus the current git branch.

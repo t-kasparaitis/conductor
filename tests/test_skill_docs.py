@@ -111,5 +111,13 @@ class ViewSkillTest(unittest.TestCase):
         self.assertIsNone(serve._diagram_problem(example))
 
 
+class VisualCompanionHooksTest(unittest.TestCase):
+    def test_core_skills_mention_the_viewer_and_its_feedback_file(self):
+        for name in ("conductor-new-track", "conductor-implement", "conductor-review", "conductor-status"):
+            text = skill(name)
+            self.assertIn("`conductor-view`", text, name)
+            self.assertIn("feedback.md", text, name)
+
+
 if __name__ == "__main__":
     unittest.main()

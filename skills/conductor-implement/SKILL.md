@@ -87,6 +87,7 @@ Adhere to this sequence to execute the selected track.
 5.  **Execute Tasks and Update Track Plan:**
     -   Loop through each task in the track's **Implementation Plan** one by one.
     -   For each task, defer to the **Workflow** file as the single source of truth for implementation, testing, committing and pushing, applying the **Workflow Settings**.
+    -   **Visual companion (optional):** if the track has a `feedback.md` (written by the `conductor-view` skill's viewer), check it for `open` items before each task and handle them as that skill describes. A `revise` item means the plan or spec changes before you continue.
     -   **Re-read `settings.json`** before every commit, push and verification step. The user can change it at any time (for example in the Conductor viewer); follow the new value from that point on and mention the change in chat.
     -   **Phase ends:** follow the Workflow's "End of a Phase" steps. With `testing.verification = track` this means: run the suite, commit if `git.commit` is `phase`, rebase if `git.strategy` is `trunk`, push if `git.push` is `phase`, say in one line that the phase is done, and continue without waiting for the user.
     -   **Pushing:** only as `git.push` says. With `ask`, push only when the user asks or agrees in chat; the Workflow asks once, after the track is verified. Never force-push `main` or a branch that wasn't created for this track.

@@ -121,6 +121,7 @@ Adhere to this sequence precisely.
     *   **Settings Note:** Start the plan with a one-line quote naming the settings it was shaped by, e.g. `> Planned under: trunk, commit per task, tests with each task, verification at track end.` If the settings change later, offer to re-shape the remaining phases.
 
 4.  **User Confirmation:**
+    -   **Visual companion (optional):** if the `conductor-view` skill is available, offer to review in the browser instead of chat. If the user accepts, write the draft `spec.md` and `plan.md` into the track folder now (2.4 steps 2–4, without committing), start the viewer, and give the user the link. An `approve` item in the track's `feedback.md` counts as approval; `revise` and `comment` items are changes to make. For an idea with more than ~5 interacting parts, add a diagram (see `conductor-view`) and reference it with `(diagram: <slug>)`.
     -   Present the drafted Implementation Plan to the user for review.
     -   Ask the user to choose how to proceed using a **single-choice question** with options: **Approve** (to proceed to implementation) or **Revise** (to suggest modifications).
     -   Await user feedback and revise the `plan.md` content until confirmed.
