@@ -16,5 +16,12 @@
 -   **Tests:** Python `unittest` (stdlib) for the parser/server.
 -   **Support targets:** Linux, macOS, Windows; Python 3.9+; current Chrome,
     Edge, Firefox and Safari.
--   **CI-only (proposed):** Playwright for cross-browser end-to-end tests. Never
-    required by users.
+-   **Browser tests:** small standard-library drivers in `tests/browser.py` —
+    the Chrome DevTools protocol for Chrome, Chromium and Edge, and WebDriver
+    BiDi for Firefox. Run locally when a browser is installed, and in CI.
+
+> **2026-10-19:** Replaced the proposed Playwright (CI-only) with the
+> standard-library drivers above. Playwright needs Node and npm, which this
+> repo otherwise never touches; the drivers cover Chromium, Edge and Firefox
+> with nothing to install. Safari isn't automated: it needs `safaridriver` on
+> a Mac, so Safari support rests on the feature audit and manual checks.

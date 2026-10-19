@@ -8,6 +8,7 @@ permissions:
   contents: read
 
 jobs:
+  # Unit, API and Chrome browser tests (Chrome is preinstalled on every runner).
   unittest:
     strategy:
       fail-fast: false
@@ -21,4 +22,29 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Run tests
+        run: python -m unittest discover -s tests -v
+
+  # The same browser tests in Firefox and Edge.
+  browsers:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, browser: firefox }
+          - { os: macos-latest, browser: firefox }
+          - { os: windows-latest, browser: firefox }
+          - { os: windows-latest, browser: edge }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Point the Chrome driver at Edge
+        if: matrix.browser == 'edge'
+        shell: bash
+        run: echo "CONDUCTOR_TEST_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" >> "$GITHUB_ENV"
+      - name: Run tests
+        env:
+          CONDUCTOR_TEST_BROWSER: ${{ matrix.browser == 'firefox' && 'firefox' || 'chrome' }}
         run: python -m unittest discover -s tests -v
