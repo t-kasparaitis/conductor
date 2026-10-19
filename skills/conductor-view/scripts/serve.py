@@ -26,6 +26,7 @@ import tempfile
 import threading
 import time
 import webbrowser
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -916,7 +917,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def _home(self) -> dict:
         saved_port = load_config().get("port")  # read the viewer's files first, so their problems are reported below
-        projects = [project_summary(e) for e in project_list(self.root)]
+        # Projects are independent and mostly wait on git, so build their cards side by side.
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            projects = list(pool.map(project_summary, project_list(self.root)))
         return {
             "projects": projects,
             "problems": [{"name": k, **v} for k, v in sorted(CONFIG_PROBLEMS.items())],

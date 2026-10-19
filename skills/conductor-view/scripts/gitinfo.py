@@ -159,15 +159,32 @@ def project_git(root: Path, tracks: list[tuple[str, bool]]) -> dict:
         except OSError:
             last_fetch = None
 
+    # Commits on this branch that are on no remote, per track folder: one log for every track
+    # without its own branch, and one count per track branch.
+    unpushed_here: dict[str, int] = {}
+    if remote:
+        log = git(root, "log", "--format=%x01", "--name-only", "HEAD", "--not", "--remotes", "--",
+                  "conductor/tracks", "conductor/archive")
+        touched: set[str] = set()
+        for line in (log or "").split("\n") + ["\x01"]:
+            if line.startswith("\x01"):
+                for tid in touched:
+                    unpushed_here[tid] = unpushed_here.get(tid, 0) + 1
+                touched = set()
+            elif line:
+                hit = _track_of(line, info["prefix"])
+                if hit:
+                    touched.add(hit[0])
+
     out = {}
     for tid, archived in tracks:
         branch = tid if tid in heads else None
-        if branch:
+        unpushed = 0
+        if remote and branch:
             count = git(root, "rev-list", "--count", branch, "--not", "--remotes")
-        else:
-            rel = f"conductor/{'archive' if archived else 'tracks'}/{tid}"
-            count = git(root, "rev-list", "--count", "HEAD", "--not", "--remotes", "--", rel)
-        unpushed = int(count.strip()) if count and count.strip().isdigit() else 0
+            unpushed = int(count.strip()) if count and count.strip().isdigit() else 0
+        elif remote:
+            unpushed = unpushed_here.get(tid, 0)
         landed = bool(branch and branch != main and branch in merged)
         n_dirty = len(dirty.get(tid, []))
         if n_dirty:
