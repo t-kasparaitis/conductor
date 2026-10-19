@@ -71,7 +71,35 @@ write by hand, and it keeps working with one project or many.
     project: `#/<project>/<track_id>/plan/phase-2`. Old links without a
     project (`#/<track_id>/...`) still work when the track id is unique.
 
-### 3. Archive, restore and delete: the viewer asks, the agent does
+### 3. Git safety state
+
+Deleting a committed track folder doesn't lose history (git keeps it), but
+uncommitted or unpushed work can be lost. So every track shows where its
+work stands in git:
+
+-   **Saved state badge** on each row, worst case shown:
+    -   **Uncommitted:** files in the track folder have changes not yet
+        committed (`git status --porcelain -- <folder>`).
+    -   **Not pushed:** the track's branch has commits that are on no remote
+        branch, or has never been pushed.
+    -   **Pushed:** everything is committed and on the remote.
+    -   **Landed:** the branch is merged into `main`.
+    -   **No git:** the project isn't a git repo; nothing is protected.
+-   **Before a delete or archive**, the confirm dialog asks the server for
+    the track's full git state (on demand, not on every refresh) and spells
+    it out: e.g. "2 uncommitted files in this track would be lost",
+    "branch `x` has 4 commits that exist only on this machine", or "Safe:
+    committed, pushed and landed; history stays in git". Unsafe states turn
+    the Delete button into "Delete anyway".
+-   **The agent checks again** before acting on a delete or archive request,
+    reports the same facts in chat, and won't delete uncommitted work
+    without your explicit OK.
+-   Cost: one `git status` and one `git for-each-ref` per changed project per
+    refresh; the detailed per-track check only runs when a dialog opens.
+    Git is read-only here: the viewer never commits, pushes or fetches.
+    "Pushed" is as of the last fetch, and the dialog shows when that was.
+
+### 4. Archive, restore and delete: the viewer asks, the agent does
 
 -   Each track row has a menu: **Archive**, **Restore** (archived tracks) and
     **Delete**.
@@ -86,7 +114,7 @@ write by hand, and it keeps working with one project or many.
     back), update `tracks.md`, commit. For **delete** it asks once more in
     chat before deleting, because deletion can't be undone.
 
-### 4. What is per-repo, and what is shared
+### 5. What is per-repo, and what is shared
 
 -   **Always per-repo:** tracks, the archive, feedback, diagrams and the
     project's context files. They live inside each repo's `conductor/` and
@@ -114,7 +142,7 @@ write by hand, and it keeps working with one project or many.
 -   **Workflow settings changes are still announced:** `--watch` reports a
     change in either layer, naming the project(s) it affects.
 
-### 5. Port
+### 6. Port
 
 -   **Default stays 4177.** Nothing common uses it.
 -   **Changing it**, highest priority first:
@@ -181,7 +209,10 @@ write by hand, and it keeps working with one project or many.
 8.  Ten registered projects with agents editing two of them at once: the
     home page shows both sets of changes within about two seconds and only
     re-reads those two projects.
-9.  Every new parser and loader in `serve.py` has a matching `local.js`
+9.  A track with an uncommitted file, one with an unpushed branch and one
+    that is pushed and landed each show the right badge, and the delete
+    dialog for the first two warns and names what would be lost.
+10. Every new parser and loader in `serve.py` has a matching `local.js`
     version, checked by the parity tests.
 
 ## Out of Scope

@@ -8,6 +8,7 @@
 - [ ] Task: Load archived tracks from `conductor/archive/` and mark them read-only, with loader tests
 - [ ] Task: Track summary for the home page: status group (Now/Open/Done/Archived), current task, per-phase progress, open feedback, spec/plan approval, with parser tests
 - [ ] Task: Last activity and branch: one `git log` per project, falling back to file times without git, with tests for both
+- [ ] Task: Git safety state per track: uncommitted, not pushed, pushed, landed, no git (one `git status` and `git for-each-ref` per project), plus an on-demand detailed check with last-fetch time, with tests on throwaway repos with a bare remote
 - [ ] Task: Mirror the new loaders in `local.js`, with parity tests
 
 ## Phase 2: Project registry and port
@@ -35,8 +36,9 @@
 ## Phase 4: Archive, restore and delete requests
 
 - [ ] Task: `archive`, `restore` and `delete` request items in `feedback.md` (server and `local.js`), withdraw, typed confirmation for delete, with tests
+- [ ] Task: Confirm dialog shows the git safety check and "Delete anyway" when work would be lost, with browser tests
 - [ ] Task: "Requested, waiting for the agent" state on rows and track pages, with browser tests
-- [ ] Task: Agent side: request processing in `conductor-view/SKILL.md`, formats in `file-contract.md`, aligned with `conductor-review` Track Cleanup, with skill-doc tests
+- [ ] Task: Agent side: re-check git state before acting and report it; never delete uncommitted work without an explicit OK; request processing in `conductor-view/SKILL.md`, formats in `file-contract.md`, aligned with `conductor-review` Track Cleanup, with skill-doc tests
 
 ## Phase 5: Docs
 
