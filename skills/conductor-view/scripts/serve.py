@@ -518,6 +518,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": str(e)}, HTTPStatus.BAD_REQUEST)
 
 
+class Server(ThreadingHTTPServer):
+    # On Windows SO_REUSEADDR lets a second program bind a port that is in use,
+    # so a busy port would never be noticed. Elsewhere it only allows a quick restart.
+    allow_reuse_address = os.name != "nt"
+    daemon_threads = True
+
+
 def existing_viewer(port: int, root: Path) -> bool:
     try:
         with urlopen(f"http://127.0.0.1:{port}/api/ping", timeout=0.5) as r:
@@ -605,14 +612,24 @@ def main(argv=None) -> int:
         except KeyboardInterrupt:
             pass
         return 0
-    if args.port and existing_viewer(args.port, root):
-        url = f"http://127.0.0.1:{args.port}/"
-        print(f"conductor-view already running for this project: {url}")
-        if args.open:
-            webbrowser.open(url)
-        return 0
     Handler.root = root
-    httpd = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+    httpd = None
+    # Walk up from the requested port: reuse this project's viewer if one is
+    # already running, otherwise take the first free port.
+    for port in ([args.port + i for i in range(20)] if args.port else [0]):
+        if port and existing_viewer(port, root):
+            url = f"http://127.0.0.1:{port}/"
+            print(f"conductor-view already running for this project: {url}", flush=True)
+            if args.open:
+                webbrowser.open(url)
+            return 0
+        try:
+            httpd = Server(("127.0.0.1", port), Handler)
+            break
+        except OSError:
+            print(f"port {port} is busy; trying {port + 1}", flush=True)
+    if httpd is None:
+        httpd = Server(("127.0.0.1", 0), Handler)
     url = f"http://127.0.0.1:{httpd.server_address[1]}/"
     print(f"conductor-view serving {root} at {url}", flush=True)
     if args.open:

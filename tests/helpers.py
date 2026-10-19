@@ -49,7 +49,7 @@ class ServerTest(TempProject):
     def setUp(self):
         super().setUp()
         handler = type("TestHandler", (serve.Handler,), {"root": self.root})
-        self.httpd = serve.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        self.httpd = serve.Server(("127.0.0.1", 0), handler)
         self.port = self.httpd.server_address[1]
         threading.Thread(target=self.httpd.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
         self.addCleanup(self.httpd.server_close)
