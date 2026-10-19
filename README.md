@@ -149,6 +149,15 @@ Whatever the settings, the agent never force-pushes or merges into `main`:
 when a track is verified it stops at "branch ready" and shows you the
 commands. Without a `settings.json`, Conductor behaves exactly as upstream.
 
+**Main rules and exceptions.** If you use Conductor in several repos, set
+your **main rules** once on the viewer's settings page: they apply to every
+project on your machine and are never committed. A repo's
+`conductor/settings.json` then only holds its **exceptions**, the settings
+where it differs, and those are shared with everyone who works on that repo.
+For each setting the repo's value wins, then your main rule, then the
+default above. The settings page lists every project that deviates, with
+"Use main rule" and a Tidy button for repo files that repeat the main rules.
+
 ### Visual companion (optional)
 
 `conductor-view` shows your Conductor project in a local web page: tracks,
@@ -165,9 +174,34 @@ python3 skills/conductor-view/scripts/serve.py --root /path/to/project --open
 # Windows: py -3 skills\conductor-view\scripts\serve.py --root C:\path\to\project --open
 ```
 
+**One page for all your projects.** <http://127.0.0.1:4177/> is a home page
+listing every Conductor project you've registered and its tracks: what's
+being worked on now (and which task), what's open, done and archived, each
+with its progress, review state, open comments and git state (uncommitted,
+not pushed, pushed, landed). Search and filter across all of them.
+
+-   **Registering projects.** Starting the viewer in a project registers it;
+    starting it in a second project adds that one to the viewer already
+    running instead of opening another. On the home page, **Find projects**
+    searches folders you choose for Conductor projects, and **Add by path**
+    adds one. From a terminal: `serve.py --add <path>`, `--forget <id>`,
+    `--list`. The list lives in your user config folder
+    (`~/.config/conductor-view/`, `~/Library/Application Support/conductor-view/`
+    or `%APPDATA%\conductor-view\`), never in a repo.
+-   **Archive, restore, delete.** Each track has these on the home page. The
+    viewer only files the request in the track's `feedback.md`; your agent
+    does the move or delete and commits it. The confirm dialog checks git
+    first and names anything a delete would lose (uncommitted files, commits
+    that exist only on your machine), and the agent asks once more before
+    deleting.
+-   **Port.** 4177 by default. To change it: `--port 5000`, the
+    `CONDUCTOR_VIEW_PORT` environment variable, or save a port on the
+    settings page (used from the next start). That is also the order of
+    priority.
+
 -   **Local only.** It binds to `127.0.0.1`, uses Python's standard library
-    (3.9+), loads nothing from the internet, and writes only feedback items
-    and workflow settings.
+    (3.9+), loads nothing from the internet, and in your projects writes only
+    feedback items and workflow settings. Git is only read.
 -   **Agent-agnostic.** Files are the interface: agents write Markdown and
     JSON, the page reads them. It works the same with Claude Code, Codex CLI
     or anything else that can edit files.
@@ -219,7 +253,9 @@ And adds:
 -   **Track Verification**: with verification at track end, phases run
     straight through and one final phase tries the work with you.
 -   **`conductor-view`**, the optional visual companion above — the only part
-    with code, all Python standard library and plain browser JavaScript.
+    with code, all Python standard library and plain browser JavaScript —
+    with a home page across all your projects.
+-   **Main rules and exceptions** for workflow settings across repos.
 -   **Tests** (`python3 -m unittest discover -s tests`), including real-browser
     tests in Chrome and Firefox through small standard-library drivers, run in
     CI on Linux, macOS and Windows.

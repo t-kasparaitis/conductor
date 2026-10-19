@@ -30,3 +30,12 @@
 > (second). Edge, Safari and other browsers are untested; the code still
 > avoids Chromium-only APIs, so they will probably work. Edge left the CI
 > matrix.
+
+> **2026-10-19:** The viewer keeps its own files (registered projects, the
+> saved port and the main workflow rules) in a per-user config folder:
+> `$XDG_CONFIG_HOME/conductor-view/` (default `~/.config/conductor-view/`) on
+> Linux, `~/Library/Application Support/conductor-view/` on macOS,
+> `%APPDATA%\conductor-view\` on Windows, overridable with
+> `CONDUCTOR_VIEW_HOME`. Still standard library only; git is read through
+> the `git` command when it's installed (read-only, no locks, 5 s timeouts)
+> and the viewer works without it.
