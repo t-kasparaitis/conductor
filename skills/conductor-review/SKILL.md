@@ -203,7 +203,7 @@ Before starting the review process, you MUST locate and read the project's found
 
 1. **Context Check:** If you are NOT reviewing a specific track (e.g., just reviewing current changes without a track context), SKIP this entire section.
 
-2. **Ask for User Choice:** Ask the user what they would like to do with the track using a **multiple-choice** question with the following options:
+2. **Ask for User Choice:** Ask the user what they would like to do with the track using a **multiple-choice** question with the following options (the `conductor-view` home page files the same choices as `archive`, `restore` and `delete` items in the track's `feedback.md`; handle those with these steps):
     - **Archive:** Move to `conductor/archive/` and remove from the tracks file.
     - **Delete:** Permanently delete folder and remove from the tracks file.
     - **Skip:** Do nothing and leave it in the tracks file.
@@ -216,7 +216,8 @@ Before starting the review process, you MUST locate and read the project's found
     - Announce to the user that the track has been archived.
 
 4. **If the user chooses "Delete":**
-    - Ask for final confirmation using a **Yes/No question**, including a warning that this is an irreversible deletion.
+    - Check what would be lost: `git status --porcelain -- <track folder>` (uncommitted files) and, if there is a remote, `git log --oneline <track branch or HEAD> --not --remotes -- <track folder>` (commits only on this machine).
+    - Ask for final confirmation using a **Yes/No question**, including a warning that this is an irreversible deletion and naming anything that would be lost. Never delete uncommitted work without an explicit yes to that.
     - **If confirmed:** Delete the track folder, remove it from the **Tracks Registry**, and commit with message: `chore(conductor): Delete track '<track_name>'`.
 
 5. **If the user chooses "Skip":** Leave the track as is.

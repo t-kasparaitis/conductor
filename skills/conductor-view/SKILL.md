@@ -2,7 +2,7 @@
 name: conductor-view
 description: Opens a local, live web view of Conductor tracks (phases, tasks, spec), collects the user's feedback from the browser, and draws world-map diagrams for hard ideas. Use when the user wants to see, review or visualize a track, check feedback, or when an idea is easier to explain as a diagram.
 metadata:
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Conductor View Skill
@@ -24,11 +24,17 @@ containing this `SKILL.md`.
 3.  **With Python**, run this in the background:
     `python3 <skill>/scripts/serve.py --root . --open`
     (Windows: `py -3 <skill>\scripts\serve.py --root . --open`)
-    -   It reuses a viewer that is already running for this project and exits
-        straight away in that case. If port 4177 is taken by something else, it
+    -   **One viewer serves every project on the machine.** Starting it
+        registers this project. If a viewer is already running, the command
+        adds this project to it, prints the project's link and exits straight
+        away; nothing else to do.
+    -   The port is 4177 unless the user chose another (`--port`, the
+        `CONDUCTOR_VIEW_PORT` environment variable, or the port saved on the
+        viewer's settings page). If it's taken by something else, the viewer
         moves to the next free port and prints which.
     -   `--open` opens the user's default system browser, not an IDE preview.
-    -   Tell the user the URL it prints.
+    -   Tell the user the URL it prints. The home page (`#/`) lists every
+        registered project and its tracks.
 4.  **If you can't run a long-lived process** (sandboxed agent): give the user
     that command to run themselves.
 5.  **Without Python:** tell the user to open `<skill>/assets/viewer/index.html`
@@ -40,19 +46,25 @@ containing this `SKILL.md`.
 
 The page updates within about two seconds of any change under `conductor/`.
 
-**Links you can give the user:**
+**Links you can give the user.** `<project>` is the id the start command
+prints (`serve.py --list` shows them all); links without it still work when
+the track id is unique.
 
 | Link | Opens |
 | --- | --- |
-| `#/settings` | Workflow settings (`conductor/settings.json`) |
-| `#/<track_id>/plan/phase-<n>` | One phase of the plan (`phase-all` for every phase) |
-| `#/<track_id>/spec/section-<n>` | One spec section (`section-all` for the whole spec) |
-| `#/<track_id>/diagrams/<slug>/<node_id>` | A diagram, focused on a node |
-| `#/<track_id>/feedback` | The track's feedback |
+| `#/` | Home: every project and its tracks |
+| `#/settings` | The main workflow rules, and every project's exceptions |
+| `#/<project>/settings` | This project's workflow settings |
+| `#/<project>/<track_id>/plan/phase-<n>` | One phase of the plan (`phase-all` for every phase) |
+| `#/<project>/<track_id>/spec/section-<n>` | One spec section (`section-all` for the whole spec) |
+| `#/<project>/<track_id>/diagrams/<slug>/<node_id>` | A diagram, focused on a node |
+| `#/<project>/<track_id>/feedback` | The track's feedback |
 
 The user can change workflow settings in the viewer at any time, so re-read
-`conductor/settings.json` before you plan, commit, push or verify instead of
-relying on what you read earlier.
+them before you plan, commit, push or verify instead of relying on what you
+read earlier. Settings come in two layers: the repo's
+`conductor/settings.json` (exceptions for this repo) over the user's main
+rules for every project. The file contract has the paths and the rule.
 
 ## 2. Diagrams: when and how
 
@@ -105,7 +117,8 @@ Can we pick a random free port instead?
 ```
 
 `kind` is `comment`, `revise` (request changes) or `approve`; for the last two
-the target is `spec` or `plan`.
+the target is `spec` or `plan`. `archive`, `restore` and `delete` are track
+requests from the home page; see section 4.
 
 The browser cannot message you. It only writes this file, and the viewer
 shows "waiting for the agent" until you resolve the item. So:
@@ -118,8 +131,10 @@ shows "waiting for the agent" until you resolve the item. So:
 -   **Optional live watch:** if your harness can stream a background command's
     output as events (Claude Code's Monitor tool, for example), run
     `python3 <skill>/scripts/serve.py --root . --watch` while the session is
-    open. It prints one line per open feedback item (already-open ones first,
-    then each new one) and one line whenever a workflow setting changes. On
+    open (`--watch --all` follows every registered project and names it on
+    each line). It prints one line per open feedback item (already-open ones
+    first, then each new one) and one line whenever a workflow setting
+    changes. On
     each line, process the item as below and tell the user in chat what you did.
     It is read-only and safe to run next to the server. Run it unfiltered: piping
     it through `grep` or similar can hold lines in a buffer so no events arrive.
@@ -141,3 +156,36 @@ For each `open` item, in order:
 **Re-read `feedback.md` right before you edit it.** The browser may have
 appended an item since you last read it; editing an old copy would delete
 the user's new comment. Never delete items or rewrite the user's text.
+
+## 4. Archive, restore and delete requests
+
+The home page never moves or deletes a track itself. It adds a request item
+(kind `archive`, `restore` or `delete`, target `track`) to the track's
+`feedback.md`, written by the viewer: what to do, plus the track's git state
+when it was asked. Handle it like other feedback, in order, with the same
+steps as `conductor-review`'s Track Cleanup:
+
+1.  **Check git first,** for the track's folder: `git status --porcelain --
+    <folder>` (uncommitted files) and, if the repo has a remote, commits not
+    on any remote (`git log --oneline <track branch or HEAD> --not --remotes
+    -- <folder>`). Tell the user what you found in one line.
+2.  **Archive:** `git mv conductor/tracks/<id> conductor/archive/<id>`
+    (create `conductor/archive/` if needed), remove the track's entry from
+    `conductor/tracks.md`, resolve the item in its new place
+    (`conductor/archive/<id>/feedback.md`), and commit everything together
+    with `chore(conductor): Archive track '<name>'`. Uncommitted files move
+    with the folder and are committed with it.
+3.  **Restore:** the reverse: `git mv` it back to `conductor/tracks/<id>`,
+    add its registry entry back (status `[ ]`, `[~]` or `[x]` from its plan),
+    resolve the item, and commit with `chore(conductor): Restore track
+    '<name>'`.
+4.  **Delete:** cannot be undone. Ask the user in chat to confirm with a
+    **Yes/No question**, naming what would be lost (uncommitted files,
+    commits only on this machine, or "nothing: it's committed and pushed").
+    **Never delete uncommitted work without an explicit yes to that.** On
+    yes: `git rm -r` the folder (plain removal if it isn't tracked), remove
+    its registry entry, and commit with `chore(conductor): Delete track
+    '<name>'`. The item goes with the folder, so tell the user in chat that
+    it's done. On no: resolve the item with your reason.
+5.  An item the user withdrew is already `resolved` with a "Withdrawn" line:
+    skip it.

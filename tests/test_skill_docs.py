@@ -99,7 +99,10 @@ class ViewSkillTest(unittest.TestCase):
         serve_py = (SKILLS / "conductor-view" / "scripts" / "serve.py").read_text(encoding="utf-8")
         commands = re.findall(r"`[^`]*serve\.py[^`]*`", self.text)
         flags = {f for c in commands for f in re.findall(r"--[a-z]+", c)}
-        self.assertEqual(flags, {"--root", "--open", "--export", "--watch"})
+        # Flags named on their own, like `--port` or `--watch --all`.
+        flags |= {f for span in re.findall(r"`([^`\n]+)`", self.text) if span.startswith("--")
+                  for f in re.findall(r"--[a-z]+", span)}
+        self.assertEqual(flags, {"--root", "--open", "--export", "--watch", "--all", "--list", "--port"})
         for flag in flags:
             self.assertIn(f'"{flag}"', serve_py, flag)
 

@@ -1,12 +1,15 @@
 # Conductor View: File Contract
 
 Files are the interface between agents and the viewer. Agents write files;
-the viewer reads them and redraws within about two seconds. The browser
-writes exactly two kinds of change, both through the local server: appended
-items in a track's `feedback.md`, and values in `conductor/settings.json`.
-Nothing else under `conductor/` is ever written by the viewer.
+the viewer reads them and redraws within about two seconds. Inside a
+project, the browser writes exactly two kinds of change, both through the
+local server: appended items in a track's `feedback.md` (and marking its own
+archive/restore/delete request withdrawn), and values in
+`conductor/settings.json`. Nothing else under `conductor/` is ever written,
+moved or deleted by the viewer. Outside every project it keeps its own files
+in the [viewer config folder](#viewer-config-folder).
 
-All paths are relative to the project root.
+Paths are relative to the project root unless they say otherwise.
 
 ## What the viewer reads
 
@@ -19,7 +22,9 @@ All paths are relative to the project root.
 | `conductor/tracks/<id>/plan.md` | Plan tab, progress | "No plan yet" |
 | `conductor/tracks/<id>/feedback.md` | Feedback tab, badges | No feedback |
 | `conductor/tracks/<id>/diagrams/*.json`, `*.svg` | Diagrams tab, `(diagram: slug)` chips | An error card for that diagram only |
-| `conductor/settings.json` | Workflow settings page, header chips | Schema defaults |
+| `conductor/archive/<id>/…` | Archived tracks (same files as above), read-only | Not listed |
+| `conductor/settings.json` | This repo's workflow exceptions | The main rules, then schema defaults |
+| git (read-only) | Each track's branch, last activity and safety badge | "no git" |
 
 `<id>` must match `[A-Za-z0-9._-]+`.
 
@@ -80,6 +85,14 @@ The user's text, as Markdown.
 -   `FB-NNN` ids increase by one per file and are never reused.
 -   Status is `open` or `resolved`. Kind is `comment`, `revise` (request
     changes) or `approve`; `revise` and `approve` target `spec` or `plan`.
+-   Kinds `archive`, `restore` and `delete` are track requests (target
+    `track`). The server writes their text, not the browser: what to do, the
+    git state when asked, and an optional one-line note from the user. There
+    is at most one open request of each kind per track. Archive is offered
+    for live tracks, restore for archived ones, delete for both (after the
+    user types the track id). Archived tracks take no other feedback.
+-   A request the user takes back is marked `resolved` with the reply
+    `> **Withdrawn** in the viewer before the agent acted on it.`
 -   `Target` is a path through the documents: `plan`, `plan › Phase N: Name`,
     `plan › Phase N: Name › Task text`, `spec`, or `spec › Section`.
 -   Lines starting with `>` are the agent's reply. User text that would start
@@ -124,19 +137,62 @@ stop must be a node id; otherwise the diagram shows as an error card.
 image (scripts inside it never run). `(diagram: <slug>)` anywhere in
 `spec.md` or `plan.md` becomes a chip that opens the diagram.
 
-## `conductor/settings.json`
+## Workflow settings: main rules and exceptions
 
-Defined by `skills/conductor-setup/assets/settings.schema.json`, which lists
-every key, its options and its default. The viewer only writes keys and
-values from that schema, keeps any other content, and refuses to touch a
-file that isn't valid JSON.
+Keys, options and defaults are defined by
+`skills/conductor-setup/assets/settings.schema.json`. Two files can set them:
+
+1.  **This repo's exceptions:** `conductor/settings.json`, committed with the
+    repo and shared by everyone who works on it. It only needs the keys that
+    differ from the main rules.
+2.  **The user's main rules:** `settings.json` in the
+    [viewer config folder](#viewer-config-folder), on this machine only.
+
+**Each key resolves to:** the repo's value if it is a valid option, else the
+main rule if valid, else the schema default. A repo value equal to the main
+rule is "same as main rule"; the viewer's Tidy removes those. An agent that
+can't read outside the repo (a sandbox) uses the repo file and the schema
+defaults, and says so.
+
+The viewer only writes keys and values from the schema, keeps any other
+content, refuses to touch a repo file that isn't valid JSON, and removes a
+key (and any group it empties) when the user picks "use main rule".
+
+## Viewer config folder
+
+| OS | Folder |
+| --- | --- |
+| Linux | `$XDG_CONFIG_HOME/conductor-view/` (default `~/.config/conductor-view/`) |
+| macOS | `~/Library/Application Support/conductor-view/` |
+| Windows | `%APPDATA%\conductor-view\` |
+
+`CONDUCTOR_VIEW_HOME` overrides it. It holds:
+
+| File | Contents |
+| --- | --- |
+| `projects.json` | `{"version": 1, "projects": [{"id": "my-app", "path": "/abs/path", "added_at": "…"}]}`: registered projects. Ids are the folder name, lower-cased, made unique. |
+| `config.json` | `{"port": 5000}`: the saved port. Priority: `--port`, then `CONDUCTOR_VIEW_PORT`, then this, then 4177. |
+| `settings.json` | The main workflow rules, same shape as a repo's `conductor/settings.json`. |
+
+All three are written atomically. One that can't be read is renamed to
+`<name>.bad-<time>` (never overwritten), the viewer starts that file fresh,
+and every page shows a banner with the error and a Restore button. Restore
+puts the fixed copy back and keeps whatever it replaces as
+`<name>.replaced-<time>`. Nothing is deleted.
 
 ## Links
 
+`<project>` is a project id from `projects.json`; `<id>` a track id. A link
+without the project (`#/<id>/…`) still works when only one project has that
+track, or the viewer was started in the one that does.
+
 | Link | Opens |
 | --- | --- |
-| `#/settings` | Workflow settings |
-| `#/<id>/plan/phase-<n>` | One phase (`phase-all` for the whole plan) |
-| `#/<id>/spec/section-<n>` | One spec section (`section-all` for all) |
-| `#/<id>/diagrams/<slug>/<node>` | A diagram, focused on a node |
-| `#/<id>/feedback` | The track's feedback |
+| `#/` | Home (`?q=<search>&status=now\|open\|done\|archived` filters it) |
+| `#/<project>` | Home, scrolled to that project |
+| `#/settings` | Main workflow rules and every project's exceptions |
+| `#/<project>/settings` | One project's workflow settings |
+| `#/<project>/<id>/plan/phase-<n>` | One phase (`phase-all` for the whole plan) |
+| `#/<project>/<id>/spec/section-<n>` | One spec section (`section-all` for all) |
+| `#/<project>/<id>/diagrams/<slug>/<node>` | A diagram, focused on a node |
+| `#/<project>/<id>/feedback` | The track's feedback |
