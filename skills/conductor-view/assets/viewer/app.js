@@ -145,9 +145,11 @@
   function openFeedbackFor(t, target) {
     return t.feedback.filter((f) => f.status === "open" && f.target === target).length;
   }
+  // An open change request wins; once the agent resolves it, the last approval (if any) shows again.
   function decision(t, what) {
-    const items = t.feedback.filter((f) => (f.kind === "approve" || f.kind === "revise") && f.target === what);
-    return items.length ? items[items.length - 1] : null;
+    const items = t.feedback.filter((f) => f.target === what);
+    const last = (kind, open) => items.filter((f) => f.kind === kind && (!open || f.status === "open")).pop() || null;
+    return last("revise", true) || last("approve", false);
   }
   // The browser can't message the agent; it only writes feedback.md. Say what unblocks it.
   function waiting(d) {
@@ -251,12 +253,24 @@
       </div>
       <div class="progress">
         <div class="progress-meta"><span>${done} of ${total} tasks done</span><span>${total ? Math.round((done / total) * 100) : 0}%</span></div>
-        <div class="progress-bar">${tasks.map((x) => `<span class="${x.status}"></span>`).join("")}</div>
+        <div class="progress-groups">${progressGroups(t)}</div>
       </div>
       ${workflowChips()}
       <div class="rail" role="list">${rail}</div>
       <div class="tabs" role="tablist">${tabs}</div>
       <section>${body}</section>`;
+  }
+
+  // One group per phase, sized by its task count: a numbered phase bar on top,
+  // a segment per task below. Everything jumps to that place in the plan.
+  function progressGroups(t) {
+    const clean = (s) => s.replace(/^Phase\s*\d+\s*:\s*/i, "").replace(/\(diagram:[^)]*\)/g, "").trim();
+    return t.plan.phases.map((p, i) => `
+      <div class="pg ${p.status}" style="flex-grow:${Math.max(p.tasks.length, 1)}">
+        <button class="pg-phase" data-goto-phase="${i}" title="Phase ${i + 1}: ${esc(clean(p.title))} — ${p.done}/${p.total}">
+          <span class="pg-num">${p.status === "done" ? "✓" : i + 1}</span><span class="pg-name">${esc(clean(p.title))}</span></button>
+        <div class="pg-tasks">${p.tasks.map((task, j) => `<button class="pg-task ${task.status}" data-goto-task="${i}/${j}" title="${esc(STATUS_LABEL[task.status] || task.status)}: ${esc(clean(task.text).replace(/`/g, ""))}"></button>`).join("")}</div>
+      </div>`).join("");
   }
 
   function renderPlan(t, ctx) {
@@ -481,7 +495,7 @@
   }
 
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-view],[data-setting],[data-track],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-section],[data-fbfilter]");
+    const el = ev.target.closest("[data-view],[data-setting],[data-track],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-goto-section],[data-fbfilter]");
     if (!el) return;
     if (el.dataset.view) { view = el.dataset.view; writeHash(); render(); window.scrollTo(0, 0); }
     else if (el.dataset.setting) { if (el.getAttribute("aria-checked") !== "true") saveSetting(el.dataset.setting, el.dataset.value); }
@@ -491,6 +505,11 @@
     else if (el.dataset.comment) compose("comment", el.dataset.comment);
     else if (el.dataset.decide) { const [kind, what] = el.dataset.decide.split(":"); compose(kind, what || (tab === "spec" ? "spec" : "plan")); }
     else if (el.dataset.gotoPhase) { if (tab !== "plan") { tab = "plan"; writeHash(); render(); } document.getElementById("phase-" + el.dataset.gotoPhase)?.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    else if (el.dataset.gotoTask) {
+      if (tab !== "plan") { tab = "plan"; writeHash(); render(); }
+      const li = document.querySelector(`.task[data-key="${CSS.escape(el.dataset.gotoTask)}"]`);
+      if (li) { li.scrollIntoView({ behavior: "smooth", block: "center" }); li.classList.remove("pulse"); void li.offsetWidth; li.classList.add("pulse"); }
+    }
     else if (el.dataset.gotoSection) document.getElementById("spec-" + el.dataset.gotoSection)?.scrollIntoView({ behavior: "smooth", block: "start" });
     else if (el.dataset.fbfilter) { ui.feedbackFilter = el.dataset.fbfilter; render(); }
   });

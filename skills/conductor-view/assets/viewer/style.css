@@ -137,10 +137,24 @@ h1.track-title { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; margin: 0
 
 .progress { margin: 18px 0 0; }
 .progress-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
-.progress-bar { display: flex; gap: 3px; height: 6px; }
-.progress-bar span { flex: 1; border-radius: 3px; background: var(--line-2); }
-.progress-bar span.done { background: var(--done); }
-.progress-bar span.in_progress { background: var(--prog); }
+.progress-groups { display: flex; gap: 10px; }
+.pg { flex-basis: 0; min-width: 34px; display: flex; flex-direction: column; gap: 4px; }
+.pg-phase { display: flex; align-items: center; gap: 6px; height: 18px; padding: 0 6px 0 2px; border: 0; border-radius: 9px; background: var(--line-2); color: var(--muted); font: 600 11px/1 var(--sans, inherit); cursor: pointer; overflow: hidden; text-align: left; }
+.pg-num { flex: none; display: grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: var(--bg); font-family: var(--mono); font-size: 9.5px; }
+.pg-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg.done .pg-phase { background: var(--done); color: var(--accent-ink); }
+.pg.done .pg-num { color: var(--done); }
+.pg.in_progress .pg-phase { background: var(--prog-soft); color: var(--prog); box-shadow: inset 0 0 0 1.5px var(--prog); }
+.pg-tasks { display: flex; gap: 3px; }
+.pg-task { flex: 1; min-width: 4px; height: 6px; padding: 0; border: 0; border-radius: 3px; background: var(--line-2); cursor: pointer; }
+.pg-task.done { background: var(--done); }
+.pg-task.in_progress { background: var(--prog); }
+.pg-phase:hover, .pg-task:hover { filter: brightness(1.2); }
+.pg-task:hover { transform: scaleY(1.6); }
+.pg-phase:focus-visible, .pg-task:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.task.pulse { animation: pulse 1.6s ease-out; }
+@keyframes pulse { 0%, 30% { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); } 100% { background: transparent; box-shadow: inset 3px 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .task.pulse { animation: none; outline: 2px solid var(--accent); } }
 
 /* phase rail */
 .rail { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(120px, 1fr); gap: 0; margin: 26px 0 8px; overflow-x: auto; padding: 4px 2px 10px; }
