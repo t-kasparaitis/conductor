@@ -31,7 +31,7 @@
 - [x] Task: Find projects and Add by path dialogs, with browser tests f57a386
 - [x] Task: Settings page as main rules + exception list: per-project toggle, differing keys only, Use main rule, Tidy for keys equal to the main rule, value sources everywhere, with browser tests bff6e0b
 - [x] Task: Port in the settings page: value, source, save to `config.json`, restart hint, with tests 3442ffa
-- [ ] Task: Light/dark contrast and keyboard access for the new controls, with the existing contrast and accessibility tests
+- [x] Task: Light/dark contrast and keyboard access for the new controls, with the existing contrast and accessibility tests 155284c
 
 ## Phase 4: Archive, restore and delete requests
 
