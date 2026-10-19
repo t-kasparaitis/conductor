@@ -1,0 +1,148 @@
+# Spec: Home page and multi-project viewer
+
+## Overview
+
+Today the viewer serves one project, `http://127.0.0.1:4177/` jumps straight
+into the first track, and archived tracks are invisible. This track adds a
+**home page** at that root URL that lists **every Conductor project you have
+registered** and each project's tracks: what's being worked on now, what's
+new, what's done and what's archived. From there you open any track, or ask
+the agent to archive, restore or delete one.
+
+It has to work for anyone who clones the repo: no install step, no config to
+write by hand, and it keeps working with one project or many.
+(diagram: home-architecture)
+
+## Functional Requirements
+
+### 1. One viewer, many projects
+
+-   **One viewer per machine.** A single `serve.py` serves every registered
+    project. Starting it with `--root <project>` when a viewer is already
+    running doesn't start a second one: it registers that project with the
+    running viewer, prints the project's URL and exits.
+-   **Project registry**, a user-level file `projects.json` in the viewer's
+    config folder (not inside any repo):
+    -   Linux: `$XDG_CONFIG_HOME/conductor-view/` (default `~/.config/conductor-view/`)
+    -   macOS: `~/Library/Application Support/conductor-view/`
+    -   Windows: `%APPDATA%\conductor-view\`
+    -   Overridable with the `CONDUCTOR_VIEW_HOME` environment variable (also
+        how tests stay out of your real registry).
+-   **Finding projects automatically:**
+    -   Every time the viewer is started for a project (`--root`), that
+        project is registered. Agents start it through the `conductor-view`
+        skill, so projects you use Conductor in show up on their own.
+    -   **Find projects** on the home page scans folders you choose (default:
+        your home folder) for `conductor/index.md`, a few levels deep,
+        skipping `.git`, `node_modules`, virtualenvs and hidden folders. It
+        lists what it found; you tick the ones to add.
+    -   **Add by path:** paste a folder path on the home page, or run
+        `serve.py --add <path>`.
+-   **Removing** a project only forgets it (`serve.py --forget <path>` or
+    the home page). Its files are never touched. A registered project whose
+    folder has gone missing stays listed as "not found" with a Forget
+    button, instead of silently disappearing.
+-   A folder is accepted only if it contains `conductor/index.md`.
+
+### 2. Home page (`#/`)
+
+-   **Project cards**, the active project first, then by most recent
+    activity. Each card shows the name (folder name), path, current git
+    branch, a one-line settings summary (e.g. `trunk · commit per task ·
+    tests with each task`), and counts of tracks by status.
+-   **Tracks inside each card**, grouped:
+    1.  **Now:** tracks with a task in progress (`[~]`), highlighted, with
+        the current task's name.
+    2.  **In progress / New:** the rest of the registry's open tracks.
+    3.  **Done:** tracks marked `[x]` in the registry.
+    4.  **Archived:** tracks under `conductor/archive/`, collapsed by
+        default.
+-   **Each track row:** title, type, a progress bar split by phase (the same
+    one the track page uses), done/total tasks, open feedback count, spec and
+    plan approval state (approved / changes requested / waiting), the track's
+    branch if it exists, and last activity (the newest commit touching the
+    track folder, or the newest file change when git isn't available).
+    Clicking the row opens the track.
+-   **Search and filters:** one search box (track title or id, across all
+    projects) and status chips (Now, Open, Done, Archived). The filter lives
+    in the URL, so `#/?status=archived` is a link you can keep.
+-   **Archived tracks open read-only** (no comment buttons), with a banner.
+-   A **project switcher** in the header on every page; track URLs carry the
+    project: `#/<project>/<track_id>/plan/phase-2`. Old links without a
+    project (`#/<track_id>/...`) still work when the track id is unique.
+
+### 3. Archive, restore and delete: the viewer asks, the agent does
+
+-   Each track row has a menu: **Archive**, **Restore** (archived tracks) and
+    **Delete**.
+-   The button adds a request item to that track's `feedback.md` (kinds
+    `archive`, `restore`, `delete`, target `track`). The browser never moves
+    or deletes folders.
+-   Delete first asks you to type the track id to confirm.
+-   Until the agent acts, the row shows "Archive requested, waiting for the
+    agent", and you can withdraw the request.
+-   The agent processes it on your next message, using the same steps as the
+    review skill's Track Cleanup: move to `conductor/archive/<track_id>/` (or
+    back), update `tracks.md`, commit. For **delete** it asks once more in
+    chat before deleting, because deletion can't be undone.
+
+### 4. Port
+
+-   **Default stays 4177.** Nothing common uses it.
+-   **Changing it**, highest priority first:
+    1.  `serve.py --port 5000`
+    2.  `CONDUCTOR_VIEW_PORT=5000`
+    3.  `"port": 5000` in `config.json` next to `projects.json`
+    4.  4177
+-   **In the viewer:** the settings page shows the port in use and where it
+    came from, and lets you set the saved port (written to `config.json`).
+    The change applies the next time the viewer starts; the page says so and
+    gives the restart command.
+-   If the chosen port is busy, it still moves to the next free one and says
+    so.
+
+## Non-Functional Requirements
+
+-   Same rules as the visual companion: Python 3.9+ standard library only,
+    vanilla JS, Linux/macOS/Windows, Chrome preferred and Firefox second.
+-   **Security:** still bound to `127.0.0.1` only, with the Host and
+    same-origin checks. The browser refers to projects by an id the server
+    gave it, never by path, except in "Add by path". The server only reads
+    inside registered projects' `conductor/` folders, and only writes
+    `feedback.md`, `conductor/settings.json` and its own `projects.json` and
+    `config.json`.
+-   **Persistence:** the registry and config are written atomically and
+    survive restarts. A corrupt `projects.json` is kept (renamed `.bad`) and
+    reported, not overwritten silently.
+-   **Speed:** the home page loads within a second for 20 projects of 20
+    tracks each; git is called at most once per project per refresh, and
+    the page still works without git.
+-   **No-Python mode** (`index.html` opened directly): the home page shows
+    the one picked project, including its archive; requests are copied for
+    pasting to the agent, like comments. `--export` includes the home page
+    for the exported project.
+
+## Acceptance Criteria
+
+1.  Starting the viewer in project A, then running the start command in
+    project B, leaves one viewer running whose home page lists both.
+2.  **Find projects** in a folder containing three Conductor projects lists
+    all three and adds the ticked ones.
+3.  A track moved to `conductor/archive/` shows under Archived, opens
+    read-only, and Restore files a `restore` request.
+4.  Clicking Archive writes an `archive` request to `feedback.md`; after the
+    agent archives the track and resolves it, the home page moves the track
+    to Archived within about two seconds.
+5.  `--port`, `CONDUCTOR_VIEW_PORT` and `config.json` each change the port,
+    in that order of priority, and the settings page shows which one won.
+6.  Old `#/<track_id>/...` links still open the right track.
+7.  Every new parser and loader in `serve.py` has a matching `local.js`
+    version, checked by the parity tests.
+
+## Out of Scope
+
+-   Running more than one viewer on purpose, or reaching it from another
+    machine.
+-   The browser starting agents, running git, or deleting files itself.
+-   Creating new tracks from the home page (that stays a chat with the
+    agent).
