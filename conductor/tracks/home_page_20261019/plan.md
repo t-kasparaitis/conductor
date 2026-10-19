@@ -14,7 +14,10 @@
 
 - [ ] Task: Config folder per OS and `CONDUCTOR_VIEW_HOME`; atomic `projects.json` and `config.json`; corrupt files kept as `.bad`, with tests
 - [ ] Task: Port priority `--port` > `CONDUCTOR_VIEW_PORT` > `config.json` > 4177, reported with its source, with tests
-- [ ] Task: Serve many projects: `/api/projects` and per-project `/api/state`; every path resolved inside a registered project, with HTTP and path-escape tests
+- [ ] Task: Serve many projects: `/api/projects` and per-project `/api/state`; every path resolved inside a registered project; track ids always scoped by project, with HTTP and path-escape tests
+- [ ] Task: Per-project summary cache keyed on each project's file versions; the poll re-reads only changed projects, with tests for 50 projects and two changing at once
+- [ ] Task: Layered workflow settings: Conductor-wide `settings.json` + repo file + schema defaults, per-key resolution with its source, reset-to-inherit, with tests (server and `local.js`)
+- [ ] Task: `--watch --all`: feedback and settings changes across every registered project, labelled by project, with tests
 - [ ] Task: Start command registers its project; a second start hands the project to the running viewer and exits; `--add`, `--forget`, `--list`, with CLI tests
 - [ ] Task: Find projects: depth-limited scan with skip list and a time cap, add selected; add by path, with tests
 
@@ -25,6 +28,7 @@
 - [ ] Task: Search and status chips kept in the URL, with browser tests
 - [ ] Task: Project switcher in the header; archived tracks open read-only with a banner, with browser tests
 - [ ] Task: Find projects and Add by path dialogs, with browser tests
+- [ ] Task: Settings page with All projects / This project scopes, value sources and reset to inherit, with browser tests
 - [ ] Task: Port in the settings page: value, source, save to `config.json`, restart hint, with tests
 - [ ] Task: Light/dark contrast and keyboard access for the new controls, with the existing contrast and accessibility tests
 
@@ -36,7 +40,8 @@
 
 ## Phase 5: Docs
 
-- [ ] Task: README (home page, registering projects, changing the port), SKILL.md start section, tech-stack note on the config folder
+- [ ] Task: Settings layers in the skills: setup offers the Conductor-wide defaults; new-track, implement, review and status read both layers; paths per OS in the file contract, with skill-doc tests
+- [ ] Task: README (home page, registering projects, per-repo vs Conductor-wide settings, changing the port), SKILL.md start section, tech-stack note on the config folder
 
 ## Phase 6: Track Verification
 

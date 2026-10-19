@@ -86,7 +86,35 @@ write by hand, and it keeps working with one project or many.
     back), update `tracks.md`, commit. For **delete** it asks once more in
     chat before deleting, because deletion can't be undone.
 
-### 4. Port
+### 4. What is per-repo, and what is shared
+
+-   **Always per-repo:** tracks, the archive, feedback, diagrams and the
+    project's context files. They live inside each repo's `conductor/` and
+    are never mixed. Track ids can repeat across repos, so every URL, API
+    call and request names the project as well as the track.
+-   **Workflow settings in two layers:**
+    1.  **Conductor-wide defaults:** `settings.json` in the viewer's config
+        folder (next to `projects.json`). Personal: it applies to every
+        project on this machine and never goes into a repo.
+    2.  **Per-repo:** `conductor/settings.json`, committed with the repo, so
+        everyone working on it shares it. It only needs the keys that differ.
+    -   **Resolution, per key:** the repo's value, else the Conductor-wide
+        default, else the built-in default from the schema.
+-   **In the viewer:** the settings page has two scopes, **All projects**
+    and **This project**. Every value shows where it comes from ("this
+    repo", "all projects", "built-in"). In This project, each setting can
+    be set or **reset to inherit**, which removes the key from the repo's
+    file. The home page card shows the effective settings.
+-   **For agents:** skills read `conductor/settings.json` first, then the
+    Conductor-wide file for missing keys, then the schema defaults. The
+    paths per OS go in the file contract. An agent that can't read outside
+    the repo (a sandbox) uses the repo file and the built-in defaults, and
+    says so. `conductor-setup` offers the Conductor-wide defaults as the
+    starting choice for a new repo.
+-   **Workflow settings changes are still announced:** `--watch` reports a
+    change in either layer, naming the project(s) it affects.
+
+### 5. Port
 
 -   **Default stays 4177.** Nothing common uses it.
 -   **Changing it**, highest priority first:
@@ -114,9 +142,19 @@ write by hand, and it keeps working with one project or many.
 -   **Persistence:** the registry and config are written atomically and
     survive restarts. A corrupt `projects.json` is kept (renamed `.bad`) and
     reported, not overwritten silently.
--   **Speed:** the home page loads within a second for 20 projects of 20
-    tracks each; git is called at most once per project per refresh, and
-    the page still works without git.
+-   **Many repos at once:** there is no limit on how many projects are
+    registered, and agents may be working in several at the same time.
+    -   The home page loads within a second for 50 projects of 20 tracks
+        each. Each project's summary is cached and rebuilt only when that
+        project's files change.
+    -   The live poll only re-reads the project you're looking at (on the
+        home page: only projects whose files changed). Git is called at most
+        once per changed project, and the page still works without git.
+    -   Writes from several agents and tabs to different repos never block
+        each other. Writes to the same file keep today's
+        re-read-and-compare rule.
+    -   `--watch` can follow one project (`--root`) or all registered
+        projects (`--all`), labelling every line with the project.
 -   **No-Python mode** (`index.html` opened directly): the home page shows
     the one picked project, including its archive; requests are copied for
     pasting to the agent, like comments. `--export` includes the home page
@@ -136,7 +174,14 @@ write by hand, and it keeps working with one project or many.
 5.  `--port`, `CONDUCTOR_VIEW_PORT` and `config.json` each change the port,
     in that order of priority, and the settings page shows which one won.
 6.  Old `#/<track_id>/...` links still open the right track.
-7.  Every new parser and loader in `serve.py` has a matching `local.js`
+7.  A key set only in the Conductor-wide `settings.json` applies to a repo
+    without that key, a repo value overrides it, and "reset to inherit"
+    removes the repo's key. The settings page shows the source of each
+    value.
+8.  Ten registered projects with agents editing two of them at once: the
+    home page shows both sets of changes within about two seconds and only
+    re-reads those two projects.
+9.  Every new parser and loader in `serve.py` has a matching `local.js`
     version, checked by the parity tests.
 
 ## Out of Scope
