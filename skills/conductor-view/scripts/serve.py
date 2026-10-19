@@ -520,6 +520,203 @@ def _append_item(fb: Path, tid: str, kind: str, target: str, text: str) -> dict:
     return _rewrite(fb, build)
 
 
+# ---------------------------------------------------------------- user config
+#
+# The viewer's own files live outside every repo, in one folder per user:
+# projects.json (registered projects), config.json (viewer preferences such as
+# the port) and settings.json (the main workflow rules). CONDUCTOR_VIEW_HOME
+# overrides the folder, which is also how the tests stay out of the real one.
+
+APP = "conductor-view"
+DEFAULT_PORT = 4177
+PROJECT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+RESERVED_IDS = {"settings", "api"}
+# File name -> what went wrong reading it: shown as a banner until restored or dismissed.
+CONFIG_PROBLEMS: dict[str, dict] = {}
+
+
+def config_home() -> Path:
+    env = os.environ.get("CONDUCTOR_VIEW_HOME")
+    if env:
+        return Path(env).expanduser()
+    if os.name == "nt":
+        base = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support"
+    else:
+        base = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    return base / APP
+
+
+def _check_object(data) -> str | None:
+    return None if isinstance(data, dict) else "must contain a JSON object"
+
+
+def _check_projects(data) -> str | None:
+    if not isinstance(data, dict) or not isinstance(data.get("projects", []), list):
+        return 'must be an object with a "projects" list'
+    for e in data.get("projects", []):
+        if not (isinstance(e, dict) and isinstance(e.get("path"), str) and isinstance(e.get("id"), str)
+                and PROJECT_ID_RE.match(e["id"])):
+            return f"project entry {json.dumps(e)} needs a string path and a valid id"
+    return None
+
+
+USER_FILES = {"projects.json": _check_projects, "config.json": _check_object, "settings.json": _check_object}
+
+
+def _json_problem(text: str, check) -> str | None:
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as e:
+        return f"line {e.lineno}, column {e.colno}: {e.msg}"
+    return check(data)
+
+
+def load_user_json(name: str) -> dict:
+    """One of the viewer's own files, or {} if missing. An unreadable one is
+    renamed to <name>.bad-<time> instead of being overwritten by the next save,
+    and reported in CONFIG_PROBLEMS."""
+    path = config_home() / name
+    text = _read(path)
+    if text is None:
+        return {}
+    problem = _json_problem(text, USER_FILES[name])
+    if not problem:
+        return json.loads(text)
+    with WRITE_LOCK:
+        if _read(path) == text:  # still the same broken content
+            bad = path.with_name(f"{name}.bad-{datetime.now():%Y-%m-%dT%H%M%S}")
+            try:
+                os.replace(path, bad)
+            except OSError:
+                bad = path
+            CONFIG_PROBLEMS[name] = {"file": str(path), "saved_as": str(bad), "error": problem}
+    return {}
+
+
+def restore_user_json(name: str) -> dict:
+    """Put a fixed .bad copy back. The file it replaces is kept as .replaced-<time>."""
+    if name not in USER_FILES:
+        raise LookupError("unknown file")
+    with WRITE_LOCK:
+        problem = CONFIG_PROBLEMS.get(name)
+        if not problem:
+            raise LookupError(f"nothing to restore for {name}")
+        bad, path = Path(problem["saved_as"]), config_home() / name
+        text = _read(bad)
+        if text is None:
+            raise LookupError(f"{bad.name} is gone")
+        still = _json_problem(text, USER_FILES[name])
+        if still:
+            problem["error"] = still
+            raise ValueError(f"{bad.name} still can't be read: {still}")
+        if path.exists() and path != bad:
+            os.replace(path, path.with_name(f"{name}.replaced-{datetime.now():%Y-%m-%dT%H%M%S}"))
+        os.replace(bad, path)
+        del CONFIG_PROBLEMS[name]
+    return {"restored": name}
+
+
+def dismiss_problem(name: str) -> dict:
+    CONFIG_PROBLEMS.pop(name, None)
+    return {"dismissed": name}
+
+
+def _update_user_json(name: str, change) -> dict:
+    """Read-modify-write one of the viewer's files: change(data) -> result."""
+    home = config_home()
+    home.mkdir(parents=True, exist_ok=True)
+    load_user_json(name)  # sets an unreadable file aside first, so it is never overwritten
+
+    def build(text):
+        if text is None:
+            data = {}
+        else:
+            if _json_problem(text, USER_FILES[name]):
+                raise RuntimeError(f"{name} changed into something unreadable while saving; try again")
+            data = json.loads(text)
+        result = change(data)
+        return json.dumps(data, indent=2) + "\n", result
+
+    with WRITE_LOCK:
+        return _rewrite(home / name, build)
+
+
+def _same_path(a: Path, b: Path) -> bool:
+    return os.path.normcase(str(a)) == os.path.normcase(str(b))
+
+
+def _project_id(path: Path, taken: set[str]) -> str:
+    base = re.sub(r"[^a-z0-9._-]+", "-", path.name.lower()).strip("-.") or "project"
+    if base in RESERVED_IDS or not PROJECT_ID_RE.match(base):
+        base = f"project-{base}".strip("-")
+    pid, n = base, 2
+    while pid in taken:
+        pid, n = f"{base}-{n}", n + 1
+    return pid
+
+
+def registered_projects() -> list[dict]:
+    return [dict(e) for e in load_user_json("projects.json").get("projects", [])]
+
+
+def add_project(path) -> dict:
+    """Register a project folder (one containing conductor/index.md). Idempotent."""
+    p = Path(str(path)).expanduser()
+    if not p.is_absolute():
+        raise ValueError("give the project's full path")
+    p = p.resolve()
+    if not (p / "conductor" / "index.md").is_file():
+        raise ValueError(f"no conductor/index.md in {p}")
+
+    def change(data):
+        projects = data.setdefault("projects", [])
+        data.setdefault("version", 1)
+        for e in projects:
+            if _same_path(Path(e["path"]), p):
+                return {**e, "added": False}
+        entry = {"id": _project_id(p, {e["id"] for e in projects}), "path": str(p),
+                 "added_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}
+        projects.append(entry)
+        return {**entry, "added": True}
+
+    return _update_user_json("projects.json", change)
+
+
+def forget_project(pid: str) -> dict:
+    """Unregister a project. Its files are never touched."""
+    def change(data):
+        projects = data.get("projects", [])
+        keep = [e for e in projects if e["id"] != pid]
+        if len(keep) == len(projects):
+            raise LookupError("unknown project")
+        data["projects"] = keep
+        return {"forgotten": pid}
+
+    return _update_user_json("projects.json", change)
+
+
+def load_config() -> dict:
+    return load_user_json("config.json")
+
+
+def set_config(key: str, value) -> dict:
+    if key != "port":
+        raise ValueError("unknown config key")
+    if value is not None and (isinstance(value, bool) or not isinstance(value, int) or not 1024 <= value <= 65535):
+        raise ValueError("port must be a whole number from 1024 to 65535")
+
+    def change(data):
+        if value is None:
+            data.pop(key, None)
+        else:
+            data[key] = value
+        return {"key": key, "value": value}
+
+    return _update_user_json("config.json", change)
+
+
 # ---------------------------------------------------------------- server
 
 

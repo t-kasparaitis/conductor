@@ -1,6 +1,7 @@
 """Shared test helpers. Every test works in a fresh temporary project and never
 touches this repo's own conductor/ directory."""
 
+import atexit
 import http.client
 import importlib.util
 import json
@@ -12,6 +13,11 @@ import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+
+# The viewer keeps a per-user project list and config. Point it at a throwaway
+# folder for the whole test run (child processes inherit it), never the real one.
+os.environ["CONDUCTOR_VIEW_HOME"] = tempfile.mkdtemp(prefix="conductor-view-home-")
+atexit.register(shutil.rmtree, os.environ["CONDUCTOR_VIEW_HOME"], True)
 SERVE_PY = REPO / "skills" / "conductor-view" / "scripts" / "serve.py"
 
 
@@ -48,6 +54,20 @@ class TempProject(unittest.TestCase):
 
     def read(self, rel):
         return (self.root / rel).read_text(encoding="utf-8")
+
+
+class UserHome(unittest.TestCase):
+    """A fresh, empty viewer config folder for one test."""
+
+    def setUp(self):
+        super().setUp()
+        self.home = Path(tempfile.mkdtemp(prefix="conductor-view-home-"))
+        self.addCleanup(shutil.rmtree, self.home, True)
+        old = os.environ["CONDUCTOR_VIEW_HOME"]
+        os.environ["CONDUCTOR_VIEW_HOME"] = str(self.home)
+        self.addCleanup(os.environ.__setitem__, "CONDUCTOR_VIEW_HOME", old)
+        serve.CONFIG_PROBLEMS.clear()
+        self.addCleanup(serve.CONFIG_PROBLEMS.clear)
 
 
 class ServerTest(TempProject):
