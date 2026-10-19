@@ -780,6 +780,59 @@ def forget_project(pid: str) -> dict:
     return _update_user_json("projects.json", change)
 
 
+SCAN_SKIP = {"node_modules", "__pycache__", "site-packages", "venv", "env", "virtualenv", "dist", "build", "target",
+             "vendor", "bower_components", "Library", "AppData", "Applications", "snap", "Pictures", "Music", "Videos",
+             "Movies", "$RECYCLE.BIN", "System Volume Information"}
+
+
+def scan_projects(roots: list[str] | None = None, depth: int = 4, time_limit: float = 8.0,
+                  max_results: int = 200) -> dict:
+    """Look for folders containing conductor/index.md under roots (default: the
+    home folder), a few levels deep. Skips hidden folders, dependency and build
+    folders, and symlinks (no loops). Doesn't descend into a project it found."""
+    depth = max(1, min(int(depth), 8))
+    starts = []
+    for r in roots or [str(Path.home())]:
+        p = Path(str(r)).expanduser()
+        if not p.is_absolute():
+            raise ValueError(f"give full paths to search: {r!r}")
+        if not p.is_dir():
+            raise ValueError(f"not a folder: {p}")
+        starts.append(p.resolve())
+    registered = [Path(e["path"]) for e in registered_projects()]
+    deadline = time.monotonic() + time_limit
+    found, truncated = [], False
+    queue = [(p, 0) for p in starts]
+    seen = set()
+    while queue:
+        if time.monotonic() > deadline or len(found) >= max_results:
+            truncated = True
+            break
+        d, level = queue.pop(0)
+        key = os.path.normcase(str(d))
+        if key in seen:
+            continue
+        seen.add(key)
+        if (d / "conductor" / "index.md").is_file():
+            found.append({"path": str(d), "name": d.name,
+                          "registered": any(_same_path(d, r) for r in registered)})
+            continue
+        if level >= depth:
+            continue
+        try:
+            children = sorted(os.scandir(d), key=lambda e: e.name.lower())
+        except OSError:
+            continue
+        for c in children:
+            try:
+                if c.name.startswith(".") or c.name in SCAN_SKIP or c.is_symlink() or not c.is_dir():
+                    continue
+            except OSError:
+                continue
+            queue.append((Path(c.path), level + 1))
+    return {"roots": [str(p) for p in starts], "depth": depth, "found": found, "truncated": truncated}
+
+
 def load_config() -> dict:
     return load_user_json("config.json")
 
@@ -1031,6 +1084,11 @@ class Handler(BaseHTTPRequestHandler):
             if action == "forget":
                 return forget_project(str(payload.get("id", ""))), HTTPStatus.OK
             raise ValueError("action must be add or forget")
+        if path == "/api/scan":
+            roots = payload.get("roots")
+            if roots is not None and (not isinstance(roots, list) or not all(isinstance(r, str) for r in roots)):
+                raise ValueError("roots must be a list of folder paths")
+            return scan_projects(roots or None, payload.get("depth", 4)), HTTPStatus.OK
         if path == "/api/config":
             return set_config(str(payload.get("key", "")), payload.get("value")), HTTPStatus.OK
         if path == "/api/config/restore":
