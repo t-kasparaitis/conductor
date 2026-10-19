@@ -279,11 +279,17 @@ def update_setting(root: Path, payload: dict) -> dict:
     if not _is_option(st, value):
         raise ValueError("invalid value")
     path = root / "conductor" / "settings.json"
-    with WRITE_LOCK:
-        current = load_settings(root)
-        if current["error"]:
-            raise ValueError("settings.json is not valid JSON; fix it by hand first")
-        values = current["values"] or {"version": schema.get("version", 1)}
+
+    def build(text):
+        if text is None:
+            values = {"version": schema.get("version", 1)}
+        else:
+            try:
+                values = json.loads(text)
+            except json.JSONDecodeError:
+                values = None
+            if not isinstance(values, dict):
+                raise ValueError("settings.json is not valid JSON; fix it by hand first")
         cur = values
         parts = key.split(".")
         for part in parts[:-1]:
@@ -291,8 +297,10 @@ def update_setting(root: Path, payload: dict) -> dict:
                 cur[part] = {}
             cur = cur[part]
         cur[parts[-1]] = value
-        _write_atomic(path, json.dumps(values, indent=2) + "\n")
-    return {"key": key, "value": value}
+        return json.dumps(values, indent=2) + "\n", {"key": key, "value": value}
+
+    with WRITE_LOCK:
+        return _rewrite(path, build)
 
 
 def load_state(root: Path) -> dict:
@@ -403,19 +411,32 @@ def _write_atomic(path: Path, content: str) -> None:
         raise
 
 
+def _rewrite(path: Path, build, attempts: int = 5):
+    """Read-modify-write that never clobbers a concurrent edit (an agent saving
+    the same file): re-read just before replacing, and start over if it changed.
+    build(old_text_or_None) -> (new_text, result). Call under WRITE_LOCK."""
+    for _ in range(attempts):
+        before = _read(path)
+        content, result = build(before)
+        if _read(path) == before:
+            _write_atomic(path, content)
+            return result
+    raise RuntimeError(f"{path.name} kept changing while saving; try again")
+
+
 def _append_item(fb: Path, tid: str, kind: str, target: str, text: str) -> dict:
-    existing = _read(fb) or ""
-    if not existing:
-        existing = (
-            f"# Feedback: {tid}\n\n"
-            "<!-- Written by the Conductor viewer. Agents: address each `open` item, then\n"
-            "     change `open` to `resolved` in its heading and add a `> **Agent:** ...` reply. -->\n"
-        )
-    fid = next_feedback_id(existing)
-    when = datetime.now().strftime("%Y-%m-%d %H:%M")
-    item = f"\n### {fid} · open · {kind}\n- **Target:** {target}\n- **When:** {when}\n\n{text or '_(no message)_'}\n"
-    _write_atomic(fb, existing.rstrip("\n") + "\n" + item)
-    return {"id": fid}
+    def build(existing):
+        if not existing:
+            existing = (
+                f"# Feedback: {tid}\n\n"
+                "<!-- Written by the Conductor viewer. Agents: address each `open` item, then\n"
+                "     change `open` to `resolved` in its heading and add a `> **Agent:** ...` reply. -->\n"
+            )
+        fid = next_feedback_id(existing)
+        when = datetime.now().strftime("%Y-%m-%d %H:%M")
+        item = f"\n### {fid} · open · {kind}\n- **Target:** {target}\n- **When:** {when}\n\n{text or '_(no message)_'}\n"
+        return existing.rstrip("\n") + "\n" + item, {"id": fid}
+    return _rewrite(fb, build)
 
 
 # ---------------------------------------------------------------- server
@@ -491,6 +512,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(append_feedback(self.root, payload), HTTPStatus.CREATED)
         except LookupError as e:
             return self._json({"error": str(e)}, HTTPStatus.NOT_FOUND)
+        except RuntimeError as e:
+            return self._json({"error": str(e)}, HTTPStatus.CONFLICT)
         except (ValueError, json.JSONDecodeError) as e:
             return self._json({"error": str(e)}, HTTPStatus.BAD_REQUEST)
 

@@ -89,7 +89,10 @@ The user's text, as Markdown.
     Never delete items or edit the user's text.
 
 The server appends with an atomic replace (write a temporary file, then
-rename) under a lock, with LF line endings on every OS.
+rename) under a lock, with LF line endings on every OS. Just before
+replacing, it re-reads the file; if an agent saved it in the meantime, the
+server starts over from the agent's version, so neither edit is lost.
+Agents should likewise re-read `feedback.md` right before editing it.
 
 ## `diagrams/<slug>.json` (world map)
 
