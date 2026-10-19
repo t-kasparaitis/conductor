@@ -7,8 +7,8 @@
 
 - [x] Task: Load archived tracks from `conductor/archive/` and mark them read-only, with loader tests 9c83865
 - [x] Task: Track summary for the home page: status group (Now/Open/Done/Archived), current task, per-phase progress, open feedback, spec/plan approval, with parser tests 9da3cd5
-- [ ] Task: Last activity and branch: one `git log` per project, falling back to file times without git, with tests for both
-- [ ] Task: Git safety state per track: uncommitted, not pushed, pushed, landed, no git (one `git status` and `git for-each-ref` per project), plus an on-demand detailed check with last-fetch time, with tests on throwaway repos with a bare remote
+- [x] Task: Last activity and branch: one `git log` per project, falling back to file times without git, with tests for both f9f1c4b
+- [x] Task: Git safety state per track: uncommitted, not pushed, pushed, landed, no git (one `git status` and `git for-each-ref` per project), plus an on-demand detailed check with last-fetch time, with tests on throwaway repos with a bare remote f9f1c4b
 - [ ] Task: Mirror the new loaders in `local.js`, with parity tests
 
 ## Phase 2: Project registry and port
