@@ -11,13 +11,14 @@ from helpers import SERVE_PY, ServerTest, TempProject, serve
 
 
 def run(*args, timeout=20):
-    return subprocess.run([sys.executable, str(SERVE_PY), *args], capture_output=True, text=True, timeout=timeout)
+    return subprocess.run([sys.executable, str(SERVE_PY), *args], capture_output=True, text=True, encoding="utf-8",
+                          timeout=timeout)
 
 
 def start(*args):
     """Start serve.py and return (process, first output line)."""
     proc = subprocess.Popen([sys.executable, str(SERVE_PY), *args], stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, text=True)
+                            stderr=subprocess.STDOUT, text=True, encoding="utf-8")
     return proc, proc.stdout.readline()
 
 

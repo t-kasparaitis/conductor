@@ -581,12 +581,12 @@ def watch(root: Path, interval: float = 1.0) -> None:
             for key, it in _open_items(root).items():
                 if key in seen:
                     continue
-                seen.add(key)
                 body = " ".join(it["body"].split())
                 body = body if len(body) <= 100 else body[:97] + "..."
                 print(f"feedback {it['id']} · {it['kind']} · track {it['track']} · "
                       f"target {it['target'] or '-'}" + (f" · {body}" if body and body != "_(no message)_" else ""),
                       flush=True)
+                seen.add(key)  # only once it was actually reported
             loaded = load_settings(root)
             if loaded["error"]:  # caught mid-save, or broken: keep the last good values
                 time.sleep(interval)
@@ -602,6 +602,11 @@ def watch(root: Path, interval: float = 1.0) -> None:
 
 
 def main(argv=None) -> int:
+    # Windows pipes default to the ANSI code page, which can't encode every
+    # comment (emoji, CJK). Agents read this output, so always write UTF-8.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description="Conductor visual companion")
     ap.add_argument("--root", default=".", help="project root containing conductor/ (default: .)")
     ap.add_argument("--port", type=int, default=4177, help="port on 127.0.0.1 (0 = any free port)")

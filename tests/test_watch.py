@@ -1,6 +1,7 @@
 """serve.py --watch: one line per open feedback item and per settings change."""
 
 import json
+import os
 import queue
 import subprocess
 import sys
@@ -20,9 +21,10 @@ class WatchTest(TempProject):
         self.write(self.fb, "# Feedback\n" + ITEM.format(id="FB-001", status="open", body="already open")
                    + ITEM.format(id="FB-002", status="resolved", body="done before"))
 
-    def start(self):
+    def start(self, env=None):
         self.proc = subprocess.Popen([sys.executable, str(SERVE_PY), "--root", str(self.root), "--watch"],
-                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
+                                     env=env)
         self.addCleanup(self._stop)
         self.lines = queue.Queue()
         threading.Thread(target=lambda: [self.lines.put(line.rstrip("\n")) for line in self.proc.stdout],
@@ -83,3 +85,10 @@ class WatchTest(TempProject):
         self.write_settings({"version": 1, "git": {"strategy": "trunk", "push": "track"}})
         self.assertEqual(self.next_line(), "settings changed: git.push = track")
         self.assertIsNone(self.proc.poll(), "watch must keep running")
+
+    def test_any_text_survives_a_legacy_console_encoding(self):
+        # Windows pipes default to the ANSI code page, which has no emoji.
+        self.append(ITEM.format(id="FB-003", status="open", body="ship it 🚀 — ✓ naïve"))
+        self.start(env=dict(os.environ, PYTHONIOENCODING="cp1252"))
+        lines = {self.next_line() for _ in range(2)}
+        self.assertTrue(any("FB-003" in line and "🚀" in line for line in lines), lines)
