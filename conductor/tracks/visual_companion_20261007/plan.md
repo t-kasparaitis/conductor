@@ -17,7 +17,7 @@
 ## Phase 2: File Contract & Parsers (diagram: architecture)
 
 - [x] Task: Write the file-contract reference (`skills/conductor-view/references/file-contract.md`): `feedback.md` items, `diagrams/*.json`, `(diagram: slug)` references 6a35738
-- [ ] Task: Plan parser, with tests: phases, `[checkpoint: sha]`, tasks/sub-tasks in all three states, one or more trailing SHAs, notes between tasks
+- [x] Task: Plan parser, with tests: phases, `[checkpoint: sha]`, tasks/sub-tasks in all three states, one or more trailing SHAs, notes between tasks 47fdb48
 - [ ] Task: Registry, metadata, feedback and diagram loaders, with tests: malformed JSON or Markdown shows a visible error, never a crash
 
 ## Phase 3: Local Server

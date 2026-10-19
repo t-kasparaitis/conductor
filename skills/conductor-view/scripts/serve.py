@@ -170,10 +170,31 @@ def next_feedback_id(text: str) -> str:
 
 
 def _read(p: Path) -> str | None:
+    # Undecodable bytes show up as U+FFFD instead of the whole file vanishing.
     try:
-        return p.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
+        return p.read_text(encoding="utf-8", errors="replace")
+    except OSError:
         return None
+
+
+def _diagram_problem(data) -> str | None:
+    """Why a world-map diagram can't be drawn, or None if it can."""
+    if not isinstance(data, dict):
+        return "must be a JSON object"
+    nodes = data.get("nodes", [])
+    if not isinstance(nodes, list) or not all(isinstance(n, dict) and "id" in n for n in nodes):
+        return "`nodes` must be a list of objects, each with an `id`"
+    ids = {str(n["id"]) for n in nodes}
+    for key in ("edges", "regions", "tour"):
+        if not isinstance(data.get(key, []), list):
+            return f"`{key}` must be a list"
+    for e in data.get("edges", []):
+        if not isinstance(e, dict) or str(e.get("from")) not in ids or str(e.get("to")) not in ids:
+            return f"edge {json.dumps(e)} must join two node ids"
+    missing = [t for t in data.get("tour", []) if str(t) not in ids]
+    if missing:
+        return f"tour stops {missing} are not node ids"
+    return None
 
 
 def load_diagrams(d: Path) -> list[dict]:
@@ -185,11 +206,13 @@ def load_diagrams(d: Path) -> list[dict]:
             text = _read(f) or ""
             try:
                 data = json.loads(text)
-                out.append({"slug": f.stem, "type": "map", "data": data,
-                            "title": data.get("title") or f.stem})
+                problem = _diagram_problem(data)
             except json.JSONDecodeError as e:
-                out.append({"slug": f.stem, "type": "error", "title": f.stem,
-                            "error": f"{f.name}: {e}"})
+                problem = str(e)
+            if problem:
+                out.append({"slug": f.stem, "type": "error", "title": f.stem, "error": f"{f.name}: {problem}"})
+            else:
+                out.append({"slug": f.stem, "type": "map", "data": data, "title": data.get("title") or f.stem})
         elif f.suffix == ".svg":
             out.append({"slug": f.stem, "type": "svg", "title": f.stem, "svg": _read(f) or ""})
     return out
@@ -276,8 +299,10 @@ def load_state(root: Path) -> dict:
     cdir = root / "conductor"
     tracks_dir = cdir / "tracks"
     registry = parse_registry(_read(cdir / "tracks.md") or "")
-    by_id = {e["track_id"]: e for e in registry if e["track_id"]}
-    order = [e["track_id"] for e in registry if e["track_id"]]
+    # A registry link like ../index.md must not turn conductor/ itself into a "track".
+    registry = [e for e in registry if e["track_id"] and TRACK_ID_RE.match(e["track_id"]) and e["track_id"] not in (".", "..")]
+    by_id = {e["track_id"]: e for e in registry}
+    order = [e["track_id"] for e in registry]
     if tracks_dir.is_dir():
         order += sorted(p.name for p in tracks_dir.iterdir() if p.is_dir() and p.name not in by_id)
     tracks = []
@@ -288,9 +313,11 @@ def load_state(root: Path) -> dict:
         meta_text = _read(tdir / "metadata.json")
         try:
             meta = json.loads(meta_text) if meta_text else {}
-            meta_error = None
+            meta_error = None if isinstance(meta, dict) else "must be a JSON object"
         except json.JSONDecodeError as e:
             meta, meta_error = {}, str(e)
+        if meta_error:
+            meta = {}
         plan_text = _read(tdir / "plan.md") or ""
         tracks.append({
             "id": tid,
