@@ -31,3 +31,11 @@ Archived tracks should be per project/repo, and we have to keep in mind workflow
 What does corrupt files kept as .bad mean? elaborate in the spec
 
 > **Agent:** Spelled out in the spec's Persistence section. If one of the viewer's own files (`projects.json`, `config.json`, main-rules `settings.json`) can't be read, say after a hand edit left invalid JSON, the viewer must not save over it, or your project list would be replaced by an empty one. So it renames it to `projects.json.bad-<time>`, starts empty, and shows a banner with the exact error and a Restore button that puts the fixed file back. Nothing is deleted. A repo's own `conductor/settings.json` is never renamed; its error is just shown, as today.
+
+### FB-005 · resolved · approve
+- **Target:** plan
+- **When:** 2026-10-19 19:03
+
+looks good, we can iterate more after it is fleshed out and it's easy to see what needs work
+
+> **Agent:** Thanks, starting implementation with Phase 1. I'll commit task by task and come back once the home page is usable enough to iterate on.

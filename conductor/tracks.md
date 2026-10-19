@@ -14,5 +14,5 @@ This file tracks all major work items. Each track has its own spec and plan.
 
 ---
 
-- [ ] **Track: Home page — every project and its tracks (current, done, archived) at one URL, with archive/delete requests and a configurable port**
+- [~] **Track: Home page — every project and its tracks (current, done, archived) at one URL, with archive/delete requests and a configurable port**
 *Link: [./tracks/home_page_20261019/index.md](./tracks/home_page_20261019/index.md)*
