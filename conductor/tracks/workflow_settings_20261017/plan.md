@@ -8,7 +8,7 @@
 ## Phase 1: Branch & Schema
 
 - [x] Task: Create the track branch from `origin/main` and unset its upstream
-- [ ] Task: Commit the project context, both tracks and the viewer spike as the starting point
+- [x] Task: Commit the project context, both tracks and the viewer spike as the starting point 5cc6deb 258f462
 - [ ] Task: Finalise `settings.schema.json` — `current` strategy as default, `git.notes`, `with-task` testing; tests that the schema is well-formed and this repo's `settings.json` is valid
 - [ ] Task: Settings loading in `serve.py` with tests (missing file → defaults, unknown value → default and flagged, broken JSON → error, never overwritten)
 - [ ] Task: Describe the settings in `workflow.md` (template and this repo's copy): what each value changes, safety rules
