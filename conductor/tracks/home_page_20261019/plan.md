@@ -20,7 +20,7 @@
 - [x] Task: Layered workflow settings: Conductor-wide `settings.json` + repo file + schema defaults, per-key resolution with its source, exceptions = keys that differ, remove-key and tidy, with tests (server and `local.js`) 7efea4d
 - [x] Task: `--watch --all`: feedback and settings changes across every registered project, labelled by project, with tests ec656d3
 - [x] Task: Start command registers its project; a second start hands the project to the running viewer and exits; `--add`, `--forget`, `--list`, with CLI tests 8bce88a
-- [ ] Task: Find projects: depth-limited scan with skip list and a time cap, add selected; add by path, with tests
+- [x] Task: Find projects: depth-limited scan with skip list and a time cap, add selected; add by path, with tests 3f4e2df
 
 ## Phase 3: Home page
 
