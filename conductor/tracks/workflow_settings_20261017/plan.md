@@ -11,7 +11,7 @@
 - [x] Task: Commit the project context, both tracks and the viewer spike as the starting point 5cc6deb 258f462
 - [x] Task: Finalise `settings.schema.json` — `current` strategy as default, `git.notes`, `with-task` testing; tests that the schema is well-formed and this repo's `settings.json` is valid fb29360
 - [x] Task: Settings loading in `serve.py` with tests (missing file → defaults, unknown value → default and flagged, broken JSON → error, never overwritten) f988e3f
-- [ ] Task: Describe the settings in `workflow.md` (template and this repo's copy): what each value changes, safety rules
+- [x] Task: Describe the settings in `workflow.md` (template and this repo's copy): what each value changes, safety rules 1e65287
 
 ## Phase 2: Setup Asks (diagram: git-strategies)
 
