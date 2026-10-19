@@ -7,6 +7,7 @@
 
   const COL_W = 270, ROW_H = 110, REGION_GAP = 110, NODE_W = 190, NODE_H = 56;
   const PAD = 34, LABEL_PAD = 30;
+  const READABLE_K = 0.7;  // below this zoom, node text is too small to read
   const TONES = ["teal", "amber", "violet", "rose", "blue", "green"];
   const KIND_TONE = { agent: "violet", person: "rose", file: "amber", doc: "amber", process: "teal",
     ui: "blue", store: "green", external: "blue", note: "amber" };
@@ -65,6 +66,10 @@
     const manual = nodes.length && nodes.every((n) => Number.isFinite(n.x) && Number.isFinite(n.y));
 
     if (!manual) {
+      // Edge labels sit between columns, so make the gap fit the longest one (11.5px text ≈ 6.6px a character).
+      const longest = Math.max(0, ...edges.map((e) => String(e.label ?? "").length));
+      const gap = Math.min(300, Math.max(COL_W - NODE_W, longest * 6.6 + 40));
+      const colW = NODE_W + gap, regionGap = Math.max(REGION_GAP, gap + 40);
       const groups = regionDefs.map((r) => ({ id: r.id, members: nodes.filter((n) => n.region === r.id) }));
       const loose = nodes.filter((n) => !regionDefs.some((r) => r.id === n.region));
       if (loose.length) groups.push({ id: null, members: loose });
@@ -86,12 +91,12 @@
             n._key = ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : i * ROW_H;
           });
           col.sort((a, b) => a._key - b._key);
-          col.forEach((n, i) => { n.x = cursorX + ci * COL_W; n.y = i * ROW_H; placed.add(n.id); });
+          col.forEach((n, i) => { n.x = cursorX + ci * colW; n.y = i * ROW_H; placed.add(n.id); });
         });
         const height = Math.max(...filled.map((c) => c.length)) * ROW_H;
         filled.forEach((col) => { const off = (height - col.length * ROW_H) / 2; col.forEach((n) => (n.y += off)); });
         blocks.push({ members: g.members, height });
-        cursorX += filled.length * COL_W + REGION_GAP;
+        cursorX += filled.length * colW + regionGap;
       }
       const maxH = Math.max(0, ...blocks.map((b) => b.height));
       blocks.forEach((b) => b.members.forEach((n) => (n.y += (maxH - b.height) / 2)));
@@ -140,12 +145,27 @@
       const k = Math.max(30, Math.abs(p1.y - p0.y) * 0.45);
       c0 = { x: p0.x, y: p0.y + s * k }; c1 = { x: p1.x, y: p1.y - s * k };
     }
-    const t = 0.5, mt = 1 - t;
-    const mid = {
-      x: mt ** 3 * p0.x + 3 * mt * mt * t * c0.x + 3 * mt * t * t * c1.x + t ** 3 * p1.x,
-      y: mt ** 3 * p0.y + 3 * mt * mt * t * c0.y + 3 * mt * t * t * c1.y + t ** 3 * p1.y,
+    const at = (t) => {
+      const mt = 1 - t;
+      return {
+        x: mt ** 3 * p0.x + 3 * mt * mt * t * c0.x + 3 * mt * t * t * c1.x + t ** 3 * p1.x,
+        y: mt ** 3 * p0.y + 3 * mt * mt * t * c0.y + 3 * mt * t * t * c1.y + t ** 3 * p1.y,
+      };
     };
-    return { d: `M${p0.x},${p0.y} C${c0.x},${c0.y} ${c1.x},${c1.y} ${p1.x},${p1.y}`, mid };
+    return { d: `M${p0.x},${p0.y} C${c0.x},${c0.y} ${c1.x},${c1.y} ${p1.x},${p1.y}`, mid: at(0.5), at };
+  }
+
+  // Where to put an edge's label: the point nearest the middle of the curve
+  // whose label box clears every node (an edge that skips a column would
+  // otherwise drop its label on the node in between).
+  function labelSpot(p, label, L) {
+    const w = String(label).length * 6.6 + 12, h = 18;
+    for (const t of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.12, 0.88]) {
+      const c = p.at(t);
+      const clear = L.nodes.every((n) => c.x + w / 2 < n.x || c.x - w / 2 > n.x + n.w || c.y + h / 2 < n.y || c.y - h / 2 > n.y + n.h);
+      if (clear) return c;
+    }
+    return p.mid;
   }
 
   /* ---------- thumbnail (static SVG, estimated sizes) ---------- */
@@ -240,7 +260,7 @@
       <text x="${b.x + 18}" y="${b.y + 24}" fill="${toneVar(b.tone)}">${esc(b.label || b.id)}</text></g>`).join("");
     gEdges.innerHTML = L.edges.map((e, i) => {
       const p = edgePath(L.byId.get(e.from), L.byId.get(e.to), L);
-      return `<g class="wm-edge${e.style === "dashed" ? " dashed" : ""}" data-i="${i}"><path d="${p.d}" marker-end="url(#wm-arr)"/>${e.label ? `<text x="${p.mid.x}" y="${p.mid.y + 4}" text-anchor="middle">${esc(e.label)}</text>` : ""}</g>`;
+      return `<g class="wm-edge${e.style === "dashed" ? " dashed" : ""}" data-i="${i}"><path d="${p.d}" marker-end="url(#wm-arr)"/>${e.label ? (() => { const c = labelSpot(p, e.label, L); return `<text x="${c.x}" y="${c.y + 4}" text-anchor="middle">${esc(e.label)}</text>`; })() : ""}</g>`;
     }).join("");
     const edgeEls = [...gEdges.children];
     const B = () => bounds(L, boxes, svgBox);
@@ -440,6 +460,15 @@
     fit(false);
     vp.focus();
     if (opts.focus && L.byId.has(opts.focus)) select(opts.focus);
+    else if (!isSvg && cam.k < READABLE_K && L.nodes.length) {
+      // Too big to read when fitted: open at a readable zoom on where the story
+      // starts (first tour stop, else the leftmost node). The minimap and Fit show the rest.
+      const start = L.byId.get(tour[0]) || L.nodes.reduce((a, n) => (n.x < a.x ? n : a));
+      const k = READABLE_K, left = 60 - B().x * k;  // the map's left edge, 60px in
+      const x = start.x * k + left + start.w * k < vp.clientWidth - 60 ? left : target(start.x + start.w / 2, 0, k).x;
+      Object.assign(cam, { k, x, y: vp.clientHeight / 2 - (start.y + start.h / 2) * k });
+      apply();
+    }
   }
 
   function close() {

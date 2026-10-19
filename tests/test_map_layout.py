@@ -5,7 +5,7 @@ import random
 import unittest
 
 from browser import Browser, find_browser
-from helpers import REPO
+from helpers import REPO, ServerTest
 
 INDEX = (REPO / "skills" / "conductor-view" / "assets" / "viewer" / "index.html").as_uri()
 NODE_W, NODE_H = 190, 56
@@ -99,6 +99,72 @@ class LayoutTest(unittest.TestCase):
 
     def test_empty_diagram(self):
         self.assertEqual(self.layout({})["nodes"], {})
+
+
+LABEL_OVERLAPS = """(() => {
+  const nodes = [...document.querySelectorAll('.wm-node')].map(n => n.getBoundingClientRect());
+  const hits = [];
+  for (const t of document.querySelectorAll('.wm-edge text')) {
+    const r = t.getBoundingClientRect();
+    for (const n of nodes)
+      if (r.left < n.right - 1 && n.left < r.right - 1 && r.top < n.bottom - 1 && n.top < r.bottom - 1) { hits.push(t.textContent); break; }
+  }
+  return hits; })()"""
+
+
+@unittest.skipUnless(find_browser(), "test browser not installed")
+class EdgeLabelTest(ServerTest):
+    """Edge labels sit in the gaps between columns, never under a node."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.b = Browser(width=1400, height=900)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.b.close()
+
+    def render(self, diagram):
+        self.write("conductor/index.md", "# P\n")
+        self.write("conductor/tracks/t_1/plan.md", "# P\n")
+        self.write("conductor/tracks/t_1/diagrams/d.json", json.dumps(diagram))
+        self.b.goto("about:blank")
+        self.b.goto(f"http://127.0.0.1:{self.port}/#/t_1/diagrams/d", ready="window.WorldMap && window.WorldMap.isOpen()")
+        self.b.js("new Promise(r => setTimeout(r, 900))")
+        return self.b.js(LABEL_OVERLAPS)
+
+    def test_long_labels_between_adjacent_columns(self):
+        d = {"nodes": [node(0), node(1), node(2)],
+             "edges": [{"from": "n0", "to": "n1", "label": "defines store_true flag for shouting"},
+                       {"from": "n1", "to": "n2", "label": "short"}]}
+        self.assertEqual(self.render(d), [])
+
+    def view(self):
+        return self.b.js("""(() => {
+          const k = +document.querySelector('.wm-world').style.transform.match(/scale\\(([\\d.e-]+)\\)/)[1];
+          const vp = document.querySelector('.wm-viewport').getBoundingClientRect();
+          const inside = [...document.querySelectorAll('.wm-node')].filter(n => { const r = n.getBoundingClientRect();
+            return r.left >= vp.left && r.right <= vp.right && r.top >= vp.top && r.bottom <= vp.bottom; }).map(n => n.dataset.id);
+          return { k, inside, total: document.querySelectorAll('.wm-node').length }; })()""")
+
+    def test_big_maps_open_readable_at_the_first_tour_stop(self):
+        d = {"nodes": [node(i) for i in range(14)],
+             "edges": [{"from": f"n{i}", "to": f"n{i + 1}", "label": "a fairly long label"} for i in range(13)],
+             "tour": ["n0", "n1"]}
+        self.render(d)
+        v = self.view()
+        self.assertGreaterEqual(v["k"], 0.7)
+        self.assertIn("n0", v["inside"])
+        self.assertLess(len(v["inside"]), v["total"])
+
+    def test_small_maps_open_showing_everything(self):
+        self.render({"nodes": [node(0), node(1)], "edges": [{"from": "n0", "to": "n1"}]})
+        v = self.view()
+        self.assertEqual(len(v["inside"]), v["total"])
+
+    def test_a_diagram_written_by_codex(self):
+        d = json.loads((REPO / "tests" / "fixtures" / "codex-shout-option-flow.json").read_text(encoding="utf-8"))
+        self.assertEqual(self.render(d), [])
 
 
 if __name__ == "__main__":

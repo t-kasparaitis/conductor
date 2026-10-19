@@ -76,7 +76,8 @@ Write `conductor/tracks/<track_id>/diagrams/<slug>.json`:
 }
 ```
 
--   Put the real explanation in each node's `detail`; keep `label` to 2–5 words.
+-   Put the real explanation in each node's `detail`; keep node labels to 2–5
+    words and edge labels to 1–4 (long edge labels widen every column).
 -   Omit `x`/`y` to auto-layout (regions become left-to-right columns). Give
     **every** node `x`/`y` (pixels, ~330 apart horizontally, ~210 vertically)
     for loops and rings that read better hand-placed.
