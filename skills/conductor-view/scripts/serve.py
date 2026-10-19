@@ -530,26 +530,103 @@ def state_version(root: Path) -> str:
     return h.hexdigest()[:16]
 
 
-def append_feedback(root: Path, payload: dict) -> dict:
-    tid = str(payload.get("track", ""))
+def _track_dir(root: Path, tid: str) -> tuple[Path, bool]:
+    """(folder, archived) for a track id, checked to stay inside conductor/tracks or conductor/archive."""
     if not TRACK_ID_RE.match(tid):
         raise ValueError("invalid track id")
-    tracks_dir = (root / "conductor" / "tracks").resolve()
-    tdir = (tracks_dir / tid).resolve()
-    if tdir.parent != tracks_dir or not tdir.is_dir():
-        raise LookupError("unknown track")
+    for sub, archived in (("tracks", False), ("archive", True)):
+        base = (root / "conductor" / sub).resolve()
+        tdir = (base / tid).resolve()
+        if tdir.parent == base and tdir.is_dir():
+            return tdir, archived
+    raise LookupError("unknown track")
+
+
+REQUEST_TEXT = {
+    "archive": ("Archive this track: move `conductor/tracks/{id}/` to `conductor/archive/{id}/`, "
+                "remove it from the tracks registry, and commit."),
+    "restore": ("Restore this track: move `conductor/archive/{id}/` back to `conductor/tracks/{id}/`, "
+                "add it back to the tracks registry, and commit."),
+    "delete": ("Delete this track for good: remove its folder and its tracks registry entry, and commit. "
+               "Check its git state first and confirm with me in chat before deleting."),
+}
+
+
+def _git_note(root: Path, tid: str, archived: bool) -> str:
+    d = gitinfo.track_detail(root, tid, archived)
+    if not d["git"]:
+        return "Git state when requested: not a git repo, so nothing protects these files."
+    parts = []
+    if d["uncommitted"]:
+        parts.append(f"{d['uncommitted']} uncommitted file(s)")
+    if d["unpushed"] and d["remote"]:
+        parts.append(f"{d['unpushed']} commit(s) not on any remote")
+    if not d["remote"]:
+        parts.append("no remote")
+    if d["landed"]:
+        parts.append(f"branch `{d['branch']}` is merged into {d['main']}")
+    return "Git state when requested: " + ("; ".join(parts) if parts else "committed and pushed") + "."
+
+
+def append_feedback(root: Path, payload: dict) -> dict:
+    tid = str(payload.get("track", ""))
+    tdir, archived = _track_dir(root, tid)
     kind = str(payload.get("kind", "comment")).lower()
-    if kind not in {"comment", "approve", "revise"}:
+    if kind not in {"comment", "approve", "revise", *REQUEST_KINDS}:
         raise ValueError("invalid kind")
-    target = " ".join(str(payload.get("target", "track")).split())[:300]
-    text = str(payload.get("text", "")).strip()[:20000]
-    if kind == "comment" and not text:
-        raise ValueError("empty comment")
+    if archived and kind not in ("restore", "delete"):
+        raise ValueError("archived tracks are read-only: restore it first")
+    if kind == "archive" and archived or kind == "restore" and not archived:
+        raise ValueError(f"can't {kind} a track that is {'already archived' if archived else 'not archived'}")
+    fb = tdir / "feedback.md"
+    if kind in REQUEST_KINDS:
+        if kind == "delete" and payload.get("confirm") != tid:
+            raise ValueError("type the track id to confirm a delete")
+        for it in parse_feedback(_read(fb) or ""):
+            if it["status"] == "open" and it["kind"] == kind:
+                return {"id": it["id"], "existing": True}
+        # The request text is ours, not the browser's: an agent acts on it.
+        text = REQUEST_TEXT[kind].format(id=tid) + "\n\n" + _git_note(root, tid, archived)
+        note = str(payload.get("text", "")).strip()[:2000]
+        if note:
+            text += "\n\nNote from the user: " + " ".join(note.split())
+        target = "track"
+    else:
+        target = " ".join(str(payload.get("target", "track")).split())[:300]
+        text = str(payload.get("text", "")).strip()[:20000]
+        if kind == "comment" and not text:
+            raise ValueError("empty comment")
     # Keep user text from forging item headings or agent replies.
     text = "\n".join(("\\" + l if l.startswith(("###", ">")) else l) for l in text.splitlines())
-    fb = tdir / "feedback.md"
     with WRITE_LOCK:
         return _append_item(fb, tid, kind, target, text)
+
+
+def withdraw_request(root: Path, payload: dict) -> dict:
+    """Take back an open archive/restore/delete request before the agent acts on it."""
+    tid, fid = str(payload.get("track", "")), str(payload.get("id", ""))
+    tdir, _ = _track_dir(root, tid)
+    fb = tdir / "feedback.md"
+
+    def build(text):
+        lines = (text or "").split("\n")
+        for i, line in enumerate(lines):
+            h = FB_HEAD.match(line.strip())
+            if h and h.group(1) == fid:
+                if h.group(2).lower() != "open" or h.group(3).lower() not in REQUEST_KINDS:
+                    raise ValueError("only an open archive, restore or delete request can be withdrawn")
+                lines[i] = f"### {fid} · resolved · {h.group(3).lower()}"
+                j = i + 1
+                while j < len(lines) and not lines[j].startswith("### "):
+                    j += 1
+                while j > i + 1 and not lines[j - 1].strip():
+                    j -= 1
+                lines[j:j] = ["", "> **Withdrawn** in the viewer before the agent acted on it."]
+                return "\n".join(lines), {"id": fid, "withdrawn": True}
+        raise LookupError("no such request")
+
+    with WRITE_LOCK:
+        return _rewrite(fb, build)
 
 
 def _umask() -> int:
@@ -1079,6 +1156,8 @@ class Handler(BaseHTTPRequestHandler):
         """Route a POST. Returns (result, status)."""
         if path == "/api/feedback":
             return append_feedback(self._root_for(payload.get("project")), payload), HTTPStatus.CREATED
+        if path == "/api/feedback/withdraw":
+            return withdraw_request(self._root_for(payload.get("project")), payload), HTTPStatus.OK
         if path == "/api/settings":
             root = None if payload.get("scope") == "main" else self._root_for(payload.get("project"))
             return update_setting(root, payload), HTTPStatus.OK
