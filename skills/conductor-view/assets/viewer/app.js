@@ -278,7 +278,7 @@
       <div class="pg ${p.status}" style="flex-grow:${Math.max(p.tasks.length, 1)}">
         <button class="pg-phase" data-goto-phase="${i}" aria-current="${tab === "plan" && !showAll.plan && i === planFocus(t)}" title="Phase ${i + 1}: ${esc(clean(p.title))} — ${p.done}/${p.total}">
           <span class="pg-num">${p.status === "done" ? "✓" : i + 1}</span><span class="pg-name">${esc(clean(p.title))}</span></button>
-        <div class="pg-tasks">${p.tasks.map((task, j) => `<button class="pg-task ${task.status}" data-goto-task="${i}/${j}" title="${esc(STATUS_LABEL[task.status] || task.status)}: ${esc(clean(task.text).replace(/`/g, ""))}"></button>`).join("")}</div>
+        <div class="pg-tasks">${p.tasks.map((task, j) => `<button class="pg-task ${task.status}" data-goto-task="${i}/${j}" aria-label="Phase ${i + 1}, task ${j + 1}, ${esc(STATUS_LABEL[task.status] || task.status)}: ${esc(clean(task.text).replace(/`/g, ""))}" title="${esc(STATUS_LABEL[task.status] || task.status)}: ${esc(clean(task.text).replace(/`/g, ""))}"></button>`).join("")}</div>
       </div>`).join("");
   }
 

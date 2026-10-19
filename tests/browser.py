@@ -139,6 +139,22 @@ class Browser:
             raise RuntimeError(res["exceptionDetails"].get("exception", {}).get("description", res["exceptionDetails"]))
         return res["result"].get("value")
 
+    def init_script(self, source):
+        """Run JavaScript in every new document before its own scripts. Returns an id for remove_init_script."""
+        return self.call("Page.addScriptToEvaluateOnNewDocument", source=source)["identifier"]
+
+    def remove_init_script(self, identifier):
+        self.call("Page.removeScriptToEvaluateOnNewDocument", identifier=identifier)
+
+    def key(self, key, code=None, key_code=0):
+        """Press and release one key in the focused element, as a user would."""
+        text = {"Enter": "\r", " ": " "}.get(key, key if len(key) == 1 else "")
+        down = {"type": "keyDown", "key": key, "code": code or key, "windowsVirtualKeyCode": key_code}
+        if text:
+            down["text"] = text
+        self.call("Input.dispatchKeyEvent", **down)
+        self.call("Input.dispatchKeyEvent", type="keyUp", key=key, code=code or key, windowsVirtualKeyCode=key_code)
+
     def goto(self, url, ready="document.readyState === 'complete'"):
         self.call("Page.navigate", url=url)
         self.wait(ready)
