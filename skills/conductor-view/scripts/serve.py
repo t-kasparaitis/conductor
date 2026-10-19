@@ -49,7 +49,8 @@ def parse_registry(text: str) -> list[dict]:
     entries: list[dict] = []
     current: dict | None = None
     for line in text.splitlines():
-        m = re.match(r"^\s*-\s*\[([ ~xX])\]\s*\*\*(?:Track:\s*)?(.+?)\*\*", line)
+        m = (re.match(r"^\s*-\s*\[([ ~xX])\]\s*\*\*(?:Track:\s*)?(.+?)\*\*", line)
+             or re.match(r"^##\s*\[([ ~xX])\]\s*Track:\s*(.+?)\s*$", line))  # legacy format
         if m:
             current = {"status": STATUS[m.group(1)], "description": m.group(2).strip(), "link": None}
             entries.append(current)
@@ -62,7 +63,23 @@ def parse_registry(text: str) -> list[dict]:
     return entries
 
 
-_SHA = r"(?:\s+`?\[?([0-9a-f]{7,40})\]?`?)?\s*$"
+_SHA = re.compile(r"\s+`?\[?([0-9a-f]{7,40})\]?`?\s*$")
+
+
+def _split_shas(body: str):
+    """Strip one or more trailing commit SHAs: 'Do it abc1234 def5678' -> ('Do it', [...])."""
+    shas = []
+    while True:
+        m = _SHA.search(body)
+        if not m:
+            return body, shas[::-1]
+        shas.append(m.group(1))
+        body = body[: m.start()].rstrip()
+
+
+def _is_checkpoint(text: str) -> bool:
+    low = text.lower()
+    return "sign-off" in low or ("verification" in low and "checkpoint" in low)
 
 
 def parse_plan(text: str) -> dict:
@@ -86,23 +103,21 @@ def parse_plan(text: str) -> dict:
         m = re.match(r"^(\s*)[-*]\s+\[([ ~xX])\]\s+(.*)$", line)
         if m and phase is not None:
             indent, mark, body = len(m.group(1).expandtabs(4)), m.group(2), m.group(3)
-            sha_m = re.search(_SHA, body)
-            sha = sha_m.group(1) if sha_m and sha_m.group(1) else None
-            if sha:
-                body = body[: sha_m.start()].rstrip()
+            body, shas = _split_shas(body)
+            sha = shas[-1] if shas else None
             if indent == 0 or task is None:
-                is_task = body.lower().startswith("task:")
                 task = {
                     "text": re.sub(r"^task:\s*", "", body, flags=re.I),
                     "status": STATUS[mark],
                     "sha": sha,
-                    "is_checkpoint": is_task and "verification" in body.lower() and ("checkpoint" in body.lower() or "sign-off" in body.lower()),
+                    "shas": shas,
+                    "is_checkpoint": body.lower().startswith("task:") and _is_checkpoint(body),
                     "subtasks": [],
                     "notes": [],
                 }
                 phase["tasks"].append(task)
             else:
-                task["subtasks"].append({"text": body, "status": STATUS[mark], "sha": sha})
+                task["subtasks"].append({"text": body, "status": STATUS[mark], "sha": sha, "shas": shas})
             continue
         if not line.strip():
             continue

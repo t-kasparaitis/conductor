@@ -139,6 +139,8 @@
   const commentIcon = '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
   const commentBtn = (target, label = "Comment") => SNAPSHOT ? "" : `<button class="comment-btn" data-comment="${esc(target)}">${commentIcon}${label}</button>`;
 
+  const shaChips = (x) => (x.shas || (x.sha ? [x.sha] : [])).map((h) => `<span class="sha">${esc(h.slice(0, 7))}</span>`).join("");
+
   function trackTotals(t) {
     const tasks = t.plan.phases.flatMap((p) => p.tasks);
     return { done: tasks.filter((x) => x.status === "done").length, total: tasks.length, tasks };
@@ -312,9 +314,9 @@
           ${statusIcon(task.status)}
           <div class="task-line"><span class="task-text">${inline(task.text, ctx)}</span>
             ${n ? `<span class="has-fb" title="Open feedback">${commentIcon}${n}</span>` : ""}
-            ${task.sha ? `<span class="sha">${esc(task.sha.slice(0, 7))}</span>` : ""}
+            ${shaChips(task)}
             ${commentBtn(tt)}</div>
-          ${task.subtasks.length ? `<ul class="subtasks">${task.subtasks.map((s) => `<li class="subtask">${statusIcon(s.status)}<span>${inline(s.text, ctx)}</span>${s.sha ? `<span class="sha">${esc(s.sha.slice(0, 7))}</span>` : ""}</li>`).join("")}</ul>` : ""}
+          ${task.subtasks.length ? `<ul class="subtasks">${task.subtasks.map((s) => `<li class="subtask">${statusIcon(s.status)}<span>${inline(s.text, ctx)}</span>${shaChips(s)}</li>`).join("")}</ul>` : ""}
           ${task.notes.length ? `<div class="notes md">${md(task.notes.join("\n"), ctx)}</div>` : ""}
         </li>`;
       }).join("");

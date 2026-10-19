@@ -33,7 +33,8 @@ The track id is the link's parent folder name.
 *Link: [./tracks/<id>/index.md](./tracks/<id>/index.md)*
 ```
 
-Status marks: `[ ]` pending, `[~]` in progress, `[x]` done.
+Status marks: `[ ]` pending, `[~]` in progress, `[x]` done. The legacy
+`## [ ] Track: description` heading form is also read.
 
 ## `plan.md`
 
@@ -57,8 +58,8 @@ Status marks: `[ ]` pending, `[~]` in progress, `[x]` done.
     the task above it.
 -   One or more 7–40 character hex SHAs at the end of a task or sub-task
     line are its commits (`abc1234`, `` `abc1234` `` or `[abc1234]`).
--   A task whose text mentions "verification" and "checkpoint" or "sign-off"
-    is drawn as a checkpoint.
+-   A task whose text mentions "sign-off", or both "verification" and
+    "checkpoint", is drawn as a checkpoint.
 -   A phase is done when all its tasks are done, in progress when any task
     has started, and pending otherwise.
 
