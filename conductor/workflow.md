@@ -14,7 +14,8 @@
 
 ## Workflow Settings
 
-`conductor/settings.json` holds this project's choices. **Re-read it before you
+`conductor/settings.json` holds this project's choices (read it from there
+even if `conductor/index.md` doesn't link it). **Re-read it before you
 plan, commit, push or verify**: the user can change it at any time, for
 example from the Conductor viewer. A missing file or key means the default.
 
@@ -95,8 +96,9 @@ All tasks follow a strict lifecycle:
 
 9.  **Commit Code Changes** when `git.commit` says:
 
-    -   **`task`:** commit now. Stage all code changes related to the task and
-        use a clear, concise message, e.g. `feat(ui): Create basic HTML
+    -   **`task`:** commit now. Stage the task's files by name (never build
+        output or caches such as `__pycache__/`; add them to `.gitignore` if
+        missing) and use a clear, concise message, e.g. `feat(ui): Create basic HTML
         structure for calculator`.
     -   **`phase` / `track`:** don't commit yet. Mark the task `[x]` without a
         SHA and continue; the commit happens at the end of the phase or track,
@@ -120,7 +122,9 @@ All tasks follow a strict lifecycle:
 
     -   **Step 11.1: Update Plan:** Read `plan.md`, find the line for the
         completed task, update its status from `[~]` to `[x]`, and append the
-        first 7 characters of the *just-completed commit's* commit hash.
+        first 7 characters of the *just-completed commit's* commit hash. A
+        task that changed no files (for example "Run the full suite") is
+        marked `[x]` without a SHA.
     -   **Step 11.2: Write Plan:** Write the updated content back to `plan.md`.
 
 12. **Commit Plan Update:**
@@ -128,7 +132,7 @@ All tasks follow a strict lifecycle:
     -   **Action:** Stage the modified `plan.md` file.
     -   **Action:** Commit this change with a descriptive message (e.g.,
         `conductor(plan): Mark task 'Create user model' as complete`), or
-        include it in the next task's commit.
+        include it in the next task's commit. Either is fine.
 
 ### Task Correction & Plan Amendment Workflows
 
@@ -155,11 +159,14 @@ When a task completes a phase in `plan.md`:
 
 1.  Run the full automated test suite. If it fails, fix it before going on.
 2.  If `git.commit` is `phase`, commit the phase's work now.
-3.  If `testing.verification` is `phase`, run the **Phase Completion
+3.  With `git.strategy = trunk`, rebase the track branch onto `origin/main`
+    and re-run the suite (see [Branching, Pushing and Landing](#branching-pushing-and-landing)).
+4.  If `testing.verification` is `phase`, run the **Phase Completion
     Verification and Checkpointing Protocol** below. If it is `track`, tell the
     user the phase is done in one line and continue with the next phase
     without waiting.
-4.  If `git.push` is `phase`, push the track branch (see
+5.  If `git.push` is `phase`, push the track branch (after the user's sign-off
+    when step 4 ran the protocol) (see
     [Branching, Pushing and Landing](#branching-pushing-and-landing)).
 
 ### Phase Completion Verification and Checkpointing Protocol
@@ -174,8 +181,8 @@ When a task completes a phase in `plan.md`:
     -   **Step 2.1: Determine Phase Scope:** To identify the files changed in
         this phase, you must first find the starting point. Read `plan.md` to
         find the Git commit SHA of the *previous* phase's checkpoint. If no
-        previous checkpoint exists, the scope is all changes since the first
-        commit.
+        previous checkpoint exists, the scope is all changes since the
+        track's first commit.
     -   **Step 2.2: List Changed Files:** Execute `git diff --name-only
         <previous_checkpoint_sha> HEAD` to get a precise list of all files
         modified during this phase.
@@ -251,8 +258,8 @@ When a task completes a phase in `plan.md`:
 
 8.  **Get and Record Phase Checkpoint SHA:**
 
-    -   **Step 8.1: Get Commit Hash:** Obtain the hash of the *just-created
-        checkpoint commit* (`git log -1 --format="%H"`).
+    -   **Step 8.1: Get Commit Hash:** Use the hash of the commit identified
+        in step 6 (the last functional commit of the phase).
     -   **Step 8.2: Update Plan:** Read `plan.md`, find the heading for the
         completed phase, and append the first 7 characters of the commit hash in
         the format `[checkpoint: <sha>]`.
@@ -270,9 +277,9 @@ When a task completes a phase in `plan.md`:
 
 ### Track Verification Protocol
 
-**Trigger:** The last phase has ended and `testing.verification` is `track`.
-Plans written under this setting end with a **Track Verification** phase; its
-tasks are carried out by this protocol.
+**Trigger:** `testing.verification` is `track` and every phase before the
+final **Track Verification** phase is done. Plans written under this setting
+end with that phase; this protocol is how its tasks are carried out.
 
 It is the Phase Completion protocol above, scoped to the whole track:
 
@@ -288,10 +295,13 @@ It is the Phase Completion protocol above, scoped to the whole track:
     gets its own task under the Track Verification phase, tests included, and
     the suite is re-run. Repeat until the user signs off with an explicit yes.
 5.  **Record:** commit any remaining work (per `git.commit`), attach the
-    verification report as a git note if `git.notes` is `on`, and mark the
-    Track Verification phase with `[checkpoint: <sha>]`.
-6.  **Push and hand off:** push per `git.push`, then stop at "branch ready" and
-    show the user the landing commands for their strategy.
+    verification report as a git note to the last functional commit if
+    `git.notes` is `on`, and mark the Track Verification phase with
+    `[checkpoint: <sha>]` using that commit's SHA.
+6.  **Push and hand off:** push if `git.push` is `phase` or `track`; with
+    `ask`, ask once now. This is the only point where `ask` prompts on its
+    own. Then stop at "branch ready" and show the user the landing commands
+    for their strategy.
 
 ## Branching, Pushing and Landing
 
@@ -306,8 +316,8 @@ branches. Push only as `git.push` says, with a plain `git push`.
 ### `feature-branch`
 
 -   **Start:** `git switch -c <track_id> main`, then
-    `git branch --unset-upstream` if one was set. The plan's first task does
-    this.
+    `git branch --unset-upstream` if one was set. `conductor-new-track` does
+    this when it creates the track; `conductor-implement` switches to it.
 -   **Push:** `git push -u origin <track_id>`. Never force; pushed history is
     permanent.
 -   **Keep up to date (optional):** `git merge origin/main` into the track
@@ -318,9 +328,11 @@ branches. Push only as `git.push` says, with a plain `git push`.
 ### `trunk`
 
 -   **Start:** `git fetch origin && git switch -c <track_id> origin/main`, then
-    `git branch --unset-upstream`. The plan's first task does this. Keep the
-    branch short-lived.
--   **Stay current:** before every push, and at least at the end of each phase:
+    `git branch --unset-upstream`. `conductor-new-track` does this when it
+    creates the track; `conductor-implement` switches to it. Keep the branch
+    short-lived.
+-   **Stay current:** when you resume work on the branch, before every push,
+    and at the end of each phase:
     `git fetch origin && git rebase origin/main`. Resolve conflicts commit by
     commit and re-run the suite.
 -   **Push:** `git push --force-with-lease --force-if-includes origin <track_id>`

@@ -42,7 +42,7 @@ Before starting the review process, you MUST locate and read the project's found
     -   **Tech Stack** (`tech-stack.md`)
     -   **Workflow** (`workflow.md`)
     -   **Product Guidelines** (`product-guidelines.md`)
-    -   **Workflow Settings** (`settings.json`, optional): read it if it exists. A missing file or key means the default listed in the **Workflow**'s Workflow Settings section.
+    -   **Workflow Settings** (`settings.json`, optional): read `conductor/settings.json` if it exists, whether or not the index links it. A missing file or key means the default listed in the **Workflow**'s Workflow Settings section.
     -   **Health Check:** You MUST verify that every linked file actually exists. If ANY of these core files are missing, HALT immediately. Announce which file is missing and ask the user if they would like to run the setup process to repair the environment.
 
 ---

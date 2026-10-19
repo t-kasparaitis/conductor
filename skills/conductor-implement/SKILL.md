@@ -34,7 +34,7 @@ Before starting the implementation process, you MUST locate and read the project
     -   **Product Definition** (`product.md`)
     -   **Tech Stack** (`tech-stack.md`)
     -   **Workflow** (`workflow.md`)
-    -   **Workflow Settings** (`settings.json`, optional): read it if it exists. A missing file or key means the default listed in the **Workflow**'s Workflow Settings section.
+    -   **Workflow Settings** (`settings.json`, optional): read `conductor/settings.json` if it exists, whether or not the index links it. A missing file or key means the default listed in the **Workflow**'s Workflow Settings section.
     -   **Health Check:** You MUST verify that every linked file actually exists. If ANY of these core files are missing, HALT immediately. Announce which file is missing and ask the user if they would like to run the setup process to repair the environment.
 
 ---
@@ -73,8 +73,8 @@ Adhere to this sequence to execute the selected track.
     -   `trunk` / `feature-branch`: if a branch named `<track_id>` exists, switch to it (with `trunk`, then rebase it onto `origin/main` as the Workflow says). If it doesn't, create it with the **Start** commands in the Workflow's "Branching, Pushing and Landing" section. Never do the track's work on `main`.
 
 3.  **Update Status to 'In Progress':**
-    -   Before beginning any work, update the status of the selected track to `[~]` in the **Tracks Registry** file.
-    -   Stage the file and commit: `chore(conductor): Mark track '<track_description>' as in progress`.
+    -   Before beginning any work, update the status of the selected track to `[~]` in the **Tracks Registry** file, and set `"status": "in_progress"` (and `updated_at`) in the track's `metadata.json`.
+    -   Stage both files and commit: `chore(conductor): Mark track '<track_description>' as in progress`.
 
 4.  **Load Track Context:**
     -   Identify the track folder from the tracks file to get the `<track_id>`.
@@ -88,15 +88,15 @@ Adhere to this sequence to execute the selected track.
     -   Loop through each task in the track's **Implementation Plan** one by one.
     -   For each task, defer to the **Workflow** file as the single source of truth for implementation, testing, committing and pushing, applying the **Workflow Settings**.
     -   **Re-read `settings.json`** before every commit, push and verification step. The user can change it at any time (for example in the Conductor viewer); follow the new value from that point on and mention the change in chat.
-    -   **Phase ends:** follow the Workflow's "End of a Phase" steps. With `testing.verification = track` this means: run the suite, commit/push if the settings say so, say in one line that the phase is done, and continue without waiting for the user.
-    -   **Pushing:** only as `git.push` says, and with `ask` only after the user agrees in chat. Never force-push `main` or a branch that wasn't created for this track.
+    -   **Phase ends:** follow the Workflow's "End of a Phase" steps. With `testing.verification = track` this means: run the suite, commit if `git.commit` is `phase`, rebase if `git.strategy` is `trunk`, push if `git.push` is `phase`, say in one line that the phase is done, and continue without waiting for the user.
+    -   **Pushing:** only as `git.push` says. With `ask`, push only when the user asks or agrees in chat; the Workflow asks once, after the track is verified. Never force-push `main` or a branch that wasn't created for this track.
     -   Ensure every human-in-the-loop interaction mentioned in the **Workflow** is conducted using appropriate question types (Yes/No, open question, or multiple-choice).
 
 6.  **Finalize Track:**
     -   With `testing.verification = track`, the final Track Verification phase (the Workflow's Track Verification protocol) must have ended with the user's explicit sign-off before you continue.
-    -   After all tasks are completed, update the track status to `[x]` in the **Tracks Registry**.
-    -   Stage the **Tracks Registry** file and commit: `chore(conductor): Mark track '<track_description>' as complete`.
-    -   Push if `git.push` is `phase` or `track`; with `ask`, ask once now.
+    -   After all tasks are completed, update the track status to `[x]` in the **Tracks Registry** and set `"status": "completed"` in its `metadata.json`.
+    -   Stage both files and commit: `chore(conductor): Mark track '<track_description>' as complete`.
+    -   Push this last commit the same way the Track or Phase Verification protocol pushed (with `ask`, only if the user agreed there).
     -   **Branch Ready:** with `trunk` or `feature-branch`, stop here. Never merge into or push to `main` yourself. Show the user the landing commands for their strategy from the Workflow (fast-forward / rebase-merge for `trunk`, PR or `merge --no-ff` for `feature-branch`).
     -   Announce that the track is fully complete.
 

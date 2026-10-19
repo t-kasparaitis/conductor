@@ -57,7 +57,7 @@ class SkillsObeySettingsTest(unittest.TestCase):
     def test_core_skills_load_settings_in_their_handshake(self):
         for name in ("conductor-new-track", "conductor-implement", "conductor-review", "conductor-status"):
             handshake = section(skill(name), "## 1. Handshake")
-            self.assertIn("**Workflow Settings** (`settings.json`, optional)", handshake, name)
+            self.assertIn("read `conductor/settings.json` if it exists", handshake, name)
 
     def test_new_track_shapes_plans_for_every_testing_value(self):
         plan = section(skill("conductor-new-track"), "### 2.3 Interactive Plan Generation")

@@ -108,6 +108,13 @@ class WorkflowDocTest(unittest.TestCase):
     def test_repo_copy_table_matches_schema(self):
         self.assertEqual(self.table(REPO / "conductor" / "workflow.md"), self.expected())
 
+    def test_repo_copy_only_differs_in_its_commands(self):
+        def outside_commands(path):
+            text = path.read_text(encoding="utf-8")
+            return text[:text.index("## Development Commands")] + text[text.index("## Testing Requirements"):]
+        self.assertEqual(outside_commands(REPO / "conductor" / "workflow.md"),
+                         outside_commands(REPO / "skills" / "conductor-setup" / "assets" / "workflow.md"))
+
 
 if __name__ == "__main__":
     unittest.main()

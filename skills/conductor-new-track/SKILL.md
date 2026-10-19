@@ -36,7 +36,7 @@ Before starting the planning process, you MUST locate and read the project's fou
     -   **Product Definition** (`product.md`)
     -   **Tech Stack** (`tech-stack.md`)
     -   **Workflow** (`workflow.md`)
-    -   **Workflow Settings** (`settings.json`, optional): read it if it exists. A missing file or key means the default listed in the **Workflow**'s Workflow Settings section.
+    -   **Workflow Settings** (`settings.json`, optional): read `conductor/settings.json` if it exists, whether or not the index links it. A missing file or key means the default listed in the **Workflow**'s Workflow Settings section.
     -   **Health Check:** You MUST verify that every linked file actually exists. If ANY of these core files are missing, HALT immediately. Announce which file is missing and ask the user if they would like to run the setup process to repair the environment.
 
 ---
@@ -104,17 +104,17 @@ Adhere to this sequence precisely.
         -   Parent Task: `- [ ] Task: ...`
         -   Sub-task: `- [ ] ...`
     *   **Testing (`testing.style`):**
-        -   `tdd` (default): a "Write failing tests" task or sub-task precedes each implementation task.
+        -   `tdd` (default): each implementation task starts with a "Write failing tests" sub-task, so red and green happen inside one task and a failing test is never committed on its own.
         -   `with-task`: each implementation task says which tests it adds, e.g. `- [ ] Task: Parse the config file, with tests for missing and malformed files`. No separate test tasks.
         -   `after`: no test tasks in the implementation phases; the tests are written in the verification phase(s).
     *   **Verification (`testing.verification`):**
         -   `phase` (default): append a final meta-task to every **Phase**: `- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)`.
-        -   `track`: no per-phase checkpoint tasks. End the plan with a final phase:
+        -   `track`: no per-phase checkpoint tasks. End the plan with a final phase like this, keeping the first task only when `testing.style` is `after`:
 
             ```markdown
             ## Phase N: Track Verification
 
-            - [ ] Task: Write tests for the whole track (only when `testing.style` is `after`)
+            - [ ] Task: Write tests for the whole track
             - [ ] Task: Run the full suite
             - [ ] Task: Try it with the user, iterate on feedback, sign-off (Refer to workflow.md)
             ```
