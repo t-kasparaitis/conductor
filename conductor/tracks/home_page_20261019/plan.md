@@ -13,7 +13,7 @@
 
 ## Phase 2: Project registry and port
 
-- [ ] Task: Config folder per OS and `CONDUCTOR_VIEW_HOME`; atomic `projects.json` and `config.json`; corrupt files kept as `.bad`, with tests
+- [ ] Task: Config folder per OS and `CONDUCTOR_VIEW_HOME`; atomic `projects.json` and `config.json`; an unreadable file is renamed to `.bad-<time>` instead of overwritten, with a banner and Restore, with tests
 - [ ] Task: Port priority `--port` > `CONDUCTOR_VIEW_PORT` > `config.json` > 4177, reported with its source, with tests
 - [ ] Task: Serve many projects: `/api/projects` and per-project `/api/state`; every path resolved inside a registered project; track ids always scoped by project, with HTTP and path-escape tests
 - [ ] Task: Per-project summary cache keyed on each project's file versions; the poll re-reads only changed projects, with tests for 50 projects and two changing at once

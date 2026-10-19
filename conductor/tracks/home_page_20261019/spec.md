@@ -189,9 +189,27 @@ work stands in git:
     inside registered projects' `conductor/` folders, and only writes
     `feedback.md`, `conductor/settings.json` and its own `projects.json` and
     `config.json`.
--   **Persistence:** the registry and config are written atomically and
-    survive restarts. A corrupt `projects.json` is kept (renamed `.bad`) and
-    reported, not overwritten silently.
+-   **Persistence:** the viewer's own files (`projects.json`, `config.json`
+    and the main-rules `settings.json`) survive restarts and are written
+    atomically: the new content goes to a temporary file that then replaces
+    the old one in one step, so a crash or power cut mid-write leaves the
+    old file or the new one, never half of each.
+-   **When one of those files can't be read** (for example you edited it
+    by hand and left a stray comma, so it isn't valid JSON any more):
+    -   The viewer doesn't overwrite it. If it did, the next save would
+        replace your list of projects with an empty one and they'd be gone.
+    -   Instead it renames the file, e.g. `projects.json` →
+        `projects.json.bad-2026-10-19T1902`, starts with an empty list (or
+        default config), and shows a banner on every page: "Couldn't read
+        projects.json (line 4: expected ',' ). Your old file is saved as
+        projects.json.bad-…; fix it and click Restore, or re-add projects."
+    -   **Restore** re-reads the `.bad` file and, if it is valid now, puts it
+        back. Nothing is ever deleted; old `.bad` copies stay until you
+        remove them.
+    -   The same rule covers `config.json` and the main-rules
+        `settings.json`. A repo's own `conductor/settings.json` is not
+        renamed: the viewer shows its error and leaves the file for you or
+        the agent to fix, as it does today.
 -   **Many repos at once:** there is no limit on how many projects are
     registered, and agents may be working in several at the same time.
     -   The home page loads within a second for 50 projects of 20 tracks
