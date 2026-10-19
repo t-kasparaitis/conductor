@@ -83,12 +83,12 @@
           "options": [
             {
               "value": "on",
-              "label": "On",
+              "label": "Git notes on",
               "summary": "Attach a task summary to each task commit and the verification report to the last commit of each verified phase or track, with `git notes`."
             },
             {
               "value": "off",
-              "label": "Off",
+              "label": "Git notes off",
               "summary": "No git notes. Summaries live in commit messages and plan.md only. Notes aren't pushed by default, so many teams never see them."
             }
           ]

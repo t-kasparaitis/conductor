@@ -418,7 +418,7 @@
 
   function workflowChips() {
     const eff = (state.settings && state.settings.effective) || {};
-    const keys = ["git.strategy", "git.commit", "git.push", "testing.style", "testing.verification"];
+    const keys = Object.keys(eff);
     const chips = keys.map((k) => { const o = eff[k] && optionOf(k, eff[k].value); return o ? `<button class="chip wf" data-view="settings" title="${esc(settingDef(k).label)} — change in Workflow settings">${esc(o.label)}</button>` : ""; }).join("");
     return chips ? `<div class="wf-row"><span class="muted small">Workflow</span>${chips}</div>` : "";
   }
