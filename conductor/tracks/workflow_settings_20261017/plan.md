@@ -35,6 +35,7 @@
 ## Phase 5: Track Verification
 
 - [ ] Task: Full automated suite on Linux, macOS and Windows CI (needs a push — ask first)
-- [ ] Task: Scenario runs in a scratch repo: each strategy, `phase` vs `track` verification (plan shape, commits, pushes)
-- [ ] Task: Backward-compatibility run: a project with no `settings.json` behaves exactly as upstream
-- [ ] Task: You try it, leave feedback in the viewer, we iterate; sign-off (Refer to workflow.md)
+- [x] Task: Scenario run in a scratch repo: trunk + tests with each task + verification at track end (plan shape, branch, commits, no pushes)
+- [x] Task: Backward-compatibility run: a project with no `settings.json` behaves exactly as upstream
+- [x] Task: Fix the instructions the scenario agents found unclear (branch creation, rebase points, when `ask` asks, checkpoint SHA, metadata status, settings path) 1a74344
+- [~] Task: You try it, leave feedback in the viewer, we iterate; sign-off (Refer to workflow.md)
