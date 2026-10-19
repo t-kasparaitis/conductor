@@ -1,10 +1,12 @@
 """Shared test helpers. Every test works in a fresh temporary project and never
 touches this repo's own conductor/ directory."""
 
+import http.client
 import importlib.util
 import json
 import shutil
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -41,3 +43,34 @@ class TempProject(unittest.TestCase):
 
     def read(self, rel):
         return (self.root / rel).read_text(encoding="utf-8")
+
+
+class ServerTest(TempProject):
+    def setUp(self):
+        super().setUp()
+        handler = type("TestHandler", (serve.Handler,), {"root": self.root})
+        self.httpd = serve.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        self.port = self.httpd.server_address[1]
+        threading.Thread(target=self.httpd.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
+        self.addCleanup(self.httpd.server_close)
+        self.addCleanup(self.httpd.shutdown)
+
+    def request(self, method, path, body=None, headers=None):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        self.addCleanup(conn.close)
+        data = body if isinstance(body, (bytes, type(None))) else json.dumps(body).encode()
+        hdrs = {"Content-Type": "application/json"}
+        hdrs.update(headers or {})
+        conn.request(method, path, body=data, headers=hdrs)
+        resp = conn.getresponse()
+        raw = resp.read()
+        try:
+            return resp.status, json.loads(raw)
+        except ValueError:
+            return resp.status, raw
+
+    def post_setting(self, key, value, **kw):
+        return self.request("POST", "/api/settings", {"key": key, "value": value}, **kw)
+
+    def settings_file(self):
+        return json.loads(self.read("conductor/settings.json"))

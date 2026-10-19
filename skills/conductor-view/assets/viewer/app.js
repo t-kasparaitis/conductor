@@ -8,7 +8,12 @@
 
   let state = null, version = null, current = null, tab = "plan", view = "track";
   let prevStatuses = new Map();
-  const ui = { feedbackFilter: "open" };
+  const ui = { feedbackFilter: "open", focus: {} };
+  // Focus mode: the plan shows one phase and the spec one section at a time,
+  // unless "show all" is on. ui.focus[track] = { plan: index, spec: index }.
+  const showAll = { plan: false, spec: false };
+  try { Object.assign(showAll, JSON.parse(localStorage.getItem("conductor-view-show-all") || "{}")); } catch {}
+  function saveShowAll() { try { localStorage.setItem("conductor-view-show-all", JSON.stringify(showAll)); } catch {} }
 
   /* ---------------- markdown (escape first, then format) ---------------- */
 
@@ -210,13 +215,6 @@
     const preamble = t.plan.preamble.length ? `<div class="preamble md">${md(t.plan.preamble.join("\n"), ctx)}</div>` : "";
     const created = (t.metadata.created_at || "").slice(0, 10);
 
-    const rail = t.plan.phases.map((p, i) => `
-      <button class="station ${p.status}" data-goto-phase="${i}" title="${esc(p.title)}">
-        <span class="dot">${p.status === "done" ? "✓" : i + 1}</span>
-        <span class="s-title">${esc(p.title.replace(/^Phase\s*\d+\s*:\s*/i, "").replace(/\(diagram:[^)]*\)/g, "").trim())}</span>
-        <span class="s-count">${p.done}/${p.total}</span>
-      </button>`).join("");
-
     const tabs = [
       ["plan", "Plan", `${done}/${total}`],
       ["spec", "Spec", ""],
@@ -225,8 +223,9 @@
     ].map(([id, label, count]) => `<button class="tab" role="tab" data-tab="${id}" aria-selected="${tab === id}">${label}${count !== "" ? `<span class="count${id === "feedback" && openFb ? " hot" : ""}">${count}</span>` : ""}</button>`).join("");
 
     let body = "";
+    const sections = tab === "spec" ? specSections(t.spec) : [];
     if (tab === "plan") body = preamble + renderPlan(t, ctx);
-    else if (tab === "spec") body = renderSpec(t, ctx);
+    else if (tab === "spec") body = renderSpec(t, ctx, sections);
     else if (tab === "diagrams") body = renderDiagrams(t);
     else body = renderFeedback(t, ctx);
 
@@ -251,14 +250,18 @@
           <button class="btn primary" data-decide="approve:plan">✓ Approve plan</button>
         </div>`}
       </div>
-      <div class="progress">
-        <div class="progress-meta"><span>${done} of ${total} tasks done</span><span>${total ? Math.round((done / total) * 100) : 0}%</span></div>
-        <div class="progress-groups">${progressGroups(t)}</div>
-      </div>
       ${workflowChips()}
-      <div class="rail" role="list">${rail}</div>
-      <div class="tabs" role="tablist">${tabs}</div>
-      <section>${body}</section>`;
+      <div id="overview-anchor"></div>
+      <div class="overview" id="overview">
+        <div class="progress">
+          <div class="progress-meta"><span><strong class="ov-title">${esc(trackTitle(t))}</strong> · ${done} of ${total} tasks done · ${total ? Math.round((done / total) * 100) : 0}%</span>
+            ${tab === "plan" && t.plan.phases.length > 1 ? `<button class="link-btn" data-show-all="plan">${showAll.plan ? "Show one phase" : "Show all phases"}</button>` : ""}</div>
+          <div class="progress-groups">${progressGroups(t)}</div>
+        </div>
+        <div class="tabs" role="tablist">${tabs}</div>
+        ${tab === "spec" && sections.filter((x) => x.title).length > 1 ? specNav(t, sections) : ""}
+      </div>
+      <section id="tab-body">${body}</section>`;
   }
 
   // One group per phase, sized by its task count: a numbered phase bar on top,
@@ -267,15 +270,38 @@
     const clean = (s) => s.replace(/^Phase\s*\d+\s*:\s*/i, "").replace(/\(diagram:[^)]*\)/g, "").trim();
     return t.plan.phases.map((p, i) => `
       <div class="pg ${p.status}" style="flex-grow:${Math.max(p.tasks.length, 1)}">
-        <button class="pg-phase" data-goto-phase="${i}" title="Phase ${i + 1}: ${esc(clean(p.title))} — ${p.done}/${p.total}">
+        <button class="pg-phase" data-goto-phase="${i}" aria-current="${tab === "plan" && !showAll.plan && i === planFocus(t)}" title="Phase ${i + 1}: ${esc(clean(p.title))} — ${p.done}/${p.total}">
           <span class="pg-num">${p.status === "done" ? "✓" : i + 1}</span><span class="pg-name">${esc(clean(p.title))}</span></button>
         <div class="pg-tasks">${p.tasks.map((task, j) => `<button class="pg-task ${task.status}" data-goto-task="${i}/${j}" title="${esc(STATUS_LABEL[task.status] || task.status)}: ${esc(clean(task.text).replace(/`/g, ""))}"></button>`).join("")}</div>
       </div>`).join("");
   }
 
+  // The phase to show: the one picked, else the first in progress, else the first not done.
+  function planFocus(t) {
+    const n = t.plan.phases.length;
+    const picked = (ui.focus[t.id] || {}).plan;
+    if (picked != null && picked < n) return picked;
+    const at = (st) => t.plan.phases.findIndex((p) => p.status === st);
+    return [at("in_progress"), at("pending")].find((i) => i >= 0) ?? Math.max(n - 1, 0);
+  }
+  function specFocus(t, sections) {
+    const picked = (ui.focus[t.id] || {}).spec;
+    return picked != null && picked < sections.length ? picked : 0;
+  }
+  function setFocus(kind, i) { (ui.focus[current] = ui.focus[current] || {})[kind] = i; }
+
+  function pager(kind, i, items, label) {
+    const btn = (j, dir) => j < 0 || j >= items.length ? "<span></span>"
+      : `<button class="btn pager-${dir}" data-focus="${kind}:${j}">${dir === "prev" ? "← " : ""}${esc(label(items[j], j))}${dir === "next" ? " →" : ""}</button>`;
+    return `<nav class="pager" aria-label="${kind === "plan" ? "Phases" : "Sections"}">${btn(i - 1, "prev")}${btn(i + 1, "next")}</nav>`;
+  }
+
   function renderPlan(t, ctx) {
     if (!t.plan.phases.length) return `<div class="empty"><strong>No plan yet</strong>The agent hasn't written <code>plan.md</code> for this track.</div>`;
-    return t.plan.phases.map((p, i) => {
+    const focus = planFocus(t);
+    const phaseName = (p, i) => `${i + 1} · ${p.title.replace(/^Phase\s*\d+\s*:\s*/i, "").replace(/\(diagram:[^)]*\)/g, "").trim()}`;
+    const html = t.plan.phases.map((p, i) => {
+      if (!showAll.plan && i !== focus) return "";
       const title = p.title.replace(/^Phase\s*\d+\s*:\s*/i, "");
       const pt = phaseTarget(p, i);
       const nfb = openFeedbackFor(t, pt);
@@ -308,6 +334,7 @@
         <ul class="tasks">${tasksHtml}</ul>
       </article>`;
     }).join("");
+    return showAll.plan || t.plan.phases.length < 2 ? html : html + pager("plan", focus, t.plan.phases, phaseName);
   }
 
   function specSections(src) {
@@ -324,11 +351,18 @@
     return sections;
   }
 
-  function renderSpec(t, ctx) {
+  function specNav(t, sections) {
+    const focus = specFocus(t, sections);
+    const chips = sections.map((s, i) => `<button data-focus="spec:${i}" aria-current="${!showAll.spec && i === focus}">${esc(s.title || "Overview")}</button>`).join("");
+    return `<div class="spec-toc">${chips}<button class="link-btn" data-show-all="spec">${showAll.spec ? "Show one section" : "Show whole spec"}</button></div>`;
+  }
+
+  function renderSpec(t, ctx, sections) {
     if (!t.spec.trim()) return `<div class="empty"><strong>No spec yet</strong></div>`;
-    const sections = specSections(t.spec);
-    const toc = sections.filter((s) => s.title).map((s, i) => `<button data-goto-section="${i}">${esc(s.title)}</button>`).join("");
-    return `<div class="spec-toc">${toc}</div>` + sections.map((s, i) => {
+    const focus = specFocus(t, sections);
+    const single = !showAll.spec && sections.length > 1;
+    const html = sections.map((s, i) => {
+      if (single && i !== focus) return "";
       const target = `spec › ${s.title || "Intro"}`;
       const n = openFeedbackFor(t, target);
       return `<section class="spec-section${/question/i.test(s.title || "") ? " questions" : ""}" id="spec-${i}">
@@ -336,6 +370,7 @@
         <div class="md">${s.title ? `<h2>${inline(s.title, ctx)} ${n ? `<span class="has-fb">${commentIcon}${n}</span>` : ""}</h2>` : ""}${md(s.lines.join("\n"), ctx)}</div>
       </section>`;
     }).join("");
+    return single ? html + pager("spec", focus, sections, (s) => s.title || "Overview") : html;
   }
 
   function renderDiagrams(t) {
@@ -481,10 +516,41 @@
   function readHash() {
     if (/^#\/settings\b/.test(location.hash)) { view = "settings"; return null; }
     const m = location.hash.match(/^#\/([^/]+)(?:\/(\w+))?(?:\/([\w.-]+))?(?:\/([\w.-]+))?/);
-    if (m) { current = decodeURIComponent(m[1]); tab = m[2] || tab; return m[3] ? { slug: m[3], node: m[4] } : null; }
+    if (m) {
+      current = decodeURIComponent(m[1]); tab = m[2] || tab;
+      const f = m[3] && m[3].match(/^(phase|section)-(\d+|all)$/);
+      if (f) {
+        const kind = f[1] === "phase" ? "plan" : "spec";
+        showAll[kind] = f[2] === "all";
+        if (f[2] !== "all") setFocus(kind, Math.max(+f[2] - 1, 0));
+        return null;
+      }
+      return m[3] ? { slug: m[3], node: m[4] } : null;
+    }
     return null;
   }
-  function writeHash() { history.replaceState(null, "", view === "settings" ? "#/settings" : `#/${encodeURIComponent(current)}/${tab}`); }
+  function writeHash() {
+    if (view === "settings") return history.replaceState(null, "", "#/settings");
+    let extra = "";
+    const t = state && state.tracks.find((x) => x.id === current);
+    if (t && tab === "plan") extra = showAll.plan ? "/phase-all" : `/phase-${planFocus(t) + 1}`;
+    if (t && tab === "spec") extra = showAll.spec ? "/section-all" : `/section-${specFocus(t, specSections(t.spec)) + 1}`;
+    history.replaceState(null, "", `#/${encodeURIComponent(current)}/${tab}${extra}`);
+  }
+
+  // Keep the frozen overview in view and land content just below it.
+  function settle(target) {
+    const ov = $("#overview"), anchor = $("#overview-anchor");
+    if (!ov || !anchor) return;
+    const top = $(".topbar").offsetHeight;
+    document.documentElement.style.setProperty("--sticky-offset", `${top + ov.offsetHeight + 12}px`);
+    const stuckAt = anchor.getBoundingClientRect().top + window.scrollY - top;
+    if (target) {
+      const r = target.getBoundingClientRect();
+      if (r.top < top + ov.offsetHeight || r.bottom > window.innerHeight) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (window.scrollY > stuckAt) window.scrollTo(0, stuckAt);
+  }
+  function pulse(el) { el.classList.remove("pulse"); void el.offsetWidth; el.classList.add("pulse"); }
 
   function openDiagram(slug, node) {
     const t = state.tracks.find((x) => x.id === current);
@@ -495,23 +561,38 @@
   }
 
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-view],[data-setting],[data-track],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-goto-section],[data-fbfilter]");
+    const el = ev.target.closest("[data-view],[data-setting],[data-track],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter]");
     if (!el) return;
     if (el.dataset.view) { view = el.dataset.view; writeHash(); render(); window.scrollTo(0, 0); }
     else if (el.dataset.setting) { if (el.getAttribute("aria-checked") !== "true") saveSetting(el.dataset.setting, el.dataset.value); }
     else if (el.dataset.track) { view = "track"; current = el.dataset.track; prevStatuses = new Map(); writeHash(); render(); window.scrollTo(0, 0); }
-    else if (el.dataset.tab) { tab = el.dataset.tab; writeHash(); render(); }
+    else if (el.dataset.tab) { tab = el.dataset.tab; writeHash(); render(); settle(); }
     else if (el.dataset.diagram) openDiagram(el.dataset.diagram);
     else if (el.dataset.comment) compose("comment", el.dataset.comment);
     else if (el.dataset.decide) { const [kind, what] = el.dataset.decide.split(":"); compose(kind, what || (tab === "spec" ? "spec" : "plan")); }
-    else if (el.dataset.gotoPhase) { if (tab !== "plan") { tab = "plan"; writeHash(); render(); } document.getElementById("phase-" + el.dataset.gotoPhase)?.scrollIntoView({ behavior: "smooth", block: "start" }); }
-    else if (el.dataset.gotoTask) {
-      if (tab !== "plan") { tab = "plan"; writeHash(); render(); }
-      const li = document.querySelector(`.task[data-key="${CSS.escape(el.dataset.gotoTask)}"]`);
-      if (li) { li.scrollIntoView({ behavior: "smooth", block: "center" }); li.classList.remove("pulse"); void li.offsetWidth; li.classList.add("pulse"); }
+    else if (el.dataset.gotoPhase || el.dataset.gotoTask) {
+      const key = el.dataset.gotoTask || el.dataset.gotoPhase;
+      tab = "plan"; setFocus("plan", +key.split("/")[0]); writeHash(); render();
+      const target = el.dataset.gotoTask ? $(`.task[data-key="${CSS.escape(key)}"]`) : showAll.plan ? $(`#phase-${key}`) : null;
+      settle(target);
+      if (el.dataset.gotoTask && target) pulse(target);
     }
-    else if (el.dataset.gotoSection) document.getElementById("spec-" + el.dataset.gotoSection)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    else if (el.dataset.focus) {
+      const [kind, i] = el.dataset.focus.split(":");
+      setFocus(kind, +i); writeHash(); render();
+      settle(showAll[kind] ? $(kind === "plan" ? `#phase-${i}` : `#spec-${i}`) : null);
+    }
+    else if (el.dataset.showAll) { const k = el.dataset.showAll; showAll[k] = !showAll[k]; saveShowAll(); writeHash(); render(); settle(); }
     else if (el.dataset.fbfilter) { ui.feedbackFilter = el.dataset.fbfilter; render(); }
+  });
+  // Links typed or pasted into an open tab (writeHash uses replaceState, so it never fires this).
+  window.addEventListener("hashchange", () => {
+    if (!state) return;
+    if (window.WorldMap.isOpen()) window.WorldMap.close();
+    view = "track";
+    const deep = readHash();
+    render(); settle();
+    if (deep) openDiagram(deep.slug, deep.node);
   });
   $("#composer-form").addEventListener("submit", (ev) => { ev.preventDefault(); send(); });
   $("#composer-cancel").addEventListener("click", () => $("#composer").close());
@@ -530,6 +611,7 @@
     try { await load(); } catch (e) { setLive("off"); $("#main").innerHTML = `<div class="empty"><strong>Can't reach the viewer server</strong>${esc(e.message)}</div>`; return; }
     render();
     if (deepDiagram) openDiagram(deepDiagram.slug, deepDiagram.node);
+    else if (state.tracks.length || view === "settings") writeHash();
     if (SNAPSHOT) setLive("snap"); else setTimeout(poll, 1500);
   })();
 })();

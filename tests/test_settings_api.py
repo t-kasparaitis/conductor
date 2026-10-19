@@ -1,41 +1,8 @@
 """POST /api/settings against a real server on a free port, in a throwaway project."""
 
-import http.client
 import json
-import threading
 
-from helpers import TempProject, serve
-
-
-class ServerTest(TempProject):
-    def setUp(self):
-        super().setUp()
-        handler = type("TestHandler", (serve.Handler,), {"root": self.root})
-        self.httpd = serve.ThreadingHTTPServer(("127.0.0.1", 0), handler)
-        self.port = self.httpd.server_address[1]
-        threading.Thread(target=self.httpd.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
-        self.addCleanup(self.httpd.server_close)
-        self.addCleanup(self.httpd.shutdown)
-
-    def request(self, method, path, body=None, headers=None):
-        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
-        self.addCleanup(conn.close)
-        data = body if isinstance(body, (bytes, type(None))) else json.dumps(body).encode()
-        hdrs = {"Content-Type": "application/json"}
-        hdrs.update(headers or {})
-        conn.request(method, path, body=data, headers=hdrs)
-        resp = conn.getresponse()
-        raw = resp.read()
-        try:
-            return resp.status, json.loads(raw)
-        except ValueError:
-            return resp.status, raw
-
-    def post_setting(self, key, value, **kw):
-        return self.request("POST", "/api/settings", {"key": key, "value": value}, **kw)
-
-    def settings_file(self):
-        return json.loads(self.read("conductor/settings.json"))
+from helpers import ServerTest
 
 
 class SettingsApiTest(ServerTest):

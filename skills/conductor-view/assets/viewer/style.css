@@ -135,7 +135,7 @@ h1.track-title { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; margin: 0
 .btn.ghost { background: transparent; }
 .btn svg { flex: none; }
 
-.progress { margin: 18px 0 0; }
+.progress { margin: 0; }
 .progress-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
 .progress-groups { display: flex; gap: 10px; }
 .pg { flex-basis: 0; min-width: 34px; display: flex; flex-direction: column; gap: 4px; }
@@ -157,20 +157,9 @@ h1.track-title { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; margin: 0
 @media (prefers-reduced-motion: reduce) { .task.pulse { animation: none; outline: 2px solid var(--accent); } }
 
 /* phase rail */
-.rail { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(120px, 1fr); gap: 0; margin: 26px 0 8px; overflow-x: auto; padding: 4px 2px 10px; }
-.station { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 6px; background: none; border: 0; cursor: pointer; color: var(--text-2); }
-.station::before { content: ""; position: absolute; top: 15px; left: -50%; width: 100%; height: 2px; background: var(--line-2); z-index: 0; }
-.station:first-child::before { display: none; }
-.station.done::before, .station.in_progress::before { background: var(--done); }
-.station .dot { position: relative; z-index: 1; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-family: var(--mono); font-size: 12px; font-weight: 600; background: var(--bg); border: 2px solid var(--line-2); color: var(--muted); transition: transform .15s; }
-.station:hover .dot { transform: scale(1.08); }
-.station.done .dot { background: var(--done); border-color: var(--done); color: var(--accent-ink); }
-.station.in_progress .dot { border-color: var(--prog); color: var(--prog); box-shadow: 0 0 0 5px var(--prog-soft); }
-.station .s-title { margin-top: 8px; font-size: 12px; font-weight: 560; line-height: 1.3; color: var(--text); }
-.station .s-count { font-size: 11px; color: var(--muted); font-family: var(--mono); }
 
 /* tabs */
-.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 22px 0 22px; overflow-x: auto; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 10px 0 0; overflow-x: auto; }
 .tab { padding: 10px 14px; border: 0; background: none; cursor: pointer; color: var(--muted); font-weight: 560; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; display: inline-flex; gap: 7px; align-items: center; }
 .tab:hover { color: var(--text); }
 .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
@@ -244,12 +233,12 @@ h1.track-title { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; margin: 0
 .md th, .md td { border: 1px solid var(--line); padding: 5px 10px; text-align: left; }
 .md th { background: var(--panel-2); color: var(--text); }
 .spec-title { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin: 0 0 14px; }
-.spec-section { position: relative; padding: 20px 22px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin-bottom: 14px; scroll-margin-top: 70px; }
+.spec-section { position: relative; padding: 20px 22px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin-bottom: 14px; }
 .spec-section .md { max-width: none; }
 .spec-section > .comment-btn { position: absolute; right: 14px; top: 16px; }
 .spec-section.questions { border-color: color-mix(in srgb, var(--prog) 45%, var(--line)); background: linear-gradient(180deg, var(--prog-soft), transparent 60%), var(--panel); }
 .spec-section.questions h2::before { content: "?"; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--prog); color: var(--accent-ink); font-size: 13px; margin-right: 9px; vertical-align: 2px; }
-.spec-toc { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.spec-toc { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 0 2px; }
 .spec-toc button { border: 1px solid var(--line); background: var(--panel); color: var(--text-2); border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
 .spec-toc button:hover { color: var(--text); border-color: var(--line-2); }
 
@@ -385,4 +374,27 @@ h1.track-title { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; margin: 0
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ---------- frozen overview & focus mode ---------- */
+.overview { position: sticky; top: 52px; z-index: 10; margin: 18px calc(-1 * clamp(16px, 4vw, 48px)) 22px; padding: 12px clamp(16px, 4vw, 48px) 0; background: var(--bg); border-bottom: 1px solid var(--line); }
+.overview .tabs { border-bottom: 0; overflow-y: hidden; scrollbar-width: none; }
+.overview .tabs::-webkit-scrollbar { display: none; }
+.ov-title { color: var(--text); font-weight: 600; }
+.progress-meta { align-items: center; gap: 12px; }
+.progress-meta > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-btn { flex: none; border: 0; background: none; padding: 2px 4px; color: var(--accent); font-size: 12px; cursor: pointer; }
+.link-btn:hover { text-decoration: underline; }
+.pg-phase[aria-current="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
+.spec-toc button[aria-current="true"] { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+.spec-toc .link-btn { border: 0; background: none; margin-left: auto; }
+.task, .phase, .spec-section { scroll-margin-top: var(--sticky-offset, 200px); }
+.pager { display: flex; justify-content: space-between; gap: 12px; margin-top: 18px; }
+.pager .btn { max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) {
+  .pg-name { display: none; }
+  .pg-phase { justify-content: center; padding: 0; }
+}
+@media (min-width: 761px) {
+  .sidebar { position: sticky; top: 52px; align-self: start; height: calc(100vh - 52px); overflow-y: auto; }
 }
