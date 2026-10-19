@@ -85,5 +85,31 @@ class SkillsObeySettingsTest(unittest.TestCase):
             self.assertIn(f"`{st['key']}`", compliance, st["key"])
 
 
+class ViewSkillTest(unittest.TestCase):
+    def setUp(self):
+        self.text = skill("conductor-view")
+
+    def test_paths_it_names_exist(self):
+        base = SKILLS / "conductor-view"
+        for rel in ("scripts/serve.py", "assets/viewer/index.html", "references/file-contract.md"):
+            self.assertIn(rel.replace("scripts/", "<skill>/scripts/").replace("assets/", "<skill>/assets/").replace("references/", "<skill>/references/"), self.text)
+            self.assertTrue((base / rel).is_file(), rel)
+
+    def test_flags_it_names_exist(self):
+        serve_py = (SKILLS / "conductor-view" / "scripts" / "serve.py").read_text(encoding="utf-8")
+        commands = re.findall(r"`[^`]*serve\.py[^`]*`", self.text)
+        flags = {f for c in commands for f in re.findall(r"--[a-z]+", c)}
+        self.assertEqual(flags, {"--root", "--open", "--export", "--watch"})
+        for flag in flags:
+            self.assertIn(f'"{flag}"', serve_py, flag)
+
+    def test_example_diagram_is_valid(self):
+        from helpers import serve
+        example = json.loads(re.search(r"```json\n(.*?)```", self.text, re.S).group(1))
+        # The example's edge points at a node that isn't shown; give it one.
+        example["nodes"].append({"id": "server", "label": "serve.py"})
+        self.assertIsNone(serve._diagram_problem(example))
+
+
 if __name__ == "__main__":
     unittest.main()
