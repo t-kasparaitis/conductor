@@ -192,6 +192,11 @@ def schema_settings(schema: dict) -> dict:
     return {st["key"]: st for g in schema.get("groups", []) for st in g.get("settings", [])}
 
 
+def _is_option(setting: dict, value) -> bool:
+    # Values are strings; anything else (lists, objects, numbers) is invalid, never a crash.
+    return isinstance(value, str) and value in {o["value"] for o in setting["options"]}
+
+
 def _get(values: dict, key: str):
     cur = values
     for part in key.split("."):
@@ -218,9 +223,9 @@ def load_settings(root: Path) -> dict:
     if schema:
         for key, st in schema_settings(schema).items():
             v = _get(values, key)
-            valid = {o["value"] for o in st["options"]}
-            effective[key] = {"value": v if v in valid else st["default"],
-                              "source": "file" if v in valid else ("invalid" if v is not None else "default")}
+            ok = _is_option(st, v)
+            effective[key] = {"value": v if ok else st["default"],
+                              "source": "file" if ok else ("invalid" if v is not None else "default")}
     return {"schema": schema, "exists": text is not None, "values": values,
             "effective": effective, "error": error}
 
@@ -233,7 +238,7 @@ def update_setting(root: Path, payload: dict) -> dict:
     st = schema_settings(schema).get(key)
     if not st:
         raise ValueError("unknown setting")
-    if value not in {o["value"] for o in st["options"]}:
+    if not _is_option(st, value):
         raise ValueError("invalid value")
     path = root / "conductor" / "settings.json"
     with WRITE_LOCK:
