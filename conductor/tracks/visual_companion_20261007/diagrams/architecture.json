@@ -1,0 +1,217 @@
+{
+  "title": "Architecture: files are the interface",
+  "summary": "Agents never talk to the viewer. They write files; the viewer reads them. The browser writes back only feedback.md and settings.json.",
+  "regions": [
+    {
+      "id": "agents",
+      "label": "Any agent",
+      "tone": "violet"
+    },
+    {
+      "id": "disk",
+      "label": "Project on disk · conductor/",
+      "tone": "amber"
+    },
+    {
+      "id": "local",
+      "label": "Local machine · 127.0.0.1:4177",
+      "tone": "teal"
+    },
+    {
+      "id": "human",
+      "label": "You",
+      "tone": "rose"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "codex",
+      "label": "Codex CLI",
+      "kind": "agent",
+      "region": "agents",
+      "detail": "Reads `skills/conductor-view/SKILL.md` like any other skill. Needs **no** special API — only file writes and, optionally, one shell command to start the server."
+    },
+    {
+      "id": "claude",
+      "label": "Claude Code",
+      "kind": "agent",
+      "region": "agents",
+      "detail": "Same contract as Codex. Nothing here uses Claude Artifacts or any cloud feature."
+    },
+    {
+      "id": "other",
+      "label": "Gemini · Cursor · …",
+      "kind": "agent",
+      "region": "agents",
+      "detail": "Anything that supports `SKILL.md` folders gets the companion for free."
+    },
+    {
+      "id": "skills",
+      "label": "Conductor skills",
+      "kind": "doc",
+      "region": "agents",
+      "detail": "new-track, implement, review, status — each gains a short, **conditional** *Visual companion* hook. Without Python they behave exactly as today."
+    },
+    {
+      "id": "registry",
+      "label": "tracks.md",
+      "kind": "file",
+      "region": "disk",
+      "detail": "Unchanged registry. Parsed for `[ ]` / `[~]` / `[x]` and the link to each track."
+    },
+    {
+      "id": "spec",
+      "label": "spec.md",
+      "kind": "file",
+      "region": "disk",
+      "detail": "Rendered section by section. `(diagram: slug)` becomes a chip that opens a map."
+    },
+    {
+      "id": "plan",
+      "label": "plan.md",
+      "kind": "file",
+      "region": "disk",
+      "detail": "Phases → tasks → sub-tasks with status, commit SHAs and `[checkpoint: sha]`."
+    },
+    {
+      "id": "diagrams",
+      "label": "diagrams/*.json · *.svg",
+      "kind": "file",
+      "region": "disk",
+      "detail": "New, optional. JSON world maps (nodes, edges, regions, tour) or raw SVG rendered sandboxed as an image."
+    },
+    {
+      "id": "feedback",
+      "label": "feedback.md",
+      "kind": "file",
+      "region": "disk",
+      "detail": "One of only **two** files the browser writes (the other is `conductor/settings.json`). Append-only items: `FB-007 · open · comment`, a target, your text, then the agent's `> reply` and the status flipped to `resolved`."
+    },
+    {
+      "id": "server",
+      "label": "serve.py",
+      "kind": "process",
+      "region": "local",
+      "detail": "Python 3 standard library only. Binds `127.0.0.1`. `GET /api/state`, `GET /api/version`, `POST /api/feedback`, and `--export` for a single-file snapshot."
+    },
+    {
+      "id": "viewer",
+      "label": "Viewer (vanilla JS)",
+      "kind": "ui",
+      "region": "local",
+      "detail": "No build, no CDN, works offline. Polls `/api/version` every 1.5 s and re-renders when anything on disk changes."
+    },
+    {
+      "id": "map",
+      "label": "World-map canvas",
+      "kind": "ui",
+      "region": "local",
+      "detail": "Full-screen modal. Pan any direction, zoom at cursor, minimap, node details, guided tour. You are looking at it."
+    },
+    {
+      "id": "you",
+      "label": "You, in a browser",
+      "kind": "person",
+      "region": "human",
+      "detail": "Review the plan, comment on any task, approve or request changes — then tell the agent *“check feedback”* (or it checks at the next checkpoint)."
+    }
+  ],
+  "edges": [
+    {
+      "from": "codex",
+      "to": "skills",
+      "label": "follows"
+    },
+    {
+      "from": "claude",
+      "to": "skills",
+      "label": "follows"
+    },
+    {
+      "from": "other",
+      "to": "skills",
+      "label": "follows"
+    },
+    {
+      "from": "skills",
+      "to": "spec",
+      "label": "writes"
+    },
+    {
+      "from": "skills",
+      "to": "plan",
+      "label": "writes"
+    },
+    {
+      "from": "skills",
+      "to": "registry",
+      "label": "writes"
+    },
+    {
+      "from": "skills",
+      "to": "diagrams",
+      "label": "draws"
+    },
+    {
+      "from": "registry",
+      "to": "server",
+      "label": "parsed"
+    },
+    {
+      "from": "spec",
+      "to": "server",
+      "label": "parsed"
+    },
+    {
+      "from": "plan",
+      "to": "server",
+      "label": "parsed"
+    },
+    {
+      "from": "diagrams",
+      "to": "server",
+      "label": "loaded"
+    },
+    {
+      "from": "feedback",
+      "to": "server",
+      "label": "parsed"
+    },
+    {
+      "from": "server",
+      "to": "viewer",
+      "label": "JSON"
+    },
+    {
+      "from": "you",
+      "to": "map",
+      "label": "opens"
+    },
+    {
+      "from": "viewer",
+      "to": "you",
+      "label": "renders"
+    },
+    {
+      "from": "you",
+      "to": "feedback",
+      "label": "comments · approvals",
+      "style": "dashed"
+    },
+    {
+      "from": "feedback",
+      "to": "skills",
+      "label": "agent reads & resolves",
+      "style": "dashed"
+    }
+  ],
+  "tour": [
+    "skills",
+    "plan",
+    "server",
+    "viewer",
+    "you",
+    "feedback",
+    "skills"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "track_id": "workflow_settings_20261017",
+  "type": "feature",
+  "status": "in_progress",
+  "description": "Workflow settings: per-repo git strategy, commit/push policy and testing cadence, chosen at setup and switchable in the viewer",
+  "created_at": "2026-10-17T00:00:00Z",
+  "updated_at": "2026-10-19T00:00:00Z"
+}

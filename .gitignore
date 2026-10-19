@@ -2,3 +2,7 @@
 .claude/
 .gemini/
 .agents/
+
+# Python bytecode
+__pycache__/
+*.pyc
