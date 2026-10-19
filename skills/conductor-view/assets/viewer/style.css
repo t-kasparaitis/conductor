@@ -452,7 +452,6 @@ details.tgroup[open] summary h3::before { content: "▾ "; }
 .trow + .trow { border-top-color: var(--line); border-top-style: dashed; border-radius: 0; }
 .trow:hover { background: var(--panel-2); }
 .trow.g-now { background: linear-gradient(90deg, var(--prog-soft), transparent 70%); border-left: 3px solid var(--prog); border-radius: 10px; }
-.trow.g-archived { opacity: .85; }
 .trow-main { grid-area: main; min-width: 0; text-decoration: none; color: inherit; display: flex; flex-direction: column; }
 .trow-main:hover .trow-title { text-decoration: underline; }
 .trow-title { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -496,3 +495,4 @@ details.tgroup[open] summary h3::before { content: "▾ "; }
 .exc li li { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; justify-content: space-between; font-size: 13px; padding: 3px 0; }
 .port-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
 .port-input { width: 120px; }
+.trow.g-now .trow-sub, .fchip[aria-pressed="true"] .count { color: var(--text-2); }

@@ -190,3 +190,20 @@ class HomeBrowserTest(UserHome, ServerTest):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(find_browser(), "test browser not installed")
+class PhoneWidthTest(UserHome, ServerTest):
+    def test_no_sideways_scroll_on_a_phone(self):
+        self.write("conductor/index.md", "# P\n")
+        self.write("conductor/tracks.md", REGISTRY)
+        self.write("conductor/tracks/now_1/plan.md", PLAN_NOW)
+        self.write("conductor/tracks/now_1/spec.md", "# A rather long track title that goes on and on for a while\n")
+        b = Browser(width=390, height=844)
+        try:
+            for hash_ in ("#/", "#/settings", f"#/{serve._project_id(self.root, set())}/settings"):
+                b.goto("about:blank")
+                b.goto(f"http://127.0.0.1:{self.port}/{hash_}", ready="document.querySelector('main').children.length > 1")
+                self.assertLessEqual(b.js("document.documentElement.scrollWidth"), b.js("window.innerWidth"), hash_)
+        finally:
+            b.close()

@@ -4,9 +4,9 @@ import unittest
 
 from browser import Browser, browser_name, find_browser
 from test_viewer_browser import PLAN, SPEC
-from helpers import ServerTest
+from helpers import ServerTest, serve
 
-NAMELESS = """[...document.querySelectorAll('button, a[href], [role=tab], [role=radio], input, textarea')]
+NAMELESS = """[...document.querySelectorAll('button, a[href], [role=tab], [role=radio], input, textarea, select')]
   .filter(el => !el.hidden && el.type !== 'hidden' && el.offsetParent !== null)
   .filter(el => !((el.getAttribute('aria-label') || '').trim() || (el.textContent || '').trim() ||
                   (el.getAttribute('title') || '').trim() || (el.labels && el.labels.length) || el.placeholder))
@@ -41,9 +41,32 @@ class AccessibilityTest(ServerTest):
         self.b.goto(f"http://127.0.0.1:{self.port}/{hash_}", ready="document.querySelector('main').children.length")
 
     def test_every_control_has_a_name(self):
-        for view in ("#/demo_1/plan", "#/demo_1/spec", "#/demo_1/diagrams", "#/demo_1/feedback", "#/settings"):
+        pid = serve._project_id(self.root, set())
+        for view in ("#/demo_1/plan", "#/demo_1/spec", "#/demo_1/diagrams", "#/demo_1/feedback", "#/settings",
+                     "#/", f"#/{pid}/settings"):
             self.open(view)
             self.assertEqual(self.b.js(NAMELESS), [], view)
+        for dialog in ("find", "add"):
+            self.open("#/")
+            self.b.click(f"[data-dialog={dialog}]")
+            self.b.wait("document.querySelector('#dlg').open")
+            self.assertEqual(self.b.js(NAMELESS), [], dialog)
+
+    @real_keys
+    def test_home_by_keyboard(self):
+        self.open("#/")
+        self.b.js("document.querySelector('#home-search').focus()")
+        self.b.key("Tab", key_code=9)
+        self.assertEqual(self.b.js("document.activeElement.dataset.status"), "all")
+        self.b.js("document.querySelector('.fchip[data-status=done]').focus()")
+        self.b.key("Enter", key_code=13)
+        self.b.wait("location.hash === '#/?status=done'")
+        self.b.js("document.querySelector('[data-dialog=add]').focus()")
+        self.b.key("Enter", key_code=13)
+        self.b.wait("document.querySelector('#dlg').open")
+        self.assertEqual(self.b.js("document.activeElement.id"), "add-path")
+        self.b.key("Escape", key_code=27)
+        self.b.wait("!document.querySelector('#dlg').open")
 
     def test_map_controls_have_names(self):
         self.open("#/demo_1/diagrams/map")

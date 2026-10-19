@@ -18,6 +18,11 @@ PAIRS = [
     ("prog", "prog-soft", "panel"), ("prog", "prog-soft", "bg"),
     ("accent-ink", "accent", None), ("accent-ink", "done", None),
     ("danger", "panel", None),
+    # Home page: the highlighted "Now" rows, warning banners, pressed filter chips, hovered rows.
+    # (Muted text is too faint on the tinted ones, so those use --text-2.)
+    ("text", "prog-soft", "panel"), ("text-2", "prog-soft", "panel"), ("text", "prog-soft", "bg"),
+    ("text", "accent-soft", "panel"), ("text-2", "accent-soft", "panel"),
+    ("text", "panel-2", None), ("text-2", "panel-2", None), ("muted", "panel-2", None),
 ]
 
 
