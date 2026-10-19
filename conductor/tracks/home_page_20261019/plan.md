@@ -43,7 +43,7 @@
 ## Phase 5: Docs
 
 - [x] Task: Settings layers in the skills: setup offers the Conductor-wide defaults; new-track, implement, review and status read both layers; paths per OS in the file contract, with skill-doc tests 2700a2c
-- [ ] Task: README (home page, registering projects, per-repo vs Conductor-wide settings, changing the port), SKILL.md start section, tech-stack note on the config folder
+- [x] Task: README (home page, registering projects, per-repo vs Conductor-wide settings, changing the port), SKILL.md start section, tech-stack note on the config folder 22db5ec
 
 ## Phase 6: Track Verification
 
