@@ -118,6 +118,8 @@ Agents should likewise re-read `feedback.md` right before editing it.
 | `x`, `y` | Pixels. Give them to **every** node or to none; with none, regions become left-to-right columns and nodes are ranked by their edges. |
 | `tour` | Node ids in walkthrough order. |
 
+Node ids must be unique, every edge must join two node ids, and every tour
+stop must be a node id; otherwise the diagram shows as an error card.
 `<slug>` must match `[\w.-]+`. A raw `diagrams/<slug>.svg` is shown as an
 image (scripts inside it never run). `(diagram: <slug>)` anywhere in
 `spec.md` or `plan.md` becomes a chip that opens the diagram.

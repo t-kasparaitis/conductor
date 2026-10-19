@@ -127,6 +127,7 @@
     if (!Array.isArray(nodes) || !nodes.every((n) => n && typeof n === "object" && !Array.isArray(n) && "id" in n))
       return "`nodes` must be a list of objects, each with an `id`";
     const ids = new Set(nodes.map((n) => String(n.id)));
+    if (ids.size < nodes.length) return "node ids must be unique";
     for (const key of ["edges", "regions", "tour"]) if (data[key] !== undefined && !Array.isArray(data[key])) return `\`${key}\` must be a list`;
     for (const e of data.edges || []) {
       if (!e || typeof e !== "object" || !ids.has(String(e.from)) || !ids.has(String(e.to))) return `edge ${JSON.stringify(e)} must join two node ids`;

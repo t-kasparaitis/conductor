@@ -93,7 +93,8 @@ class ParityTest(TempProject):
     def test_diagram_checks(self):
         cases = [[], "x", {}, {"nodes": [{"id": 1}], "edges": [{"from": 1, "to": "1"}]},
                  {"nodes": [{"id": "a"}], "edges": [{"from": "a", "to": "b"}]}, {"nodes": "a"},
-                 {"nodes": [{"id": "a"}], "tour": ["a", "b"]}, {"nodes": [], "regions": {}}]
+                 {"nodes": [{"id": "a"}], "tour": ["a", "b"]}, {"nodes": [], "regions": {}},
+                 {"nodes": [{"id": "a"}, {"id": "a"}]}, {"nodes": [{"id": 1}, {"id": "1"}]}]
         for data in cases:
             self.assertEqual(self.js("diagramProblem", data) is None, serve._diagram_problem(data) is None, data)
 

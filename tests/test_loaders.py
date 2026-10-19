@@ -54,6 +54,8 @@ class LoadersTest(TempProject):
             "edges_not_list": {"nodes": [{"id": "a"}], "edges": "a->b"},
             "edge_to_nowhere": {"nodes": [{"id": "a"}], "edges": [{"from": "a", "to": "zzz"}]},
             "tour_to_nowhere": {"nodes": [{"id": "a"}], "tour": ["zzz"]},
+            "duplicate_ids": {"nodes": [{"id": "a"}, {"id": "a"}]},
+            "duplicate_after_str": {"nodes": [{"id": 1}, {"id": "1"}]},
         }
         files = {f"diagrams__{k}_dot_json": json.dumps(v) for k, v in cases.items()}
         t = self.track(**files)

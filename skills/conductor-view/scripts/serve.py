@@ -185,6 +185,8 @@ def _diagram_problem(data) -> str | None:
     if not isinstance(nodes, list) or not all(isinstance(n, dict) and "id" in n for n in nodes):
         return "`nodes` must be a list of objects, each with an `id`"
     ids = {str(n["id"]) for n in nodes}
+    if len(ids) < len(nodes):
+        return "node ids must be unique"
     for key in ("edges", "regions", "tour"):
         if not isinstance(data.get(key, []), list):
             return f"`{key}` must be a list"
