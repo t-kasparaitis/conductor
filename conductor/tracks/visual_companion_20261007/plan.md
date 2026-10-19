@@ -44,11 +44,13 @@
 - [x] Task: Finish `skills/conductor-view/SKILL.md` (missing-Python detection and fallback, contract link) 5405f75
 - [x] Task: Conditional "Visual companion" hooks in the new-track, implement, review and status skills 4b9acaf
 - [x] Task: README — Visual companion section and "Changes from upstream" e470aa0
-- [~] Task: CI — browser tests in Chrome, Firefox and Edge on Linux, macOS and Windows, with standard-library drivers instead of Playwright (see tech-stack.md); Safari isn't automated
+- [x] Task: CI — browser tests in Chrome, Firefox and Edge on Linux, macOS and Windows, with standard-library drivers instead of Playwright (see tech-stack.md); Safari isn't automated 9b00e94
 
 ## Phase 7: Track Verification
 
-- [ ] Task: Run the full suite, locally and in CI on Linux, macOS and Windows (needs a push — ask first)
+- [~] Task: Run the full suite, locally and in CI on Linux, macOS and Windows (needs a push — ask first)
+    - [x] Locally on Linux: 139 tests pass in Chrome; in Firefox all pass except 7 skipped Chrome-only checks
+    - [ ] CI on Linux, macOS and Windows (waiting for permission to push)
 - [ ] Task: End-to-end run with Codex CLI and Claude Code: start, diagram, feedback round-trip (Codex uses your account — ask first)
 - [ ] Task: Manual smoke test on real macOS (Safari) and Windows (Edge, `py -3`) — needs you or a machine
-- [ ] Task: Try it with the user, iterate on feedback, sign-off (Refer to workflow.md)
+- [~] Task: Try it with the user, iterate on feedback, sign-off (Refer to workflow.md)
