@@ -726,25 +726,29 @@
     return chips ? `<div class="wf-row"><span class="muted small">Workflow</span>${chips}</div>` : "";
   }
 
-  function renderSettings() {
-    const S = (settingsScope === "main" ? home && home.main_settings : state && state.settings) || {};
-    const head = `<div class="eyebrow"><span class="chip type">Project</span><span class="chip mono">${esc((S.schema && S.schema.file) || "conductor/settings.json")}</span>
-      ${S.exists ? "" : `<span class="chip warn">no settings.json yet — showing defaults</span>`}</div>
-      <h1 class="track-title">Workflow settings</h1>
-      <p class="track-sub">Project defaults every agent reads before planning, committing, pushing and testing. Changes save straight to <code>conductor/settings.json</code>.</p>`;
-    if (S.error) return head + `<div class="error-card">${esc(S.error)}</div>`;
-    if (!S.schema) return head + `<div class="empty"><strong>Settings schema not found</strong>Expected <code>conductor-setup/assets/settings.schema.json</code> next to this skill.<pre class="md">${esc(JSON.stringify(S.values, null, 2))}</pre></div>`;
-    return head + S.schema.groups.map((g) => `<section class="set-group">
+  const SOURCE_LABEL = { repo: "this repo's exception", main: "main rule", default: "built-in default", invalid: "invalid value in file" };
+  const optLabel = (key, value) => (optionOf(key, value) || {}).label || value;
+
+  function settingsGroups(S, scope) {
+    const disabled = SNAPSHOT || LOCAL;
+    return S.schema.groups.map((g) => `<section class="set-group">
       <h2>${esc(g.label)}</h2><p class="muted">${esc(g.summary || "")}</p>
       ${g.settings.map((st) => {
         const e = S.effective[st.key] || { value: st.default, source: "default" };
         const sel = st.options.find((o) => o.value === e.value);
+        let chips = "";
+        if (scope === "project") {
+          const same = e.source === "repo" && e.value === e.main;
+          chips = `<span class="chip src-${esc(e.source)}${e.source === "repo" && !same ? " warn" : ""}">${esc(same ? "same as main rule" : SOURCE_LABEL[e.source] || e.source)}</span>
+            ${e.source === "repo" || e.source === "invalid" ? `<button class="link-btn" data-reset="${esc(st.key)}" data-scope="project">Use main rule (${esc(optLabel(st.key, e.main))})</button>` : ""}`;
+        } else {
+          chips = `<span class="chip">${esc(e.source === "main" ? "set in main rules" : e.source === "invalid" ? "invalid value in file — using built-in" : "built-in default")}</span>
+            ${e.source === "main" && e.value !== st.default ? `<button class="link-btn" data-reset="${esc(st.key)}" data-scope="main">Reset to built-in (${esc(optLabel(st.key, st.default))})</button>` : ""}`;
+        }
         return `<div class="setting">
-          <div class="setting-head"><h3>${esc(st.label)}</h3>
-            ${e.source === "invalid" ? `<span class="chip warn">invalid value in file — using default</span>` : e.source === "default" ? `<span class="chip">default</span>` : ""}
-            ${e.value !== st.default ? `<span class="chip mono">default: ${esc(optionOf(st.key, st.default)?.label || st.default)}</span>` : ""}</div>
+          <div class="setting-head"><h3>${esc(st.label)}</h3>${chips}</div>
           <div class="opts" role="radiogroup" aria-label="${esc(st.label)}">
-            ${st.options.map((o) => `<button class="opt" role="radio" aria-checked="${o.value === e.value}" data-setting="${esc(st.key)}" data-value="${esc(o.value)}"${SNAPSHOT || LOCAL ? " disabled" : ""}>
+            ${st.options.map((o) => `<button class="opt" role="radio" aria-checked="${o.value === e.value}" data-setting="${esc(st.key)}" data-value="${esc(o.value)}" data-scope="${scope}"${disabled ? " disabled" : ""}>
               <span class="opt-label"><span class="radio"></span>${esc(o.label)}</span>
               <span class="opt-summary">${inline(o.summary || "", {})}</span></button>`).join("")}
           </div>
@@ -755,12 +759,78 @@
     </section>`).join("");
   }
 
-  async function saveSetting(key, value) {
+  function exceptionList() {
+    const rules = home.main_settings.effective;
+    const projects = sortedProjects().filter((p) => !p.missing);
+    const withExceptions = projects.filter((p) => p.exceptions && p.exceptions.length);
+    const tidy = projects.filter((p) => p.same_as_main && p.same_as_main.length);
+    const following = projects.length - withExceptions.length;
+    const rows = withExceptions.map((p) => `<li class="exc">
+        <a class="exc-name" href="#/${enc(p.id)}/settings">${esc(p.name)}</a>
+        <ul>${p.exceptions.map((k) => `<li><span>${esc((settingDef(k) || {}).label || k)}: <strong>${esc(optLabel(k, p.settings[k]))}</strong>
+            <span class="muted">(main rule: ${esc(optLabel(k, rules[k] && rules[k].value))})</span></span>
+            <button class="link-btn" data-reset="${esc(k)}" data-scope="project" data-project="${esc(p.id)}">Use main rule</button></li>`).join("")}</ul></li>`).join("");
+    return `<section class="set-group exceptions">
+      <h2>Exceptions</h2>
+      <p class="muted">${following} of ${projects.length} project${projects.length === 1 ? "" : "s"} follow${following === 1 ? "s" : ""} the main rules${withExceptions.length ? "; these don't, in the settings listed" : ""}. Exceptions live in each repo's <code>conductor/settings.json</code>, so everyone working on that repo shares them.</p>
+      ${rows ? `<ul class="exc-list">${rows}</ul>` : ""}
+      ${tidy.map((p) => `<div class="banner"><div><strong>${esc(p.name)}</strong> repeats the main rule in ${p.same_as_main.length} setting${p.same_as_main.length === 1 ? "" : "s"} (${esc(p.same_as_main.map((k) => (settingDef(k) || {}).label || k).join(", "))}). Tidy removes them from its <code>settings.json</code>, so only real exceptions remain.</div>
+        <div class="banner-actions"><button class="btn" data-tidy="${esc(p.id)}">Tidy</button></div></div>`).join("")}
+    </section>`;
+  }
+
+  function renderSettings() {
+    const main = settingsScope === "main";
+    const S = (main ? home && home.main_settings : state && state.settings) || {};
+    const p = !main && projectById(project);
+    const name = (p && p.name) || (state && state.project) || "this project";
+    let head;
+    if (main) {
+      head = `<div class="eyebrow"><span class="chip type">All projects</span><span class="chip mono">${esc(S.file || "settings.json")}</span></div>
+        <h1 class="track-title">Main workflow rules</h1>
+        <p class="track-sub">Every project follows these unless it has an exception. They're yours: saved on this machine, never in a repo.</p>`;
+    } else {
+      const exc = (S.exceptions || []), same = (S.same_as_main || []);
+      head = `<div class="eyebrow"><span class="chip type">Project</span><span class="chip mono">conductor/settings.json</span>
+          ${S.exists ? "" : `<span class="chip">no settings.json: follows the main rules</span>`}</div>
+        <h1 class="track-title">Workflow settings · ${esc(name)}</h1>
+        <p class="track-sub">Changing a value here makes it an exception for this repo, saved in its <code>conductor/settings.json</code> and shared with everyone who works on it. <a href="#/settings">Edit the main rules</a></p>
+        <div class="follow" role="group" aria-label="Main rules or exceptions">
+          <button class="fchip" aria-pressed="${!exc.length}" data-follow="main"${SNAPSHOT || LOCAL ? " disabled" : ""}>Follows main rules</button>
+          <button class="fchip" aria-pressed="${!!exc.length}" disabled>Has exceptions${exc.length ? ` <span class="count">${exc.length}</span>` : ""}</button>
+          ${exc.length ? `<span class="muted small">${esc(exc.map((k) => (settingDef(k) || {}).label || k).join(", "))}</span>` : `<span class="muted small">Pick a different value below to add an exception.</span>`}
+        </div>
+        ${same.length && !SNAPSHOT && !LOCAL ? `<div class="banner"><div>${same.length} setting${same.length === 1 ? "" : "s"} in this repo's file repeat${same.length === 1 ? "s" : ""} the main rule. Tidy removes them, so only real exceptions remain.</div>
+          <div class="banner-actions"><button class="btn" data-tidy="${esc(project)}">Tidy</button></div></div>` : ""}`;
+    }
+    if (S.error) return head + `<div class="error-card">${esc(S.error)}</div>`;
+    if (!S.schema) return head + `<div class="empty"><strong>Settings schema not found</strong>Expected <code>conductor-setup/assets/settings.schema.json</code> next to this skill.<pre class="md">${esc(JSON.stringify(S.values, null, 2))}</pre></div>`;
+    return head + (main ? exceptionList() : "") + settingsGroups(S, main ? "main" : "project");
+  }
+
+  async function saveSetting(key, value, scope, pid) {
     try {
-      await postJSON("api/settings", { project, key, value });
-      toast(`Saved: ${settingDef(key).label} → ${optionOf(key, value).label}. Agents use it from their next step.`);
-      await load(); render(true);
+      await postJSON("api/settings", { project: pid || project, key, value, scope });
+      const what = value === null ? (scope === "main" ? "back to the built-in default" : "back to the main rule") : `→ ${optLabel(key, value)}`;
+      toast(`Saved: ${(settingDef(key) || {}).label || key} ${what}${scope === "main" ? " (main rules)" : ""}. Agents use it from their next step.`);
+      await loadHome(); if (state) await loadProject(); render(true);
     } catch (e) { toast("Could not save setting: " + e.message); }
+  }
+
+  async function tidy(pid) {
+    try {
+      const j = await postJSON("api/settings/tidy", { project: pid });
+      toast(j.removed.length ? `Tidied: removed ${j.removed.length} setting${j.removed.length === 1 ? "" : "s"} that repeated the main rule.` : "Nothing to tidy.");
+      await loadHome(); if (state) await loadProject(); render(true);
+    } catch (e) { toast("Could not tidy: " + e.message); }
+  }
+
+  async function followMain() {
+    const exc = (state && state.settings && state.settings.exceptions) || [];
+    if (!exc.length) return;
+    if (!confirm(`Remove ${exc.length} exception${exc.length === 1 ? "" : "s"} from this repo's settings.json? The project will follow the main rules.`)) return;
+    for (const k of exc) await postJSON("api/settings", { project, key: k, value: null, scope: "project" }).catch((e) => toast(e.message));
+    await tidy(project);
   }
 
   /* ---------------- routing & events ---------------- */
@@ -938,13 +1008,16 @@
   }
 
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-view],[data-setting],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter],[data-status],[data-forget],[data-restore],[data-dismiss],[data-dialog],[data-find],[data-close]");
+    const el = ev.target.closest("[data-view],[data-setting],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter],[data-status],[data-forget],[data-restore],[data-dismiss],[data-dialog],[data-find],[data-close],[data-reset],[data-tidy],[data-follow]");
     if (!el) return;
     if (el.dataset.dialog) return el.dataset.dialog === "find" ? findDialog(null) : addDialog();
     if ("find" in el.dataset) return runFind();
     if ("close" in el.dataset) return $("#dlg").close();
     if (el.dataset.view) { view = el.dataset.view; settingsScope = project ? "project" : "main"; writeHash(); render(); window.scrollTo(0, 0); }
-    else if (el.dataset.setting) { if (el.getAttribute("aria-checked") !== "true") saveSetting(el.dataset.setting, el.dataset.value); }
+    else if (el.dataset.setting) { if (el.getAttribute("aria-checked") !== "true") saveSetting(el.dataset.setting, el.dataset.value, el.dataset.scope || "project"); }
+    else if (el.dataset.reset) saveSetting(el.dataset.reset, null, el.dataset.scope, el.dataset.project);
+    else if (el.dataset.tidy) tidy(el.dataset.tidy);
+    else if (el.dataset.follow) followMain();
     else if (el.dataset.tab) { tab = el.dataset.tab; writeHash(); render(); settle(); }
     else if (el.dataset.diagram) openDiagram(el.dataset.diagram);
     else if (el.dataset.comment) compose("comment", el.dataset.comment);
