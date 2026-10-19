@@ -29,6 +29,7 @@
 
 ## Phase 4: Viewer UI
 
+- [~] Task: Frozen overview and focus mode (FB-002) — the track header, progress groups and tabs stay pinned at the top; clicking a phase or task shows just that phase instead of scrolling a long page, with an "All phases" switch
 - [ ] Task: Zero-runtime fallback — open from disk, folder picker, read-only render, "Copy feedback" for chat
 - [ ] Task: Accessibility and theming pass (keyboard, focus, contrast, light/dark, works with `localStorage` blocked)
 - [ ] Task: Cross-browser audit — Chrome, Edge, Firefox, Safari: CSS/JS against support tables; wheel, trackpad and touch behaviour
