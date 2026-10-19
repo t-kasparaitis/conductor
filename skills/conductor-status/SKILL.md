@@ -2,7 +2,7 @@
 name: conductor-status
 description: Displays the current progress of the project by parsing the Tracks Registry and individual track plans.
 metadata:
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Conductor Status Skill
@@ -35,6 +35,7 @@ Before starting the status overview process, you MUST locate and read the projec
     -   **Product Definition** (`product.md`)
     -   **Tech Stack** (`tech-stack.md`)
     -   **Workflow** (`workflow.md`)
+    -   **Workflow Settings** (`settings.json`, optional): read it if it exists. A missing file or key means the default listed in the **Workflow**'s Workflow Settings section.
     -   **Health Check:** You MUST verify that every linked file actually exists. If ANY of these core files are missing, HALT immediately. Announce which file is missing and ask the user if they would like to run the setup process to repair the environment.
 
 ---
@@ -69,3 +70,4 @@ Follow this sequence to provide a status overview.
     -   **Phases (total):** The total number of major phases.
     -   **Tasks (total):** The total number of tasks.
     -   **Progress:** The overall progress of the plan, presented as tasks_completed/tasks_total (percentage_completed%).
+    -   **Workflow:** The active settings on one line, marking any that come from defaults rather than `settings.json`, e.g. `trunk · commit per task · push: ask · notes off · tests with each task · verification at track end`, plus the current git branch.

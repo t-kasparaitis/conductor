@@ -67,8 +67,9 @@ with one click (diagram: git-strategies).
     checkpoints and a final **Track Verification** phase. With `tdd`, tasks
     start with failing tests (today's behaviour). With `with-task`, every task
     names the tests it adds next to the code. With `after`, the final phase
-    writes them. With `trunk` or `feature-branch`, the first task creates the
-    track branch.
+    writes them. With `trunk` or `feature-branch`, new-track creates the
+    track branch before writing the track's files, so they are committed on
+    the branch, never on `main`.
 -   **implement:** commits and pushes per `git.*`; integrates per strategy
     (rebase vs merge); runs verification at the cadence set.
 -   **review:** checks the work against the settings (for example "commit

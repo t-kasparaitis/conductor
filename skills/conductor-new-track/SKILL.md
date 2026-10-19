@@ -2,7 +2,7 @@
 name: conductor-new-track
 description: Plans a new track (feature or bug fix), generates spec/plan documents, and updates the registry.
 metadata:
-  version: "1.1"
+  version: "1.2"
 ---
 
 # Conductor New Track Skill
@@ -36,6 +36,7 @@ Before starting the planning process, you MUST locate and read the project's fou
     -   **Product Definition** (`product.md`)
     -   **Tech Stack** (`tech-stack.md`)
     -   **Workflow** (`workflow.md`)
+    -   **Workflow Settings** (`settings.json`, optional): read it if it exists. A missing file or key means the default listed in the **Workflow**'s Workflow Settings section.
     -   **Health Check:** You MUST verify that every linked file actually exists. If ANY of these core files are missing, HALT immediately. Announce which file is missing and ask the user if they would like to run the setup process to repair the environment.
 
 ---
@@ -98,11 +99,26 @@ Adhere to this sequence precisely.
     *   Read the confirmed `spec.md` content for this track.
     *   Locate and read the **Workflow** document as linked in `conductor/index.md`.
     *   Generate a `plan.md` featuring a hierarchical list of Phases, Tasks, and Sub-tasks.
-    *   **CRITICAL:** The plan structure MUST strictly follow the methodology defined in the **Workflow** (e.g., ensuring TDD tasks like "Write Tests" precede "Implementation").
+    *   **CRITICAL:** The plan structure MUST strictly follow the methodology defined in the **Workflow** and the **Workflow Settings** (re-read `settings.json` now; the user may have changed it).
     *   Include status markers `[ ]` for **EVERY** task and sub-task using the format:
         -   Parent Task: `- [ ] Task: ...`
         -   Sub-task: `- [ ] ...`
-    *   **Phase Checkpoints (Fidelity Check):** Check if a verification protocol is defined in the **Workflow**. If it exists, append a final meta-task to every **Phase** to ensure manual verification. Example: `- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)`.
+    *   **Testing (`testing.style`):**
+        -   `tdd` (default): a "Write failing tests" task or sub-task precedes each implementation task.
+        -   `with-task`: each implementation task says which tests it adds, e.g. `- [ ] Task: Parse the config file, with tests for missing and malformed files`. No separate test tasks.
+        -   `after`: no test tasks in the implementation phases; the tests are written in the verification phase(s).
+    *   **Verification (`testing.verification`):**
+        -   `phase` (default): append a final meta-task to every **Phase**: `- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)`.
+        -   `track`: no per-phase checkpoint tasks. End the plan with a final phase:
+
+            ```markdown
+            ## Phase N: Track Verification
+
+            - [ ] Task: Write tests for the whole track (only when `testing.style` is `after`)
+            - [ ] Task: Run the full suite
+            - [ ] Task: Try it with the user, iterate on feedback, sign-off (Refer to workflow.md)
+            ```
+    *   **Settings Note:** Start the plan with a one-line quote naming the settings it was shaped by, e.g. `> Planned under: trunk, commit per task, tests with each task, verification at track end.` If the settings change later, offer to re-shape the remaining phases.
 
 4.  **User Confirmation:**
     -   Present the drafted Implementation Plan to the user for review.
@@ -120,6 +136,7 @@ Adhere to this sequence precisely.
 
 3.  **Generate Track ID & Directory:**
     -   Create a unique Track ID (e.g., `shortname_YYYYMMDD`).
+    -   **Track Branch (`git.strategy`):** with `trunk` or `feature-branch`, create the track's branch now, before writing anything, so the track's files are committed there and never on `main`. Use the **Start** commands from the Workflow's "Branching, Pushing and Landing" section, including `git branch --unset-upstream`. If uncommitted changes outside `conductor/` would come along, warn the user and ask first. With `current`, stay on the current branch.
     -   Create the track's workspace at `conductor/tracks/<track_id>/`.
 
 4.  **Write Track Artifacts:**
@@ -144,6 +161,6 @@ Adhere to this sequence precisely.
     -   Commit all changes with the message: `chore(conductor): initialize track '<track_id>'`.
 
 8.  **Completion & Next Steps:**
-    -   Inform the user that the track creation is complete and the registry has been updated.
+    -   Inform the user that the track creation is complete and the registry has been updated, naming the track branch if one was created.
     -   Ask the user if they would like to start the implementation right now using a **Yes/No question**.
     -   **Internal Handoff:** If the user agrees, you MUST use the `conductor-implement` skill to begin work. Present the transition as a natural progression without mentioning the skill name.

@@ -2,7 +2,7 @@
 name: conductor-review
 description: Reviews the completed track work against guidelines and the plan. Acts as a Principal Software Engineer to ensure quality and compliance.
 metadata:
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Conductor Review Skill
@@ -42,6 +42,7 @@ Before starting the review process, you MUST locate and read the project's found
     -   **Tech Stack** (`tech-stack.md`)
     -   **Workflow** (`workflow.md`)
     -   **Product Guidelines** (`product-guidelines.md`)
+    -   **Workflow Settings** (`settings.json`, optional): read it if it exists. A missing file or key means the default listed in the **Workflow**'s Workflow Settings section.
     -   **Health Check:** You MUST verify that every linked file actually exists. If ANY of these core files are missing, HALT immediately. Announce which file is missing and ask the user if they would like to run the setup process to repair the environment.
 
 ---
@@ -105,7 +106,15 @@ Before starting the review process, you MUST locate and read the project's found
     -   Are there new tests?
     -   Do the changes look like they are covered by existing tests?
     -   *Action:* **Execute the test suite automatically.** Infer the test command based on the codebase languages and structure (e.g., `npm test`, `pytest`, `go test`). Run it. Analyze the output for failures.
-5.  **Skill-Specific Checks:**
+5.  **Workflow Compliance** (when reviewing a track): check the work against the **Workflow Settings**. Report each mismatch as a finding; anything that broke a safety rule is **Critical**.
+    -   **Branch (`git.strategy`):** with `trunk` or `feature-branch`, the track's commits are on the track branch, not on `main` (`git branch --contains <first_track_sha>`). With `trunk`, the branch has no merge commits from `main` (`git log --merges <range>` is empty) because it is rebased instead. With `feature-branch`, pushed history was not rewritten (`git merge-base --is-ancestor origin/<track_id> HEAD`, if the branch was pushed).
+    -   **Commits (`git.commit`):** with `task`, each completed task in `plan.md` has its own SHA; with `phase` or `track`, the commits match the phase or track boundaries.
+    -   **Pushes (`git.push`):** with `ask`, nothing was pushed that the user didn't agree to in chat; with `phase` or `track`, the remote branch is up to date at those points (`git status -sb` after `git fetch`).
+    -   **Notes (`git.notes`):** with `on`, the task commits have notes (`git notes show <sha>`); with `off`, nothing to check.
+    -   **Tests (`testing.style`):** with `tdd` or `with-task`, each task that changed code also added or changed tests; with `after`, the verification phase added tests for the whole track.
+    -   **Verification (`testing.verification`):** the plan's shape matches: a checkpoint per phase with `phase`, one Track Verification phase with `track`.
+    -   **Safety:** nothing was force-pushed to `main` or merged into it by the agent. If the reflog or remote shows otherwise, report it as **Critical**.
+6.  **Skill-Specific Checks:**
     -   If specific skills are installed (e.g. GCP), verify compliance with their best practices.
 
 ### 2.4 Output Findings
@@ -122,6 +131,7 @@ Before starting the review process, you MUST locate and read the project's found
 - [ ] **New Tests**: [Yes/No]
 - [ ] **Test Coverage**: [Yes/No/Partial]
 - [ ] **Test Results**: [Passed/Failed] - [Summary of failing tests or 'All passed']
+- [ ] **Workflow Compliance**: [Yes/No/Partial/Not a track] - [Settings checked, and any mismatch]
 
 ## Findings
 *(Only include this section if issues are found)*
