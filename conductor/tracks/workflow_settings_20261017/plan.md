@@ -15,17 +15,17 @@
 
 ## Phase 2: Setup Asks (diagram: git-strategies)
 
-- [ ] Task: "Repository Workflow" step in `conductor-setup` — one question per setting, driven by the schema
-    - [ ] Brownfield inference: merge commits → feature-branch; linear history → trunk
-    - [ ] Write `conductor/settings.json` and link it from `conductor/index.md`
-- [ ] Task: Add settings to an already-initialised project without re-running full setup
+- [x] Task: "Repository Workflow" step in `conductor-setup` — one question per setting, driven by the schema ffd388c
+    - [x] Brownfield inference: merge commits → feature-branch; linear history → trunk
+    - [x] Write `conductor/settings.json` and link it from `conductor/index.md`
+- [x] Task: Add settings to an already-initialised project without re-running full setup ffd388c
 
 ## Phase 3: Skills Obey
 
-- [ ] Task: `conductor-new-track` — plan shape from `testing.*`; first task creates the branch
-- [ ] Task: `conductor-implement` — branch, commit, notes and push per `git.*`; verification at the set cadence; stop at "branch ready"
-- [ ] Task: `conductor-review` — check the work against the settings
-- [ ] Task: `conductor-status` — show the active settings
+- [x] Task: `conductor-new-track` — plan shape from `testing.*`; creates the track branch before writing its files 3925285
+- [x] Task: `conductor-implement` — branch, commit, notes and push per `git.*`; verification at the set cadence; stop at "branch ready" 3925285
+- [x] Task: `conductor-review` — check the work against the settings 3925285
+- [x] Task: `conductor-status` — show the active settings 3925285
 
 ## Phase 4: Viewer
 

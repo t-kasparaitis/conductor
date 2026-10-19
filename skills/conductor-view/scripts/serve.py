@@ -385,7 +385,16 @@ class Handler(BaseHTTPRequestHandler):
     def _json(self, obj, status=HTTPStatus.OK):
         self._send(status, json.dumps(obj).encode(), "application/json; charset=utf-8")
 
+    def _local_host(self) -> bool:
+        # DNS rebinding: a site can point its own domain at 127.0.0.1, and then
+        # its Origin and Host match each other. Only serve requests addressed
+        # to this machine by name.
+        port = self.server.server_address[1]
+        return self.headers.get("Host", "") in {f"127.0.0.1:{port}", f"localhost:{port}"}
+
     def do_GET(self):
+        if not self._local_host():
+            return self._json({"error": "forbidden host"}, HTTPStatus.FORBIDDEN)
         path = self.path.split("?", 1)[0]
         if path == "/api/state":
             return self._json(load_state(self.root))
@@ -400,6 +409,8 @@ class Handler(BaseHTTPRequestHandler):
         self._send(HTTPStatus.OK, (VIEWER_DIR / name).read_bytes(), ctype + "; charset=utf-8")
 
     def do_POST(self):
+        if not self._local_host():
+            return self._json({"error": "forbidden host"}, HTTPStatus.FORBIDDEN)
         if self.path not in ("/api/feedback", "/api/settings"):
             return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
         # Same-origin only: browsers send Origin on POST; reject other sites.
