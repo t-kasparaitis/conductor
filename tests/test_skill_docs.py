@@ -103,6 +103,12 @@ class ViewSkillTest(unittest.TestCase):
         for flag in flags:
             self.assertIn(f'"{flag}"', serve_py, flag)
 
+    def test_viewer_loads_nothing_from_the_internet(self):
+        viewer = SKILLS / "conductor-view" / "assets" / "viewer"
+        for f in viewer.iterdir():
+            urls = re.findall(r"https?://[^\"' )]+", f.read_text(encoding="utf-8"))
+            self.assertEqual([u for u in urls if not u.startswith("http://www.w3.org/")], [], f.name)
+
     def test_example_diagram_is_valid(self):
         from helpers import serve
         example = json.loads(re.search(r"```json\n(.*?)```", self.text, re.S).group(1))

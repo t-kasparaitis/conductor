@@ -42,7 +42,7 @@
 ## Phase 6: Agent Instructions & Integration (diagram: feedback-loop)
 
 - [x] Task: Finish `skills/conductor-view/SKILL.md` (missing-Python detection and fallback, contract link) 5405f75
-- [ ] Task: Conditional "Visual companion" hooks in the new-track, implement, review and status skills
+- [x] Task: Conditional "Visual companion" hooks in the new-track, implement, review and status skills 4b9acaf
 - [ ] Task: README — Visual companion section and "Changes from upstream"
 - [ ] Task: CI — Playwright end-to-end in Chromium, Firefox and WebKit (Edge on Windows): load plan, live update, comment round-trip, open map, pan/zoom, tour
 
