@@ -9,7 +9,7 @@
 - [x] Task: Track summary for the home page: status group (Now/Open/Done/Archived), current task, per-phase progress, open feedback, spec/plan approval, with parser tests 9da3cd5
 - [x] Task: Last activity and branch: one `git log` per project, falling back to file times without git, with tests for both f9f1c4b
 - [x] Task: Git safety state per track: uncommitted, not pushed, pushed, landed, no git (one `git status` and `git for-each-ref` per project), plus an on-demand detailed check with last-fetch time, with tests on throwaway repos with a bare remote f9f1c4b
-- [ ] Task: Mirror the new loaders in `local.js`, with parity tests
+- [x] Task: Mirror the new loaders in `local.js`, with parity tests — done inside the archive and summary tasks; git facts are server-only (the no-Python view shows no badges) 9c83865 9da3cd5
 
 ## Phase 2: Project registry and port
 
