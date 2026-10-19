@@ -35,7 +35,7 @@ Before starting the status overview process, you MUST locate and read the projec
     -   **Product Definition** (`product.md`)
     -   **Tech Stack** (`tech-stack.md`)
     -   **Workflow** (`workflow.md`)
-    -   **Workflow Settings** (`settings.json`, optional): read `conductor/settings.json` if it exists, whether or not the index links it. A missing file or key means the default listed in the **Workflow**'s Workflow Settings section.
+    -   **Workflow Settings** (`settings.json`, optional): read `conductor/settings.json` if it exists, whether or not the index links it: it holds this repo's exceptions. For any key it doesn't set, use the user's main rules (`settings.json` in the Conductor viewer's config folder; the **Workflow**'s Workflow Settings section lists the paths) if you can read them, else the default listed there.
     -   **Health Check:** You MUST verify that every linked file actually exists. If ANY of these core files are missing, HALT immediately. Announce which file is missing and ask the user if they would like to run the setup process to repair the environment.
 
 ---
@@ -71,4 +71,4 @@ Follow this sequence to provide a status overview.
     -   **Tasks (total):** The total number of tasks.
     -   **Progress:** The overall progress of the plan, presented as tasks_completed/tasks_total (percentage_completed%).
     -   **Open Feedback:** For each track with a `feedback.md` (from the `conductor-view` viewer), the number of `open` items, so the user knows what's waiting. Omit this line if there are none.
-    -   **Workflow:** The active settings on one line, marking any that come from defaults rather than `settings.json`, e.g. `trunk · commit per task · push: ask · notes off · tests with each task · verification at track end`, plus the current git branch.
+    -   **Workflow:** The active settings on one line, marking any that don't come from this repo's `settings.json` (main rule or default), e.g. `trunk · commit per task · push: ask · notes off · tests with each task · verification at track end`, plus the current git branch.

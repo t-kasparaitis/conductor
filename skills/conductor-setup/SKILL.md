@@ -176,6 +176,8 @@ Configure the operational rules for the project.
 
 Choose how this repository branches, commits, pushes and tests. The choices go in `conductor/settings.json`, which every Conductor skill re-reads before it plans, commits, pushes or verifies, and which the user can change later (by hand, by asking, or in the Conductor viewer).
 
+**Main rules first:** the user may already have main rules for all their projects (`settings.json` in the Conductor viewer's config folder; the **Workflow**'s Workflow Settings section lists the paths). If that file exists and you can read it, show its values as a short table and ask with a **single-choice question**: **Follow the main rules** (Recommended unless the repo's history says otherwise) or **Set exceptions for this repo**. To follow them, write `conductor/settings.json` with only `{"version": 1}` and go to step 7. For exceptions, run the steps below with each main rule as the recommendation, and in step 6 write only the keys that differ from the main rules. If there is no such file (or you can't read outside the repo), run the steps below as written.
+
 1.  **Load the Schema:** Read `assets/settings.schema.json`. It lists every setting, its options (with a one-line `summary` and, for some, a longer `detail`), and its default. Ask only about settings in the schema, and offer only its options.
 2.  **Explain:** In two or three sentences, explain that these settings make the agent follow the repository's conventions rather than one fixed way of working, and that the defaults reproduce standard Conductor behaviour.
 3.  **Infer Recommendations (Brownfield):** If the project has git history, look at it before asking:

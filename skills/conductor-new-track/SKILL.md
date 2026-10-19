@@ -36,7 +36,7 @@ Before starting the planning process, you MUST locate and read the project's fou
     -   **Product Definition** (`product.md`)
     -   **Tech Stack** (`tech-stack.md`)
     -   **Workflow** (`workflow.md`)
-    -   **Workflow Settings** (`settings.json`, optional): read `conductor/settings.json` if it exists, whether or not the index links it. A missing file or key means the default listed in the **Workflow**'s Workflow Settings section.
+    -   **Workflow Settings** (`settings.json`, optional): read `conductor/settings.json` if it exists, whether or not the index links it: it holds this repo's exceptions. For any key it doesn't set, use the user's main rules (`settings.json` in the Conductor viewer's config folder; the **Workflow**'s Workflow Settings section lists the paths) if you can read them, else the default listed there.
     -   **Health Check:** You MUST verify that every linked file actually exists. If ANY of these core files are missing, HALT immediately. Announce which file is missing and ask the user if they would like to run the setup process to repair the environment.
 
 ---

@@ -14,10 +14,21 @@
 
 ## Workflow Settings
 
-`conductor/settings.json` holds this project's choices (read it from there
-even if `conductor/index.md` doesn't link it). **Re-read it before you
-plan, commit, push or verify**: the user can change it at any time, for
-example from the Conductor viewer. A missing file or key means the default.
+Settings come in two layers. **Re-read them before you plan, commit, push or
+verify**: the user can change either at any time, for example from the
+Conductor viewer.
+
+1.  `conductor/settings.json`: this repo's choices, committed and shared
+    (read it from there even if `conductor/index.md` doesn't link it).
+2.  The user's **main rules** for every project: `settings.json` in the
+    Conductor viewer's config folder, on their machine only:
+    `~/.config/conductor-view/` on Linux (or `$XDG_CONFIG_HOME/conductor-view/`),
+    `~/Library/Application Support/conductor-view/` on macOS,
+    `%APPDATA%\conductor-view\` on Windows, or `$CONDUCTOR_VIEW_HOME`.
+
+For each key, use the repo's value, else the main rule, else the default
+below. If you can't read outside the repo, use the repo file and the
+defaults, and say so.
 
 | Setting | Values (default first) | What it changes |
 | --- | --- | --- |

@@ -59,6 +59,24 @@ class SkillsObeySettingsTest(unittest.TestCase):
             handshake = section(skill(name), "## 1. Handshake")
             self.assertIn("read `conductor/settings.json` if it exists", handshake, name)
 
+    def test_core_skills_fall_back_to_the_main_rules(self):
+        for name in ("conductor-new-track", "conductor-implement", "conductor-review", "conductor-status"):
+            handshake = section(skill(name), "## 1. Handshake")
+            self.assertIn("main rules", handshake, name)
+        setup = section(skill("conductor-setup"), "### 2.6 Repository Workflow")
+        self.assertIn("**Follow the main rules**", setup)
+        self.assertIn("only the keys that differ from the main rules", setup)
+
+    def test_workflow_lists_where_the_main_rules_live(self):
+        from helpers import serve
+        workflow = (SKILLS / "conductor-setup" / "assets" / "workflow.md").read_text(encoding="utf-8")
+        contract = (SKILLS / "conductor-view" / "references" / "file-contract.md").read_text(encoding="utf-8")
+        for path in ("~/.config/conductor-view/", "~/Library/Application Support/conductor-view/",
+                     "%APPDATA%\\conductor-view\\", "CONDUCTOR_VIEW_HOME"):
+            self.assertIn(path, workflow, path)
+            self.assertIn(path.replace("~/.config/conductor-view/", "~/.config/conductor-view/"), contract, path)
+        self.assertEqual(serve.APP, "conductor-view")
+
     def test_new_track_shapes_plans_for_every_testing_value(self):
         plan = section(skill("conductor-new-track"), "### 2.3 Interactive Plan Generation")
         for key in ("testing.style", "testing.verification"):
