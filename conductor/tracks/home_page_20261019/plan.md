@@ -18,7 +18,7 @@
 - [x] Task: Serve many projects: `/api/projects` and per-project `/api/state`; every path resolved inside a registered project; track ids always scoped by project, with HTTP and path-escape tests ced83b4
 - [x] Task: Per-project summary cache keyed on each project's file versions; the poll re-reads only changed projects, with tests for 50 projects and two changing at once 4006dfc
 - [x] Task: Layered workflow settings: Conductor-wide `settings.json` + repo file + schema defaults, per-key resolution with its source, exceptions = keys that differ, remove-key and tidy, with tests (server and `local.js`) 7efea4d
-- [ ] Task: `--watch --all`: feedback and settings changes across every registered project, labelled by project, with tests
+- [x] Task: `--watch --all`: feedback and settings changes across every registered project, labelled by project, with tests ec656d3
 - [ ] Task: Start command registers its project; a second start hands the project to the running viewer and exits; `--add`, `--forget`, `--list`, with CLI tests
 - [ ] Task: Find projects: depth-limited scan with skip list and a time cap, add selected; add by path, with tests
 
