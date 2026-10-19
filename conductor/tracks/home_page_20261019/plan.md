@@ -47,5 +47,5 @@
 
 ## Phase 6: Track Verification
 
-- [ ] Task: Run the full suite in Chrome and Firefox
-- [ ] Task: Try it with the user across this repo and the user's other Conductor projects, iterate on feedback, sign-off (Refer to workflow.md)
+- [x] Task: Run the full suite in Chrome and Firefox — 256 tests; Chrome OK (1 Windows-only skip), Firefox OK (9 skips: Chrome-only key checks and the Windows test); Firefox found a phone-width overflow, fixed 0d6ccd9
+- [~] Task: Try it with the user across this repo and the user's other Conductor projects, iterate on feedback, sign-off (Refer to workflow.md)
