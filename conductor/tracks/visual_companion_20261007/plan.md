@@ -36,7 +36,7 @@
 
 ## Phase 5: World-Map Diagrams (diagram: world-map)
 
-- [ ] Task: Extract auto-layout into a pure function, with tests (layered ranks, cycles, regions, manual coordinates)
+- [x] Task: Extract auto-layout into a pure function, with tests (layered ranks, cycles, regions, manual coordinates) e705673
 - [ ] Task: Sandboxed raw-SVG diagrams in the same canvas
 
 ## Phase 6: Agent Instructions & Integration (diagram: feedback-loop)
