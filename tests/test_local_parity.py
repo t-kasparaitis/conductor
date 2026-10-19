@@ -121,6 +121,26 @@ class ParityTest(TempProject):
         expected = serve.load_state(self.root)["tracks"]
         actual = self.js("buildState", files, "proj")["tracks"]
         self.assertEqual(errors_to_flags(actual), errors_to_flags(expected))
+        summaries = self.b.js(f"window.ConductorLocal.buildState({json.dumps(files)}, 'p').tracks.map(window.ConductorLocal.summarizeTrack)")
+        self.assertEqual(summaries, [serve.summarize_track(t) for t in expected])
+
+    def test_summaries(self):
+        from test_summary import FEEDBACK as SUMMARY_FEEDBACK, PLAN as SUMMARY_PLAN
+        specs = ["", "intro\n\n# Title\n", "#\nnot a title\n# Real", "# CRLF title\r\n"]
+        metas = ["{}", '{"status": "completed", "description": "d", "type": "chore"}', '{"status": "DONE"}']
+        registries = ["", "- [x] **Track: Reg**\n*Link: [x](./tracks/t_1/index.md)*\n"]
+        for spec in specs:
+            for meta in metas:
+                for reg in registries:
+                    files = {"conductor/tracks.md": reg, "conductor/tracks/t_1/spec.md": spec,
+                             "conductor/tracks/t_1/metadata.json": meta, "conductor/tracks/t_1/plan.md": SUMMARY_PLAN,
+                             "conductor/tracks/t_1/feedback.md": SUMMARY_FEEDBACK,
+                             "conductor/archive/a_1/spec.md": spec}
+                    for path, text in files.items():
+                        self.write(path, text)
+                    expected = [serve.summarize_track(t) for t in serve.load_tracks(self.root)]
+                    actual = self.b.js(f"window.ConductorLocal.buildState({json.dumps(files)}, 'p').tracks.map(window.ConductorLocal.summarizeTrack)")
+                    self.assertEqual(actual, expected, (spec, meta, reg))
 
 
 @unittest.skipUnless(find_browser(), "test browser not installed")

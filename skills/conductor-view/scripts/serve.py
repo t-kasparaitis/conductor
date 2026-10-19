@@ -350,6 +350,70 @@ def load_tracks(root: Path) -> list[dict]:
     return tracks
 
 
+_DIAGRAM_REF = re.compile(r"\s*\(diagram:[^)]*\)")
+
+
+def _clean_title(text: str) -> str:
+    return _DIAGRAM_REF.sub("", re.sub(r"^Phase\s*\d+\s*:\s*", "", text, flags=re.I)).strip()
+
+
+def _decision(feedback: list[dict], what: str) -> dict | None:
+    """The review state of the spec or plan: an open change request wins, else the last approval."""
+    items = [f for f in feedback if f["target"] == what]
+    revise = [f for f in items if f["kind"] == "revise" and f["status"] == "open"]
+    approve = [f for f in items if f["kind"] == "approve"]
+    last = (revise or approve or [None])[-1]
+    return {"id": last["id"], "kind": last["kind"], "status": last["status"]} if last else None
+
+
+REQUEST_KINDS = ("archive", "restore", "delete")
+
+
+def summarize_track(t: dict) -> dict:
+    """What the home page shows for one track: small, no spec or diagram bodies."""
+    reg = t["registry"] or {}
+    meta = t["metadata"]
+    phases = t["plan"]["phases"]
+    tasks = [task for p in phases for task in p["tasks"]]
+    status = reg.get("status") or meta.get("status") or "new"
+    current = None
+    for i, p in enumerate(phases):
+        for task in p["tasks"]:
+            if current is None and (task["status"] == "in_progress"
+                                    or any(s["status"] == "in_progress" for s in task["subtasks"])):
+                current = {"phase": i, "text": _clean_title(task["text"])}
+    if t["archived"]:
+        group = "archived"
+    elif status == "done" or str(meta.get("status", "")).lower() in ("done", "completed", "complete"):
+        group = "done"
+    elif current:
+        group = "now"
+    else:
+        group = "open"
+    spec_title = next((m.group(1).strip() for m in [re.search(r"^#[ \t]+(.+)$", t["spec"], re.M)] if m), None)
+    return {
+        "id": t["id"],
+        "archived": t["archived"],
+        "title": spec_title or meta.get("description") or reg.get("description") or t["id"],
+        "description": reg.get("description") or meta.get("description") or "",
+        "type": meta.get("type") or "track",
+        "status": status,
+        "group": group,
+        "current": current,
+        "done": sum(1 for x in tasks if x["status"] == "done"),
+        "total": len(tasks),
+        "phases": [{"title": _clean_title(p["title"]), "status": p["status"], "done": p["done"], "total": p["total"],
+                    "tasks": [x["status"] for x in p["tasks"]]} for p in phases],
+        "open_feedback": sum(1 for f in t["feedback"] if f["status"] == "open" and f["kind"] not in REQUEST_KINDS),
+        "requests": [{"id": f["id"], "kind": f["kind"]} for f in t["feedback"]
+                     if f["status"] == "open" and f["kind"] in REQUEST_KINDS],
+        "spec": _decision(t["feedback"], "spec"),
+        "plan": _decision(t["feedback"], "plan"),
+        "created": str(meta.get("created_at") or "")[:10],
+        "metadata_error": bool(t["metadata_error"]),
+    }
+
+
 def load_state(root: Path) -> dict:
     return {
         "project": root.resolve().name,

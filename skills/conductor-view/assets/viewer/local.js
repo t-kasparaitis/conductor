@@ -151,6 +151,45 @@
     return out;
   }
 
+  const cleanTitle = (s) => s.replace(/^Phase\s*\d+\s*:\s*/i, "").replace(/\s*\(diagram:[^)]*\)/g, "").trim();
+  const REQUEST_KINDS = ["archive", "restore", "delete"];
+
+  function decision(feedback, what) {
+    const items = feedback.filter((f) => f.target === what);
+    const revise = items.filter((f) => f.kind === "revise" && f.status === "open");
+    const approve = items.filter((f) => f.kind === "approve");
+    const last = (revise.length ? revise : approve).slice(-1)[0];
+    return last ? { id: last.id, kind: last.kind, status: last.status } : null;
+  }
+
+  /** Mirrors serve.summarize_track: what the home page shows for one track. */
+  function summarizeTrack(t) {
+    const reg = t.registry || {}, meta = t.metadata, phases = t.plan.phases;
+    const tasks = phases.flatMap((p) => p.tasks);
+    const status = reg.status || meta.status || "new";
+    let current = null;
+    phases.forEach((p, i) => p.tasks.forEach((task) => {
+      if (!current && (task.status === "in_progress" || task.subtasks.some((s) => s.status === "in_progress"))) current = { phase: i, text: cleanTitle(task.text) };
+    }));
+    const group = t.archived ? "archived"
+      : status === "done" || ["done", "completed", "complete"].includes(String(meta.status || "").toLowerCase()) ? "done"
+      : current ? "now" : "open";
+    const h1 = t.spec.match(/^#[ \t]+(.+)$/m);
+    return {
+      id: t.id, archived: t.archived,
+      title: (h1 && h1[1].trim()) || meta.description || reg.description || t.id,
+      description: reg.description || meta.description || "",
+      type: meta.type || "track", status, group, current,
+      done: tasks.filter((x) => x.status === "done").length, total: tasks.length,
+      phases: phases.map((p) => ({ title: cleanTitle(p.title), status: p.status, done: p.done, total: p.total, tasks: p.tasks.map((x) => x.status) })),
+      open_feedback: t.feedback.filter((f) => f.status === "open" && !REQUEST_KINDS.includes(f.kind)).length,
+      requests: t.feedback.filter((f) => f.status === "open" && REQUEST_KINDS.includes(f.kind)).map((f) => ({ id: f.id, kind: f.kind })),
+      spec: decision(t.feedback, "spec"), plan: decision(t.feedback, "plan"),
+      created: String(meta.created_at || "").slice(0, 10),
+      metadata_error: !!t.metadata_error,
+    };
+  }
+
   /** files: { "conductor/tracks/x/plan.md": "text", ... } -> the state serve.py would return. */
   function buildState(files, project) {
     const has = (p) => Object.prototype.hasOwnProperty.call(files, p);
@@ -215,5 +254,5 @@
     ].join("\n");
   }
 
-  window.ConductorLocal = { parseRegistry, parsePlan, parseFeedback, diagramProblem, buildState, readPicked, feedbackForChat };
+  window.ConductorLocal = { summarizeTrack, parseRegistry, parsePlan, parseFeedback, diagramProblem, buildState, readPicked, feedbackForChat };
 })();
