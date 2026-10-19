@@ -24,9 +24,9 @@
 
 ## Phase 3: Home page
 
-- [ ] Task: Routes with a project prefix, home at `#/`, old track links redirected, with browser tests
-- [ ] Task: Home layout: project cards, grouped track rows, highlighted "Now", collapsed Archived, missing projects shown as not found, with browser tests
-- [ ] Task: Search and status chips kept in the URL, with browser tests
+- [x] Task: Routes with a project prefix, home at `#/`, old track links redirected, with browser tests 015030b
+- [x] Task: Home layout: project cards, grouped track rows, highlighted "Now", collapsed Archived, missing projects shown as not found, with browser tests 015030b
+- [x] Task: Search and status chips kept in the URL, with browser tests 015030b
 - [ ] Task: Project switcher in the header; archived tracks open read-only with a banner, with browser tests
 - [ ] Task: Find projects and Add by path dialogs, with browser tests
 - [ ] Task: Settings page as main rules + exception list: per-project toggle, differing keys only, Use main rule, Tidy for keys equal to the main rule, value sources everywhere, with browser tests
