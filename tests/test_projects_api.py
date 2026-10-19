@@ -41,7 +41,7 @@ class ProjectsApiTest(UserHome, ServerTest):
     def test_lists_the_active_project_and_registered_ones(self):
         home = self.projects()
         ids = [(p["id"], p["active"], p["registered"]) for p in home["projects"]]
-        self.assertEqual(ids, [(self.root.name.lower(), True, False), ("beta", False, True)])
+        self.assertEqual(ids, [(serve._project_id(self.root, set()), True, False), ("beta", False, True)])
         beta = home["projects"][1]
         self.assertEqual([t["id"] for t in beta["tracks"]], ["b_only", "t_1"])
         self.assertEqual(beta["tracks"][0]["group"], "now")

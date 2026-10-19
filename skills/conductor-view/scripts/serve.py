@@ -1102,51 +1102,64 @@ def export(root: Path, out: Path) -> None:
 
 def _open_items(root: Path) -> dict[str, dict]:
     out: dict[str, dict] = {}
-    tracks_dir = root / "conductor" / "tracks"
-    if not tracks_dir.is_dir():
-        return out
-    for tdir in sorted(tracks_dir.iterdir()):
-        text = _read(tdir / "feedback.md")
-        for it in parse_feedback(text or ""):
-            if it["status"] == "open":
-                out[f"{tdir.name}/{it['id']}"] = {**it, "track": tdir.name}
+    for sub in ("tracks", "archive"):  # an archived track can still carry a restore or delete request
+        for tdir in _track_dirs(root / "conductor" / sub):
+            for it in parse_feedback(_read(tdir / "feedback.md") or ""):
+                if it["status"] == "open":
+                    out.setdefault(f"{tdir.name}/{it['id']}", {**it, "track": tdir.name})
     return out
 
 
-def watch(root: Path, interval: float = 1.0) -> None:
+def _watched(root: Path | None, everything: bool) -> list[tuple[str, Path]]:
+    if not everything:
+        return [("", root)]
+    return [(e["id"], Path(e["path"])) for e in project_list(root) if not e["missing"]]
+
+
+def _effective(root: Path) -> dict | None:
+    loaded = load_settings(root)
+    return None if loaded["error"] else {k: v["value"] for k, v in loaded["effective"].items()}
+
+
+def watch(root: Path | None, interval: float = 1.0, everything: bool = False) -> None:
     """Print one line per open feedback item (already open ones first), then per
     new one, plus a line whenever a workflow setting changes. Each line is meant
-    to be an event for an agent that can stream a command's output."""
+    to be an event for an agent that can stream a command's output. With
+    everything=True, follow every registered project and name it on each line."""
     seen: set[str] = set()
+    settings: dict[str, dict] = {}
     # Take the starting settings before announcing, so every later difference is a real change.
-    settings = None
-    for _ in range(50):
-        loaded = load_settings(root)
-        if not loaded["error"]:
-            settings = {k: v["value"] for k, v in loaded["effective"].items()}
-            break
-        time.sleep(0.1)
-    print(f"watching {root / 'conductor'} for feedback", flush=True)
+    for label, r in _watched(root, everything):
+        for _ in range(50):
+            eff = _effective(r)
+            if eff is not None:
+                settings[str(r)] = eff
+                break
+            time.sleep(0.1)
+    where = "every registered project" if everything else root / "conductor"
+    print(f"watching {where} for feedback", flush=True)
     while True:
         try:
-            for key, it in _open_items(root).items():
-                if key in seen:
+            for label, r in _watched(root, everything):
+                tag = f"project {label} · " if everything else ""
+                for key, it in _open_items(r).items():
+                    key = f"{r}/{key}"
+                    if key in seen:
+                        continue
+                    body = " ".join(it["body"].split())
+                    body = body if len(body) <= 100 else body[:97] + "..."
+                    print(f"feedback {it['id']} · {it['kind']} · {tag}track {it['track']} · "
+                          f"target {it['target'] or '-'}" + (f" · {body}" if body and body != "_(no message)_" else ""),
+                          flush=True)
+                    seen.add(key)  # only once it was actually reported
+                eff = _effective(r)
+                if eff is None:  # caught mid-save, or broken: keep the last good values
                     continue
-                body = " ".join(it["body"].split())
-                body = body if len(body) <= 100 else body[:97] + "..."
-                print(f"feedback {it['id']} · {it['kind']} · track {it['track']} · "
-                      f"target {it['target'] or '-'}" + (f" · {body}" if body and body != "_(no message)_" else ""),
-                      flush=True)
-                seen.add(key)  # only once it was actually reported
-            loaded = load_settings(root)
-            if loaded["error"]:  # caught mid-save, or broken: keep the last good values
-                time.sleep(interval)
-                continue
-            eff = {k: v["value"] for k, v in loaded["effective"].items()}
-            if settings is not None and eff != settings:
-                changed = ", ".join(f"{k} = {v}" for k, v in eff.items() if settings.get(k) != v)
-                print(f"settings changed: {changed}", flush=True)
-            settings = eff
+                before = settings.get(str(r))
+                if before is not None and eff != before:
+                    changed = ", ".join(f"{k} = {v}" for k, v in eff.items() if before.get(k) != v)
+                    print(f"settings changed: {tag}{changed}", flush=True)
+                settings[str(r)] = eff
         except Exception as e:  # a half-written file must not stop the watch
             print(f"watch: {e}", file=sys.stderr, flush=True)
         time.sleep(interval)
@@ -1167,6 +1180,7 @@ def main(argv=None) -> int:
     ap.add_argument("--export", metavar="FILE", help="write a read-only single-file snapshot and exit")
     ap.add_argument("--watch", action="store_true",
                     help="print one line per new open feedback item or settings change (for agents)")
+    ap.add_argument("--all", action="store_true", help="with --watch: follow every registered project")
     args = ap.parse_args(argv)
 
     root = Path(args.root).resolve()
@@ -1179,7 +1193,7 @@ def main(argv=None) -> int:
         return 0
     if args.watch:
         try:
-            watch(root)
+            watch(root, everything=args.all)
         except KeyboardInterrupt:
             pass
         return 0
