@@ -5,7 +5,7 @@
 
 ## Phase 1: Track summaries and the archive
 
-- [ ] Task: Load archived tracks from `conductor/archive/` and mark them read-only, with loader tests
+- [x] Task: Load archived tracks from `conductor/archive/` and mark them read-only, with loader tests 9c83865
 - [ ] Task: Track summary for the home page: status group (Now/Open/Done/Archived), current task, per-phase progress, open feedback, spec/plan approval, with parser tests
 - [ ] Task: Last activity and branch: one `git log` per project, falling back to file times without git, with tests for both
 - [ ] Task: Git safety state per track: uncommitted, not pushed, pushed, landed, no git (one `git status` and `git for-each-ref` per project), plus an on-demand detailed check with last-fetch time, with tests on throwaway repos with a bare remote
