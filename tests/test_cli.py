@@ -7,7 +7,7 @@ import sys
 import unittest
 
 from browser import Browser, find_browser
-from helpers import SERVE_PY, ServerTest, TempProject, serve
+from helpers import SERVE_PY, ServerTest, TempProject, UserHome, serve
 
 
 def run(*args, timeout=20):
@@ -28,7 +28,7 @@ def stop(proc):
     proc.stdout.close()
 
 
-class PortTest(ServerTest):
+class PortTest(UserHome, ServerTest):
     def setUp(self):
         super().setUp()
         self.write("conductor/index.md", "# P\n")
@@ -52,18 +52,76 @@ class PortTest(ServerTest):
         self.assertIn(f"already running for this project: http://127.0.0.1:{self.port}/", result.stdout)
 
     def test_busy_port_moves_to_the_next_free_one(self):
-        # self.port is taken by this test's server, which serves a different root.
+        # Something that isn't a viewer holds the port.
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            s.listen()
+            busy = s.getsockname()[1]
+            proc, line = start("--root", str(self.root), "--port", str(busy))
+            try:
+                self.assertIn(f"port {busy} is busy", line)
+                line2 = proc.stdout.readline()
+                self.assertRegex(line2, r"serving .* at http://127\.0\.0\.1:\d+/ \(port: --port\)")
+                self.assertNotIn(f":{busy}/", line2)
+            finally:
+                stop(proc)
+
+    def other_project(self, index=True):
         other = TempProject("run")
         other.setUp()
         self.addCleanup(other.doCleanups)
-        proc, line = start("--root", str(other.root), "--port", str(self.port))
+        if index:
+            (other.root / "conductor" / "index.md").write_text("# B\n")
+        return other.root
+
+    def test_second_project_is_handed_to_the_running_viewer(self):
+        other = self.other_project()
+        result = run("--root", str(other), "--port", str(self.port))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        pid = serve._project_id(other, set())
+        self.assertIn(f"added {pid}: http://127.0.0.1:{self.port}/#/{pid}", result.stdout)
+        self.assertEqual([e["id"] for e in serve.registered_projects()], [pid])
+
+    def test_a_folder_that_cannot_be_registered_gets_its_own_viewer(self):
+        proc, line = start("--root", str(self.other_project(index=False)), "--port", str(self.port))
         try:
             self.assertIn(f"port {self.port} is busy", line)
-            line2 = proc.stdout.readline()
-            self.assertRegex(line2, r"serving .* at http://127\.0\.0\.1:\d+/")
-            self.assertNotIn(f":{self.port}/", line2)
         finally:
             stop(proc)
+
+    def test_starting_registers_the_project(self):
+        other = self.other_project()
+        proc, line = start("--root", str(other), "--port", "0")
+        try:
+            self.assertIn("serving", line)
+            self.assertEqual([e["path"] for e in serve.registered_projects()], [str(other.resolve())])
+        finally:
+            stop(proc)
+
+    def test_outside_a_project_it_serves_the_registered_ones(self):
+        serve.add_project(self.other_project())
+        proc = subprocess.Popen([sys.executable, str(SERVE_PY), "--port", "0"], cwd=str(self.home),
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8")
+        try:
+            self.assertIn("serving every registered project", proc.stdout.readline())
+        finally:
+            stop(proc)
+
+    def test_outside_a_project_with_nothing_registered_is_an_error(self):
+        result = subprocess.run([sys.executable, str(SERVE_PY), "--port", "0"], cwd=str(self.home),
+                                capture_output=True, text=True, encoding="utf-8", timeout=20)
+        self.assertEqual(result.returncode, 2)
+
+    def test_add_list_forget(self):
+        other = self.other_project()
+        self.assertIn("added", run("--add", str(other)).stdout)
+        self.assertIn("already registered", run("--add", str(other)).stdout)
+        pid = serve._project_id(other, set())
+        self.assertIn(f"{pid}\t{other.resolve()}", run("--list").stdout)
+        self.assertIn(f"forgot {pid}", run("--forget", str(other)).stdout)
+        self.assertIn("no projects registered", run("--list").stdout)
+        self.assertEqual(run("--forget", "nope").returncode, 2)
+        self.assertEqual(run("--add", str(self.other_project(index=False))).returncode, 2)
 
     def test_missing_conductor_folder_is_a_clear_error(self):
         other = TempProject("run")

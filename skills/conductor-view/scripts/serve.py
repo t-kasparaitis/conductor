@@ -33,7 +33,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import URLError
 from urllib.parse import parse_qs, urlsplit
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import gitinfo  # noqa: E402  (sibling module)
@@ -934,7 +934,7 @@ def resolve_project(pid: str | None, active: Path | None) -> Path:
 
 
 class Handler(BaseHTTPRequestHandler):
-    root: Path = Path(".")
+    root: Path | None = Path(".")  # the project the viewer was started for, if any
     port_source = "default"
     server_version = "conductor-view/0.1"
     timeout = 15  # seconds a client may stall mid-request before its connection is dropped
@@ -993,7 +993,7 @@ class Handler(BaseHTTPRequestHandler):
         except LookupError as e:
             return self._json({"error": str(e)}, HTTPStatus.NOT_FOUND)
         if path == "/api/ping":
-            return self._json({"app": APP, "root": str(self.root.resolve()) if self.root else None})
+            return self._json({"app": APP, "root": str(self.root.resolve()) if self.root is not None else None})
         name = "index.html" if path in ("/", "/index.html") else path.lstrip("/")
         if name not in {"index.html", "app.js", "map.js", "local.js", "style.css"}:
             return self._send(HTTPStatus.NOT_FOUND, b"not found", "text/plain")
@@ -1078,13 +1078,31 @@ class Server(ThreadingHTTPServer):
     daemon_threads = True
 
 
-def existing_viewer(port: int, root: Path) -> bool:
+def running_viewer(port: int) -> dict | None:
+    """What a conductor-view on this port says about itself, or None if there isn't one."""
     try:
         with urlopen(f"http://127.0.0.1:{port}/api/ping", timeout=0.5) as r:
             info = json.loads(r.read())
-        return info.get("app") == "conductor-view" and info.get("root") == str(root.resolve())
+        return info if info.get("app") == APP else None
     except (URLError, OSError, ValueError):
-        return False
+        return None
+
+
+def existing_viewer(port: int, root: Path) -> bool:
+    info = running_viewer(port)
+    return bool(info and info.get("root") and _same_path(Path(info["root"]), root.resolve()))
+
+
+def hand_over(port: int, root: Path) -> dict | None:
+    """Register root with the viewer already running on port. Its project entry, or None."""
+    req = Request(f"http://127.0.0.1:{port}/api/projects", method="POST",
+                  data=json.dumps({"action": "add", "path": str(root)}).encode(),
+                  headers={"Content-Type": "application/json"})
+    try:
+        with urlopen(req, timeout=5) as r:
+            return json.loads(r.read())
+    except (URLError, OSError, ValueError):
+        return None
 
 
 def export(root: Path, out: Path) -> None:
@@ -1165,14 +1183,44 @@ def watch(root: Path | None, interval: float = 1.0, everything: bool = False) ->
         time.sleep(interval)
 
 
+def _cli_projects(args) -> int:
+    if args.list:
+        projects = registered_projects()
+        for e in projects:
+            missing = "" if (Path(e["path"]) / "conductor").is_dir() else "  (not found)"
+            print(f"{e['id']}\t{e['path']}{missing}")
+        if not projects:
+            print(f"no projects registered yet ({config_home() / 'projects.json'})")
+    elif args.add:
+        try:
+            e = add_project(Path(args.add).resolve())
+        except ValueError as err:
+            print(f"error: {err}", file=sys.stderr)
+            return 2
+        print(f"{'added' if e['added'] else 'already registered'}: {e['id']}  {e['path']}")
+    else:
+        target = args.forget
+        match = [e for e in registered_projects()
+                 if e["id"] == target or _same_path(Path(e["path"]), Path(target).expanduser().resolve())]
+        if not match:
+            print(f"error: no registered project {target!r} (see --list)", file=sys.stderr)
+            return 2
+        forget_project(match[0]["id"])
+        print(f"forgot {match[0]['id']} (its files are untouched)")
+    for problem in CONFIG_PROBLEMS.values():
+        print(f"warning: couldn't read {problem['file']} ({problem['error']}); saved it as {problem['saved_as']}",
+              file=sys.stderr)
+    return 0
+
+
 def main(argv=None) -> int:
     # Windows pipes default to the ANSI code page, which can't encode every
     # comment (emoji, CJK). Agents read this output, so always write UTF-8.
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
-    ap = argparse.ArgumentParser(description="Conductor visual companion")
-    ap.add_argument("--root", default=".", help="project root containing conductor/ (default: .)")
+    ap = argparse.ArgumentParser(description="Conductor visual companion: one local viewer for all your Conductor projects")
+    ap.add_argument("--root", help="project root containing conductor/ (default: the current folder, if it has one)")
     ap.add_argument("--port", type=int, default=None,
                     help="port on 127.0.0.1 (0 = any free port). Default: CONDUCTOR_VIEW_PORT, "
                          "else the port saved in the viewer settings, else 4177")
@@ -1181,12 +1229,21 @@ def main(argv=None) -> int:
     ap.add_argument("--watch", action="store_true",
                     help="print one line per new open feedback item or settings change (for agents)")
     ap.add_argument("--all", action="store_true", help="with --watch: follow every registered project")
+    ap.add_argument("--add", metavar="PATH", help="register a project folder and exit")
+    ap.add_argument("--forget", metavar="ID_OR_PATH", help="unregister a project (files untouched) and exit")
+    ap.add_argument("--list", action="store_true", help="list registered projects and exit")
     args = ap.parse_args(argv)
 
-    root = Path(args.root).resolve()
+    if args.list or args.add or args.forget:
+        return _cli_projects(args)
+
+    root = Path(args.root or ".").resolve()
     if not (root / "conductor").is_dir():
-        print(f"error: no conductor/ directory in {root}", file=sys.stderr)
-        return 2
+        # From a folder that isn't a project, the viewer still shows every registered one.
+        if args.root or args.export or (args.watch and not args.all) or not registered_projects():
+            print(f"error: no conductor/ directory in {root}", file=sys.stderr)
+            return 2
+        root = None
     if args.export:
         export(root, Path(args.export))
         print(f"wrote {args.export}")
@@ -1197,21 +1254,36 @@ def main(argv=None) -> int:
         except KeyboardInterrupt:
             pass
         return 0
+    registrable = root is not None and (root / "conductor" / "index.md").is_file()
+    if registrable:
+        try:
+            add_project(root)
+        except (ValueError, RuntimeError, OSError) as err:
+            print(f"warning: couldn't register {root}: {err}", file=sys.stderr)
     Handler.root = root
     port, source, warnings = resolve_port(args.port)
     for w in warnings:
         print(f"warning: {w}", file=sys.stderr, flush=True)
     Handler.port_source = source
     httpd = None
-    # Walk up from the requested port: reuse this project's viewer if one is
-    # already running, otherwise take the first free port.
+    # Walk up from the port: one viewer serves every project, so if one is
+    # already running, hand this project to it; otherwise take the first free port.
     for port in ([port + i for i in range(20)] if port else [0]):
-        if port and existing_viewer(port, root):
+        info = running_viewer(port) if port else None
+        if info:
             url = f"http://127.0.0.1:{port}/"
-            print(f"conductor-view already running for this project: {url}", flush=True)
-            if args.open:
-                webbrowser.open(url)
-            return 0
+            same = root is not None and info.get("root") and _same_path(Path(info["root"]), root)
+            entry = hand_over(port, root) if registrable and not same else None
+            if same or root is None or entry:
+                if entry:
+                    url += f"#/{entry['id']}"
+                    print(f"conductor-view already running at http://127.0.0.1:{port}/ — added {entry['id']}: {url}",
+                          flush=True)
+                else:
+                    print(f"conductor-view already running{' for this project' if same else ''}: {url}", flush=True)
+                if args.open:
+                    webbrowser.open(url)
+                return 0
         try:
             httpd = Server(("127.0.0.1", port), Handler)
             break
@@ -1220,7 +1292,8 @@ def main(argv=None) -> int:
     if httpd is None:
         httpd = Server(("127.0.0.1", 0), Handler)
     url = f"http://127.0.0.1:{httpd.server_address[1]}/"
-    print(f"conductor-view serving {root} at {url}", flush=True)
+    what = root if root is not None else "every registered project"
+    print(f"conductor-view serving {what} at {url} (port: {source})", flush=True)
     if args.open:
         webbrowser.open(url)
     try:
