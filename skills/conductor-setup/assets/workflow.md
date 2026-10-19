@@ -5,12 +5,37 @@
 1.  **The Plan is the Source of Truth:** All work must be tracked in `plan.md`
 2.  **The Tech Stack is Deliberate:** Changes to the tech stack must be
     documented in `tech-stack.md` *before* implementation
-3.  **Test-Driven Development:** Write unit tests before implementing
-    functionality
+3.  **Tested Work:** Every change is covered by tests, written when
+    `testing.style` says (test-first by default)
 4.  **High Code Coverage:** Aim for >80% code coverage for all modules
 5.  **User Experience First:** Every decision should prioritize user experience
 6.  **Non-Interactive & CI-Aware:** Prefer non-interactive commands. Use
     `CI=true` for watch-mode tools (tests, linters) to ensure single execution.
+
+## Workflow Settings
+
+`conductor/settings.json` holds this project's choices. **Re-read it before you
+plan, commit, push or verify**: the user can change it at any time, for
+example from the Conductor viewer. A missing file or key means the default.
+
+| Setting | Values (default first) | What it changes |
+| --- | --- | --- |
+| `git.strategy` | `current` · `feature-branch` · `trunk` | Where commits go and how the track's branch is integrated. See [Branching, Pushing and Landing](#branching-pushing-and-landing). |
+| `git.commit` | `task` · `phase` · `track` | When you commit: after every task, at the end of each phase, or once for the whole track. |
+| `git.push` | `ask` · `phase` · `track` | When you push: only after asking in chat, after each phase, or once when the track is verified. |
+| `git.notes` | `on` · `off` | Whether task summaries and verification reports are attached as git notes. |
+| `testing.style` | `tdd` · `with-task` · `after` | When tests are written: failing test first, alongside the code in each task, or all together in the final verification phase. |
+| `testing.verification` | `phase` · `track` | When the work is tried out with the user (manual checks, feedback, iteration, sign-off): after every phase, or once at the end of the track. |
+
+**Safety rules (always, whatever the settings):**
+
+-   Never force-push `main`, or any branch that wasn't created for the current
+    track. Only ever force-push with `--force-with-lease --force-if-includes`.
+-   With `git.push = ask`, never push without asking in chat first.
+-   Never land work on `main` yourself. When the track is verified, stop at
+    "branch ready" and show the user the commands for their strategy.
+-   A new track branch must not track `origin/main` as its upstream, so a bare
+    `git push` can never reach `main`.
 
 ## Task Workflow
 
@@ -24,7 +49,17 @@ All tasks follow a strict lifecycle:
 2.  **Mark In Progress:** Before beginning work, edit `plan.md` and change the
     task from `[ ]` to `[~]`
 
-3.  **Write Failing Tests (Red Phase):**
+3.  **Write the Code and Its Tests** as `testing.style` says:
+
+    -   **`tdd`:** follow steps 4–6 below.
+    -   **`with-task`:** write the implementation and its tests together in this
+        task, then run the whole suite and confirm it passes. No failing-first
+        step is required, but the task is not done without its tests.
+    -   **`after`:** implement the task, then run the existing suite to confirm
+        nothing broke. New tests are written in the Track or Phase Verification
+        protocol.
+
+4.  **Write Failing Tests (Red Phase)** *(`tdd` only)*:
 
     -   Create a new test file for the feature or bug fix.
     -   Write one or more unit tests that clearly define the expected behavior
@@ -32,63 +67,68 @@ All tasks follow a strict lifecycle:
     -   **CRITICAL:** Run the tests and confirm that they fail as expected. This
         is the "Red" phase of TDD. Do not proceed until you have failing tests.
 
-4.  **Implement to Pass Tests (Green Phase):**
+5.  **Implement to Pass Tests (Green Phase)** *(`tdd` only)*:
 
     -   Write the minimum amount of application code necessary to make the
         failing tests pass.
     -   Run the test suite again and confirm that all tests now pass. This is
         the "Green" phase.
 
-5.  **Refactor (Optional but Recommended):**
+6.  **Refactor (Optional but Recommended):**
 
     -   With the safety of passing tests, refactor the implementation code and
         the test code to improve clarity, remove duplication, and enhance
         performance without changing the external behavior.
     -   Rerun tests to ensure they still pass after refactoring.
 
-6.  **Verify Coverage:** Run coverage reports using the project's chosen tools.
+7.  **Verify Coverage:** Run coverage reports using the project's chosen tools.
     For example, in a Python project, this might look like: `bash pytest
     --cov=app --cov-report=html` Target: >80% coverage for new code. The
     specific tools and commands will vary by language and framework.
 
-7.  **Document Deviations:** If implementation differs from tech stack:
+8.  **Document Deviations:** If implementation differs from tech stack:
 
     -   **STOP** implementation
     -   Update `tech-stack.md` with new design
     -   Add dated note explaining the change
     -   Resume implementation
 
-8.  **Commit Code Changes:**
+9.  **Commit Code Changes** when `git.commit` says:
 
-    -   Stage all code changes related to the task.
-    -   Propose a clear, concise commit message e.g, `feat(ui): Create basic
-        HTML structure for calculator`.
-    -   Perform the commit.
+    -   **`task`:** commit now. Stage all code changes related to the task and
+        use a clear, concise message, e.g. `feat(ui): Create basic HTML
+        structure for calculator`.
+    -   **`phase` / `track`:** don't commit yet. Mark the task `[x]` without a
+        SHA and continue; the commit happens at the end of the phase or track,
+        and its SHA is then appended to every task it covers.
+    -   Commit only on the branch `git.strategy` says (see
+        [Branching, Pushing and Landing](#branching-pushing-and-landing)).
 
-9.  **Attach Task Summary with Git Notes:**
+10. **Attach Task Summary with Git Notes** (only if `git.notes` is `on`):
 
-    -   **Step 9.1: Get Commit Hash:** Obtain the hash of the *just-completed
+    -   **Step 10.1: Get Commit Hash:** Obtain the hash of the *just-completed
         commit* (`git log -1 --format="%H"`).
-    -   **Step 9.2: Draft Note Content:** Create a detailed summary for the
+    -   **Step 10.2: Draft Note Content:** Create a detailed summary for the
         completed task. This should include the task name, a summary of changes,
         a list of all created/modified files, and the core "why" for the change.
-    -   **Step 9.3: Attach Note:** Use the `git notes` command to attach the
+    -   **Step 10.3: Attach Note:** Use the `git notes` command to attach the
         summary to the commit. `bash # The note content from the previous step
         is passed via the -m flag. git notes add -m "<note content>"
         <commit_hash>`
 
-10. **Get and Record Task Commit SHA:**
+11. **Get and Record Task Commit SHA:**
 
-    -   **Step 10.1: Update Plan:** Read `plan.md`, find the line for the
+    -   **Step 11.1: Update Plan:** Read `plan.md`, find the line for the
         completed task, update its status from `[~]` to `[x]`, and append the
         first 7 characters of the *just-completed commit's* commit hash.
-    -   **Step 10.2: Write Plan:** Write the updated content back to `plan.md`.
+    -   **Step 11.2: Write Plan:** Write the updated content back to `plan.md`.
 
-11. **Commit Plan Update:**
+12. **Commit Plan Update:**
 
     -   **Action:** Stage the modified `plan.md` file.
     -   **Action:** Commit this change with a descriptive message (e.g.,
-        `conductor(plan): Mark task 'Create user model' as complete`).
+        `conductor(plan): Mark task 'Create user model' as complete`), or
+        include it in the next task's commit.
 
 ### Task Correction & Plan Amendment Workflows
 
@@ -109,10 +149,22 @@ When an implemented task or phase requires corrections, amendments, or additions
     commits worth keeping) or reset to a known-good commit, then set the
     affected task states in `plan.md` back to pending `[ ]` and restart cleanly.
 
+### End of a Phase
+
+When a task completes a phase in `plan.md`:
+
+1.  Run the full automated test suite. If it fails, fix it before going on.
+2.  If `git.commit` is `phase`, commit the phase's work now.
+3.  If `testing.verification` is `phase`, run the **Phase Completion
+    Verification and Checkpointing Protocol** below. If it is `track`, tell the
+    user the phase is done in one line and continue with the next phase
+    without waiting.
+4.  If `git.push` is `phase`, push the track branch (see
+    [Branching, Pushing and Landing](#branching-pushing-and-landing)).
+
 ### Phase Completion Verification and Checkpointing Protocol
 
-**Trigger:** This protocol is executed immediately after a task is completed
-that also concludes a phase in `plan.md`.
+**Trigger:** A phase has ended and `testing.verification` is `phase`.
 
 1.  **Announce Protocol Start:** Inform the user that the phase is complete and
     the verification and checkpointing protocol has begun.
@@ -189,7 +241,8 @@ that also concludes a phase in `plan.md`.
     -   Do NOT create a new empty commit for checkpointing.
     -   Identify the hash of the last functional commit made during this phase. This will be the target for the verification report.
 
-7.  **Attach Auditable Verification Report using Git Notes:**
+7.  **Attach Auditable Verification Report using Git Notes** (only if
+    `git.notes` is `on`):
 
     -   **Step 7.1: Draft Note Content:** Create a detailed verification report
         including the automated test command, the manual verification steps, and
@@ -212,8 +265,68 @@ that also concludes a phase in `plan.md`.
         format `conductor(plan): Mark phase '<PHASE NAME>' as complete`.
 
 10. **Announce Completion:** Inform the user that the phase is complete and the
-    checkpoint has been created, with the detailed verification report attached
-    as a git note.
+    checkpoint has been created (with the verification report attached as a
+    git note, if notes are on).
+
+### Track Verification Protocol
+
+**Trigger:** The last phase has ended and `testing.verification` is `track`.
+Plans written under this setting end with a **Track Verification** phase; its
+tasks are carried out by this protocol.
+
+It is the Phase Completion protocol above, scoped to the whole track:
+
+1.  **Scope:** every file changed since the track's branch point
+    (`git merge-base HEAD origin/main`, or the first commit of the track with
+    `git.strategy = current`).
+2.  **Tests:** if `testing.style` is `after`, write the tests for the whole
+    track now. With any style, make sure every changed code file has tests.
+3.  **Run** the full suite under the same two-attempt rule.
+4.  **Try it with the user:** present one manual verification plan for the
+    whole track, then wait. The user tries it, gives feedback (in chat, or in
+    the Conductor viewer if it is in use) and you iterate: each round of fixes
+    gets its own task under the Track Verification phase, tests included, and
+    the suite is re-run. Repeat until the user signs off with an explicit yes.
+5.  **Record:** commit any remaining work (per `git.commit`), attach the
+    verification report as a git note if `git.notes` is `on`, and mark the
+    Track Verification phase with `[checkpoint: <sha>]`.
+6.  **Push and hand off:** push per `git.push`, then stop at "branch ready" and
+    show the user the landing commands for their strategy.
+
+## Branching, Pushing and Landing
+
+Follow the section for this project's `git.strategy`. The safety rules in
+[Workflow Settings](#workflow-settings) always apply.
+
+### `current` (default)
+
+Commit on whatever branch is checked out. Don't create, rebase or merge
+branches. Push only as `git.push` says, with a plain `git push`.
+
+### `feature-branch`
+
+-   **Start:** `git switch -c <track_id> main`, then
+    `git branch --unset-upstream` if one was set. The plan's first task does
+    this.
+-   **Push:** `git push -u origin <track_id>`. Never force; pushed history is
+    permanent.
+-   **Keep up to date (optional):** `git merge origin/main` into the track
+    branch. Never rebase a branch that has been pushed.
+-   **Branch ready:** tell the user to open a PR, or to run
+    `git switch main && git pull && git merge --no-ff <track_id> && git push origin main`.
+
+### `trunk`
+
+-   **Start:** `git fetch origin && git switch -c <track_id> origin/main`, then
+    `git branch --unset-upstream`. The plan's first task does this. Keep the
+    branch short-lived.
+-   **Stay current:** before every push, and at least at the end of each phase:
+    `git fetch origin && git rebase origin/main`. Resolve conflicts commit by
+    commit and re-run the suite.
+-   **Push:** `git push --force-with-lease --force-if-includes origin <track_id>`
+    (the rebase rewrote the branch). On the first push add `-u`.
+-   **Branch ready:** tell the user to fast-forward or rebase-merge it into
+    `main` (or open a PR), then delete the branch.
 
 ### Quality Gates
 
@@ -374,7 +487,7 @@ A task is complete when:
 6.  Works beautifully on mobile (if applicable)
 7.  Implementation notes added to `plan.md`
 8.  Changes committed with proper message
-9.  Git note with task summary attached to the commit
+9.  Git note with task summary attached to the commit (if `git.notes` is `on`)
 
 ## Emergency Procedures
 
@@ -417,7 +530,7 @@ A task is complete when:
 
 ### Deployment Steps
 
-1.  Merge feature branch to main
+1.  Land the track branch on main as `git.strategy` says (the user does this)
 2.  Tag release with version
 3.  Push to deployment service
 4.  Run database migrations

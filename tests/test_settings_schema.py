@@ -5,6 +5,7 @@ viewer, so a malformed schema breaks all three. Run from the repo root:
 """
 
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -79,6 +80,33 @@ class RepoSettingsTest(unittest.TestCase):
                 key = f"{group}.{name}"
                 self.assertIn(key, by_key)
                 self.assertIn(value, [o["value"] for o in by_key[key]["options"]], key)
+
+
+class WorkflowDocTest(unittest.TestCase):
+    """workflow.md tells agents what each setting does; it must list exactly
+    the schema's settings and values, default first."""
+
+    def table(self, path):
+        rows = {}
+        for line in path.read_text(encoding="utf-8").splitlines():
+            m = re.match(r"^\| `([a-z]+\.[a-z]+)` \| (.+?) \|", line)
+            if m:
+                rows[m.group(1)] = re.findall(r"`([^`]+)`", m.group(2))
+        return rows
+
+    def expected(self):
+        out = {}
+        for st in all_settings(load_schema()):
+            values = [o["value"] for o in st["options"]]
+            values.remove(st["default"])
+            out[st["key"]] = [st["default"]] + values
+        return out
+
+    def test_template_table_matches_schema(self):
+        self.assertEqual(self.table(REPO / "skills" / "conductor-setup" / "assets" / "workflow.md"), self.expected())
+
+    def test_repo_copy_table_matches_schema(self):
+        self.assertEqual(self.table(REPO / "conductor" / "workflow.md"), self.expected())
 
 
 if __name__ == "__main__":

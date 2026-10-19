@@ -19,16 +19,16 @@
               "detail": "Nothing to configure. Branching, merging and pushing stay entirely in your hands, and the push setting still applies."
             },
             {
-              "value": "trunk",
-              "label": "Trunk-based",
-              "summary": "Short-lived branch per track, kept rebased on main; history stays linear.",
-              "detail": "Branch from the latest main, rebase onto it often, and integrate quickly. Rewriting history is allowed **only on your own track branch**, never on `main`.\n\n```\ngit fetch origin\ngit switch -c <track_id> origin/main\ngit branch --unset-upstream   # a bare `git push` can never reach main\n# … commit per the commit setting …\ngit fetch origin\ngit rebase origin/main\ngit push --force-with-lease --force-if-includes origin <track_id>\n# branch ready: you fast-forward / rebase-merge it into main (or open a PR)\n```\n\nThe agent stops at \"branch ready\"; it never lands work on `main` itself."
-            },
-            {
               "value": "feature-branch",
               "label": "Feature branch + merge",
               "summary": "Branch per track, push normally, merge back with a merge commit. Pushed history is never rewritten.",
               "detail": "Often called the *feature branch workflow* (or *GitHub Flow* when merges go through pull requests). It is not *Git Flow*, which adds long-lived `develop` and `release` branches.\n\n```\ngit switch -c <track_id> main\n# … commit per the commit setting …\ngit push -u origin <track_id>\n# branch ready: open a PR, or merge it yourself:\ngit switch main && git pull\ngit merge --no-ff <track_id>\ngit push origin main\n```\n\nThe agent stops at \"branch ready\"; it never lands work on `main` itself."
+            },
+            {
+              "value": "trunk",
+              "label": "Trunk-based",
+              "summary": "Short-lived branch per track, kept rebased on main; history stays linear.",
+              "detail": "Branch from the latest main, rebase onto it often, and integrate quickly. Rewriting history is allowed **only on your own track branch**, never on `main`.\n\n```\ngit fetch origin\ngit switch -c <track_id> origin/main\ngit branch --unset-upstream   # a bare `git push` can never reach main\n# … commit per the commit setting …\ngit fetch origin\ngit rebase origin/main\ngit push --force-with-lease --force-if-includes origin <track_id>\n# branch ready: you fast-forward / rebase-merge it into main (or open a PR)\n```\n\nThe agent stops at \"branch ready\"; it never lands work on `main` itself."
             }
           ]
         },
