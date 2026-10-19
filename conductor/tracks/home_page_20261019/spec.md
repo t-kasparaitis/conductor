@@ -51,8 +51,9 @@ write by hand, and it keeps working with one project or many.
     branch, a one-line settings summary (e.g. `trunk · commit per task ·
     tests with each task`), and counts of tracks by status.
 -   **Tracks inside each card**, grouped:
-    1.  **Now:** tracks with a task in progress (`[~]`), highlighted, with
-        the current task's name.
+    1.  **Now:** tracks with a task in progress (`[~]`), or marked in
+        progress in the registry, highlighted, with the current task's name
+        (or the next one, between tasks).
     2.  **In progress / New:** the rest of the registry's open tracks.
     3.  **Done:** tracks marked `[x]` in the registry.
     4.  **Archived:** that project's own `conductor/archive/`, collapsed by

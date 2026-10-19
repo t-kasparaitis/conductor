@@ -8,9 +8,13 @@
   const $ = (s, el = document) => el.querySelector(s);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  let state = null, version = null, current = null, tab = "plan", view = "track";
+  // home: every project's card (/api/projects). state: the open project's full state.
+  let home = null, homeVersion = null, state = null, version = null, project = null;
+  let current = null, tab = "plan", view = "home", settingsScope = "main";
   let prevStatuses = new Map();
   const ui = { feedbackFilter: "open", focus: {} };
+  const homeUi = { q: "", status: "all", focus: null };
+  const enc = encodeURIComponent;
   // Focus mode: the plan shows one phase and the spec one section at a time,
   // unless "show all" is on. ui.focus[track] = { plan: index, spec: index }.
   const showAll = { plan: false, spec: false };
@@ -103,25 +107,60 @@
 
   /* ---------------- data ---------------- */
 
-  async function load() {
+  async function getJSON(url, opts) {
+    const r = await fetch(url, Object.assign({ cache: "no-store" }, opts || {}));
+    let j = {};
+    try { j = await r.json(); } catch {}
+    if (!r.ok) throw new Error(j.error || `${url} ${r.status}`);
+    return j;
+  }
+  const postJSON = (url, body) => getJSON(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const projectQuery = () => (project ? `?project=${enc(project)}` : "");
+
+  async function loadHome() {
+    if (SNAPSHOT || LOCAL) { home = homeFromState(); return; }
+    home = await getJSON("api/projects");
+    homeVersion = home.version;
+  }
+  async function loadProject() {
     if (SNAPSHOT) { state = SNAPSHOT; return; }
     if (LOCAL) return;  // state comes from the folder picker
-    const r = await fetch("api/state", { cache: "no-store" });
-    if (!r.ok) throw new Error("state " + r.status);
-    state = await r.json();
+    state = await getJSON("api/state" + projectQuery());
     version = state.version;
+    project = state.project_id;
+  }
+  // Views inside a project need that project's full state.
+  async function ensureProject() {
+    if (SNAPSHOT || LOCAL || view === "home" || (view === "settings" && settingsScope === "main")) return;
+    if (!state || state.project_id !== project) { state = null; await loadProject(); }
+  }
+  async function load() { await loadHome(); await ensureProject(); }
+
+  // The snapshot and the no-Python view hold one project and no git facts.
+  function homeFromState() {
+    if (!state) return { projects: [], problems: [] };
+    const id = state.project_id || "project";
+    const eff = (state.settings && state.settings.effective) || {};
+    return {
+      projects: [{ id, name: state.project || "project", path: "", active: true, registered: false, missing: false,
+        initialized: state.initialized, tracks: state.tracks.map(window.ConductorLocal.summarizeTrack), git: null,
+        settings: Object.fromEntries(Object.entries(eff).map(([k, v]) => [k, v.value])),
+        exceptions: (state.settings && state.settings.exceptions) || [], same_as_main: [] }],
+      problems: [],
+    };
   }
 
   async function poll() {
     try {
-      const r = await fetch("api/version", { cache: "no-store" });
-      const v = (await r.json()).version;
+      const hv = (await getJSON("api/home-version")).version;
       setLive("on");
-      if (v !== version) {
-        await load();
-        render(true);
-        setLive("flash");
+      let changed = false;
+      if (hv !== homeVersion) { await loadHome(); changed = true; }
+      if (state && project && view !== "home") {
+        const v = (await getJSON("api/version" + projectQuery())).version;
+        if (v !== version) { await loadProject(); changed = true; }
       }
+      if (changed) { render(true); setLive("flash"); }
     } catch { setLive("off"); }
     setTimeout(poll, 1500);
   }
@@ -174,39 +213,210 @@
   /* ---------------- render ---------------- */
 
   function render(fromPoll) {
-    $("#project").textContent = state.project ? `~/${state.project}` : "";
-    const tracks = state.tracks;
-    if (!current || !tracks.some((t) => t.id === current)) current = tracks[0] && tracks[0].id;
+    renderTopbar();
     renderSidebar();
     const main = $("#main");
     const scroll = window.scrollY;
-    if (!state.initialized && !tracks.length) {
+    if (view === "home") main.innerHTML = renderHome();
+    else if (view === "settings") main.innerHTML = renderSettings();
+    else if (!state) main.innerHTML = `<div class="empty"><strong>Loading…</strong></div>`;
+    else if (!state.initialized && !state.tracks.length) {
       main.innerHTML = `<div class="empty"><strong>No Conductor project here yet</strong>Run the <code>conductor-setup</code> skill in this project, then create a track.</div>`;
-      return;
+    } else {
+      const tracks = state.tracks;
+      if (!current || !tracks.some((t) => t.id === current)) current = tracks[0] && tracks[0].id;
+      if (!tracks.length) main.innerHTML = `<div class="empty"><strong>No tracks yet</strong>Ask your agent to start a new track — it will appear here live.</div>`;
+      else {
+        const t = tracks.find((x) => x.id === current);
+        main.innerHTML = renderTrack(t);
+        highlightChanges(t);
+      }
     }
-    if (view === "settings") { main.innerHTML = renderSettings(); if (fromPoll) window.scrollTo(0, scroll); return; }
-    if (!tracks.length) { main.innerHTML = `<div class="empty"><strong>No tracks yet</strong>Ask your agent to start a new track — it will appear here live.</div>`; return; }
-    const t = tracks.find((x) => x.id === current);
-    main.innerHTML = renderTrack(t);
     if (fromPoll) window.scrollTo(0, scroll);
-    highlightChanges(t);
+  }
+
+  const projectById = (id) => home && home.projects.find((p) => p.id === id);
+  const projectHref = (id) => `#/${enc(id)}`;
+  const trackHref = (pid, tid, tabName = "plan") => `#/${enc(pid)}/${enc(tid)}/${tabName}`;
+
+  function renderTopbar() {
+    const el = $("#project");
+    const projects = (home && home.projects) || [];
+    if (SNAPSHOT || LOCAL || !projects.length) { el.textContent = state && state.project ? `~/${state.project}` : ""; return; }
+    const selected = view === "home" && !homeUi.focus ? "" : project || "";
+    el.innerHTML = `<label class="switch"><span class="sr-only">Project</span><select id="project-switch" aria-label="Project">
+      <option value=""${selected === "" ? " selected" : ""}>All projects</option>
+      ${projects.map((p) => `<option value="${esc(p.id)}"${p.id === selected ? " selected" : ""}>${esc(p.name)}${p.missing ? " (not found)" : ""}</option>`).join("")}
+    </select></label>`;
+  }
+
+  const ago = (sec) => {
+    if (!sec) return "";
+    const s = Math.max(0, Date.now() / 1000 - sec);
+    if (s < 90) return "just now";
+    const steps = [[60, "min"], [3600, "h"], [86400, "d"], [604800, "w"], [2629800, "mo"], [31557600, "y"]];
+    let label = "";
+    for (const [n, u] of steps) if (s >= n) label = `${Math.floor(s / n)}${u === "min" ? " min" : u}`;
+    return label + " ago";
+  };
+  const pct = (done, total) => (total ? Math.round((done / total) * 100) : 0);
+  const projectActivity = (p) => Math.max(0, ...p.tracks.map((t) => (t.git && t.git.last_activity) || 0));
+  function sortedProjects() {
+    return home.projects.slice().sort((a, b) => (b.active - a.active) || (projectActivity(b) - projectActivity(a)) || a.name.localeCompare(b.name));
   }
 
   function renderSidebar() {
-    const eff = (state.settings && state.settings.effective) || {};
+    const sb = $("#sidebar");
+    if (view === "home" || (view === "settings" && settingsScope === "main") || !project) {
+      const projects = home ? sortedProjects() : [];
+      sb.innerHTML = `<a class="track-link" href="#/" aria-current="${view === "home" && !homeUi.focus}">
+          <span class="gear">${homeIcon}</span><span><div class="t-name">All projects</div><div class="t-id">${projects.length} project${projects.length === 1 ? "" : "s"}</div></span></a>
+        ${SNAPSHOT || LOCAL ? "" : `<a class="track-link settings-link" href="#/settings" aria-current="${view === "settings"}">
+          <span class="gear">${gearIcon}</span><span><div class="t-name">Main workflow rules</div><div class="t-id">for every project</div></span></a>`}
+        <h2>Projects</h2>` + projects.map((p) => {
+        const live = p.tracks.filter((t) => !t.archived);
+        const done = live.reduce((n, t) => n + t.done, 0), total = live.reduce((n, t) => n + t.total, 0);
+        const now = p.tracks.filter((t) => t.group === "now").length;
+        return `<a class="track-link" href="${projectHref(p.id)}" aria-current="${view === "home" && homeUi.focus === p.id}">
+          <span class="ring" style="--p:${pct(done, total)}" data-label="${pct(done, total)}%"></span>
+          <span><div class="t-name">${esc(p.name)}</div><div class="t-id">${p.missing ? "not found" : `${live.length} track${live.length === 1 ? "" : "s"}${now ? ` · ${now} now` : ""}`}</div></span></a>`;
+      }).join("");
+      return;
+    }
+    const eff = (state && state.settings && state.settings.effective) || {};
     const label = (key) => optionOf(key, eff[key] && eff[key].value)?.label || "";
-    $("#sidebar").innerHTML = `<h2>Project</h2>
-      <button class="track-link settings-link" data-view="settings" aria-current="${view === "settings"}">
-        <span class="gear">${gearIcon}</span>
-        <span><div class="t-name">Workflow settings</div><div class="t-id">${esc([label("git.strategy"), label("testing.verification")].filter(Boolean).join(" · "))}</div></span></button>
-      <h2>Tracks</h2>` + state.tracks.map((t) => {
+    const tracks = state ? state.tracks : [];
+    const link = (t) => {
       const { done, total } = trackTotals(t);
-      const pct = total ? Math.round((done / total) * 100) : 0;
       const name = (t.registry && t.registry.description) || trackTitle(t);
-      return `<button class="track-link" data-track="${esc(t.id)}" aria-current="${view === "track" && t.id === current}">
-        <span class="ring" style="--p:${pct}" data-label="${pct}%"></span>
-        <span><div class="t-name">${esc(name)}</div><div class="t-id">${esc(t.id)}</div></span></button>`;
+      return `<a class="track-link" href="${trackHref(project, t.id)}" data-track="${esc(t.id)}" aria-current="${view === "track" && t.id === current}">
+        <span class="ring" style="--p:${pct(done, total)}" data-label="${pct(done, total)}%"></span>
+        <span><div class="t-name">${esc(name)}</div><div class="t-id">${esc(t.id)}</div></span></a>`;
+    };
+    const live = tracks.filter((t) => !t.archived), archived = tracks.filter((t) => t.archived);
+    const p = projectById(project);
+    sb.innerHTML = `${SNAPSHOT || LOCAL ? "" : `<a class="back-link" href="#/">← All projects</a>`}
+      <h2>${esc((p && p.name) || (state && state.project) || "Project")}</h2>
+      <a class="track-link settings-link" href="#/${enc(project)}/settings" aria-current="${view === "settings"}">
+        <span class="gear">${gearIcon}</span>
+        <span><div class="t-name">Workflow settings</div><div class="t-id">${esc([label("git.strategy"), label("testing.verification")].filter(Boolean).join(" · "))}</div></span></a>
+      <h2>Tracks</h2>${live.map(link).join("")}
+      ${archived.length ? `<details class="side-archive"${archived.some((t) => t.id === current) ? " open" : ""}><summary><h2>Archived · ${archived.length}</h2></summary>${archived.map(link).join("")}</details>` : ""}`;
+  }
+
+  /* ---------------- home page ---------------- */
+
+  const GROUPS = [["now", "Now"], ["open", "Open"], ["done", "Done"], ["archived", "Archived"]];
+  const SAFETY = {
+    uncommitted: ["warn", (g) => `● ${g.uncommitted} uncommitted`, "Files in this track have changes that aren't committed. Deleting it would lose them."],
+    unpushed: ["warn", (g) => `↑ ${g.unpushed} not pushed`, "Commits for this track exist only on this machine."],
+    committed: ["", () => "✓ committed · no remote", "Everything is committed, but the repo has no remote to push to."],
+    pushed: ["ok", () => "✓ pushed", "Everything is committed and on the remote (as of the last fetch)."],
+    landed: ["ok", () => "✓ landed", "The track's branch is merged into main."],
+    nogit: ["", () => "no git", "This project isn't a git repo: nothing protects its files."],
+  };
+  function safetyChip(g) {
+    if (!g || !SAFETY[g.safety]) return "";
+    const [cls, text, title] = SAFETY[g.safety];
+    return `<span class="chip safety ${cls}" title="${esc(title)}">${esc(text(g))}</span>`;
+  }
+  function reviewChip(d, what) {
+    if (!d) return `<span class="chip review" title="${what} not reviewed yet">${what} ·</span>`;
+    return d.kind === "approve" ? `<span class="chip review ok" title="${what} approved (${esc(d.id)})">${what} ✓</span>`
+      : `<span class="chip review warn" title="${what}: changes requested (${esc(d.id)})">${what} ↺</span>`;
+  }
+  function phaseBar(t) {
+    if (!t.phases.length) return `<span class="pbar empty" aria-hidden="true"></span>`;
+    return `<span class="pbar" role="img" aria-label="${t.done} of ${t.total} tasks done">${t.phases.map((p, i) => `<span class="pseg ${p.status}" style="flex-grow:${Math.max(p.total, 1)}" title="Phase ${i + 1}: ${esc(p.title)} — ${p.done}/${p.total}"><i style="width:${pct(p.done, p.total)}%"></i></span>`).join("")}</span>`;
+  }
+  function trackRow(p, t) {
+    const g = t.git || null;
+    return `<li class="trow g-${t.group}">
+      <a class="trow-main" href="${trackHref(p.id, t.id)}">
+        <span class="trow-title">${esc(t.title)}</span>
+        <span class="trow-sub"><span class="mono">${esc(t.id)}</span>${t.current && t.group === "now" ? ` · <span class="trow-now">${t.current.next ? "next:" : "▶"} ${esc(t.current.text)}</span>` : ""}</span>
+      </a>
+      <div class="trow-progress">${phaseBar(t)}<span class="mono small muted">${t.done}/${t.total}</span></div>
+      <div class="trow-chips">
+        <span class="chip type">${esc(t.type)}</span>
+        ${reviewChip(t.spec, "Spec")}${reviewChip(t.plan, "Plan")}
+        ${t.open_feedback ? `<a class="chip warn" href="${trackHref(p.id, t.id, "feedback")}" title="Open feedback">${commentIcon}${t.open_feedback}</a>` : ""}
+        ${safetyChip(g)}
+        ${g && g.branch ? `<span class="chip mono" title="The track's branch">⎇ ${esc(g.branch)}</span>` : ""}
+        ${g && g.last_activity ? `<span class="muted small" title="${esc(new Date(g.last_activity * 1000).toLocaleString())}">${esc(ago(g.last_activity))}</span>` : ""}
+      </div>
+    </li>`;
+  }
+
+  function matchesSearch(t) {
+    const q = homeUi.q.trim().toLowerCase();
+    return !q || [t.title, t.id, t.description].some((s) => String(s || "").toLowerCase().includes(q));
+  }
+  const groupShown = (g) => homeUi.status === "all" || homeUi.status === g;
+
+  function projectCard(p) {
+    const tracks = p.tracks.filter(matchesSearch);
+    const filtering = homeUi.q.trim() || homeUi.status !== "all";
+    if (filtering && !tracks.some((t) => groupShown(t.group))) return "";
+    const counts = Object.fromEntries(GROUPS.map(([g]) => [g, p.tracks.filter((t) => t.group === g).length]));
+    const settingsChip = !p.exceptions || !p.exceptions.length
+      ? `<a class="chip" href="#/${enc(p.id)}/settings" title="This project uses the main workflow rules">follows main rules</a>`
+      : `<a class="chip warn" href="#/${enc(p.id)}/settings" title="${esc(p.exceptions.join(", "))}">${p.exceptions.length} exception${p.exceptions.length === 1 ? "" : "s"}</a>`;
+    const head = `<header class="proj-head">
+        <div class="proj-titles">
+          <h2 class="proj-name"><a href="${projectHref(p.id)}">${esc(p.name)}</a></h2>
+          ${p.path ? `<div class="proj-path mono" title="${esc(p.path)}">${esc(p.path)}</div>` : ""}
+        </div>
+        <div class="proj-meta">
+          ${p.active ? `<span class="chip ok" title="The viewer was started in this project">this folder</span>` : ""}
+          ${p.git && p.git.git && p.git.branch ? `<span class="chip mono" title="Checked-out branch">⎇ ${esc(p.git.branch)}</span>` : ""}
+          ${p.missing ? "" : settingsChip}
+          ${p.registered && !SNAPSHOT && !LOCAL ? `<button class="link-btn" data-forget="${esc(p.id)}" title="Stop listing this project. Its files are not touched.">Forget</button>` : ""}
+        </div>
+      </header>`;
+    if (p.missing) {
+      return `<section class="proj-card missing" id="proj-${esc(p.id)}">${head}
+        <div class="empty small"><strong>Folder not found</strong>It may have moved or been deleted. Forget it, or add it again from its new place.</div></section>`;
+    }
+    const groups = GROUPS.map(([g, label]) => {
+      if (!groupShown(g)) return "";
+      const rows = tracks.filter((t) => t.group === g);
+      if (!rows.length) return "";
+      const body = `<ul class="trows">${rows.map((t) => trackRow(p, t)).join("")}</ul>`;
+      const title = `<h3>${label} <span class="count">${rows.length}</span></h3>`;
+      if (g === "archived") return `<details class="tgroup g-archived"${homeUi.status === "archived" || homeUi.q.trim() ? " open" : ""}><summary>${title}</summary>${body}</details>`;
+      return `<div class="tgroup g-${g}">${title}${body}</div>`;
     }).join("");
+    const live = p.tracks.filter((t) => !t.archived);
+    const summary = `<div class="proj-counts">${GROUPS.map(([g, label]) => counts[g] ? `<span><strong>${counts[g]}</strong> ${label.toLowerCase()}</span>` : "").join("")}
+      <span class="muted">${live.reduce((n, t) => n + t.done, 0)}/${live.reduce((n, t) => n + t.total, 0)} tasks</span></div>`;
+    return `<section class="proj-card${p.active ? " active" : ""}${homeUi.focus === p.id ? " focused" : ""}" id="proj-${esc(p.id)}">${head}${summary}
+      ${groups || `<div class="empty small"><strong>No tracks yet</strong>Ask your agent in this project to start one.</div>`}</section>`;
+  }
+
+  function renderHome() {
+    if (!home) return `<div class="empty"><strong>Loading…</strong></div>`;
+    const problems = (home.problems || []).map((pr) => `<div class="banner warn" role="alert">
+        <div><strong>Couldn't read ${esc(pr.name)}</strong> (${esc(pr.error)}). The viewer started fresh and kept your old file as <code>${esc(pr.saved_as)}</code>. Fix it, then Restore.</div>
+        <div class="banner-actions"><button class="btn" data-restore="${esc(pr.name)}">Restore</button><button class="btn ghost" data-dismiss="${esc(pr.name)}">Dismiss</button></div></div>`).join("");
+    const projects = sortedProjects();
+    const all = projects.flatMap((p) => p.tracks.filter(matchesSearch));
+    const n = (g) => all.filter((t) => t.group === g).length;
+    const chips = [["all", "All", all.filter((t) => !t.archived).length], ...GROUPS.map(([g, l]) => [g, l, n(g)])]
+      .map(([g, l, c]) => `<button class="fchip" data-status="${g}" aria-pressed="${homeUi.status === g}">${l} <span class="count">${c}</span></button>`).join("");
+    const cards = projects.map(projectCard).join("");
+    const filtering = homeUi.q.trim() || homeUi.status !== "all";
+    return `${SNAPSHOT ? `<div class="snapshot-banner">Read-only snapshot. Run <code>serve.py</code> for the live view.</div>` : ""}${problems}
+      <div class="home-head">
+        <div><h1 class="track-title">${projects.length === 1 ? esc(projects[0].name) : "Projects"}</h1>
+          <p class="track-sub">${projects.length} project${projects.length === 1 ? "" : "s"} · ${all.filter((t) => !t.archived).length} tracks${n("now") ? ` · ${n("now")} in progress now` : ""}</p></div>
+      </div>
+      <div class="home-tools">
+        <input type="search" id="home-search" placeholder="Search tracks by name or id" aria-label="Search tracks" value="${esc(homeUi.q)}">
+        <div class="fchips" role="group" aria-label="Filter by status">${chips}</div>
+      </div>
+      ${cards || (filtering ? `<div class="empty"><strong>No tracks match</strong>Try another search or status.</div>`
+        : `<div class="empty"><strong>No projects yet</strong>Start the viewer inside a Conductor project, or add one.</div>`)}`;
   }
 
   function renderTrack(t) {
@@ -285,16 +495,16 @@
   // The phase to show: the one picked, else the first in progress, else the first not done.
   function planFocus(t) {
     const n = t.plan.phases.length;
-    const picked = (ui.focus[t.id] || {}).plan;
+    const picked = (ui.focus[`${project}/${t.id}`] || {}).plan;
     if (picked != null && picked < n) return picked;
     const at = (st) => t.plan.phases.findIndex((p) => p.status === st);
     return [at("in_progress"), at("pending")].find((i) => i >= 0) ?? Math.max(n - 1, 0);
   }
   function specFocus(t, sections) {
-    const picked = (ui.focus[t.id] || {}).spec;
+    const picked = (ui.focus[`${project}/${t.id}`] || {}).spec;
     return picked != null && picked < sections.length ? picked : 0;
   }
-  function setFocus(kind, i) { (ui.focus[current] = ui.focus[current] || {})[kind] = i; }
+  function setFocus(kind, i) { const k = `${project}/${current}`; (ui.focus[k] = ui.focus[k] || {})[kind] = i; }
 
   function pager(kind, i, items, label) {
     const btn = (j, dir) => j < 0 || j >= items.length ? "<span></span>"
@@ -433,7 +643,7 @@
     const titles = { comment: "Comment", revise: "Request changes", approve: "Approve" };
     $("#composer-kind").textContent = titles[kind];
     $("#composer-target").textContent = target;
-    $("#composer-file").textContent = LOCAL ? "your clipboard, to paste to your agent" : `conductor/tracks/${current}/feedback.md`;
+    $("#composer-file").textContent = LOCAL ? "your clipboard, to paste to your agent" : `${(projectById(project) || {}).name || ""}/conductor/tracks/${current}/feedback.md`;
     $("#composer-send").textContent = LOCAL ? "Copy" : "Send";
     $("#composer-text").value = "";
     $("#composer-text").placeholder = kind === "approve" ? "Optional note for the agent…" : "What should the agent change, clarify or consider?";
@@ -446,12 +656,10 @@
     if (pending.kind !== "approve" && !text) { $("#composer-text").focus(); return; }
     if (LOCAL) return copyForChat(window.ConductorLocal.feedbackForChat(current, pending.kind, pending.target, text));
     try {
-      const r = await fetch("api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ track: current, kind: pending.kind, target: pending.target, text }) });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || r.status);
+      const j = await postJSON("api/feedback", { project, track: current, kind: pending.kind, target: pending.target, text });
       $("#composer").close();
       toast(`Saved ${j.id} to feedback.md — tell your agent “check feedback”.`);
-      await load(); render(true);
+      await loadProject(); render(true);
     } catch (e) { toast("Could not save feedback: " + e.message); }
   }
 
@@ -476,9 +684,11 @@
   }
 
   async function openPicked(fileList) {
-    const { files, project } = await window.ConductorLocal.readPicked(fileList);
+    const { files, project: folder } = await window.ConductorLocal.readPicked(fileList);
     if (!Object.keys(files).some((p) => p.startsWith("conductor/"))) { toast("No conductor/ folder in what you picked."); return; }
-    state = window.ConductorLocal.buildState(files, project);
+    state = window.ConductorLocal.buildState(files, folder);
+    state.project_id = project = "project";
+    home = homeFromState();
     readHash();
     render();
     setLive("local");
@@ -492,10 +702,11 @@
 
   /* ---------------- workflow settings ---------------- */
 
+  const homeIcon = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3.5 11.5 12 4l8.5 7.5M6 10v9.5h4.5V15h3v4.5H18V10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>';
   const gearIcon = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
 
   function settingDef(key) {
-    const schema = state.settings && state.settings.schema;
+    const schema = (state && state.settings && state.settings.schema) || (home && home.main_settings && home.main_settings.schema);
     if (!schema) return null;
     for (const g of schema.groups) for (const st of g.settings) if (st.key === key) return st;
     return null;
@@ -510,7 +721,7 @@
   }
 
   function renderSettings() {
-    const S = state.settings || {};
+    const S = (settingsScope === "main" ? home && home.main_settings : state && state.settings) || {};
     const head = `<div class="eyebrow"><span class="chip type">Project</span><span class="chip mono">${esc((S.schema && S.schema.file) || "conductor/settings.json")}</span>
       ${S.exists ? "" : `<span class="chip warn">no settings.json yet — showing defaults</span>`}</div>
       <h1 class="track-title">Workflow settings</h1>
@@ -540,9 +751,7 @@
 
   async function saveSetting(key, value) {
     try {
-      const r = await fetch("api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, value }) });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || r.status);
+      await postJSON("api/settings", { project, key, value });
       toast(`Saved: ${settingDef(key).label} → ${optionOf(key, value).label}. Agents use it from their next step.`);
       await load(); render(true);
     } catch (e) { toast("Could not save setting: " + e.message); }
@@ -550,29 +759,61 @@
 
   /* ---------------- routing & events ---------------- */
 
+  // Routes: #/ (home, ?q=&status=), #/settings (main rules), #/<project> (home, that card),
+  // #/<project>/settings, #/<project>/<track>/<tab>[/<phase-n|section-n|diagram>[/<node>]].
+  // Old links without a project (#/<track>/...) still work when the track id is unique.
+  function findTrackOwner(tid) {
+    const owners = ((home && home.projects) || []).filter((p) => p.tracks.some((t) => t.id === tid));
+    const active = owners.find((p) => p.active);
+    return active ? active.id : owners.length === 1 ? owners[0].id : null;
+  }
+
   function readHash() {
-    if (/^#\/settings\b/.test(location.hash)) { view = "settings"; return null; }
-    const m = location.hash.match(/^#\/([^/]+)(?:\/(\w+))?(?:\/([\w.-]+))?(?:\/([\w.-]+))?/);
-    if (m) {
-      current = decodeURIComponent(m[1]); tab = m[2] || tab;
-      const f = m[3] && m[3].match(/^(phase|section)-(\d+|all)$/);
-      if (f) {
-        const kind = f[1] === "phase" ? "plan" : "spec";
-        showAll[kind] = f[2] === "all";
-        if (f[2] !== "all") setFocus(kind, Math.max(+f[2] - 1, 0));
-        return null;
-      }
-      return m[3] ? { slug: m[3], node: m[4] } : null;
+    const raw = location.hash.replace(/^#\/?/, "");
+    const [pathPart, query = ""] = raw.split("?");
+    const q = new URLSearchParams(query);
+    homeUi.q = q.get("q") || "";
+    homeUi.status = GROUPS.some(([g]) => g === q.get("status")) ? q.get("status") : "all";
+    let segs = pathPart.split("/").filter(Boolean).map((s) => { try { return decodeURIComponent(s); } catch { return s; } });
+    homeUi.focus = null;
+    if (!segs.length) { view = "home"; return null; }
+    if (segs[0] === "settings") { view = "settings"; settingsScope = "main"; return null; }
+    if (!projectById(segs[0])) {
+      const owner = findTrackOwner(segs[0]);
+      if (!owner) { view = "home"; return null; }
+      segs = [owner, ...segs];
     }
-    return null;
+    project = segs[0];
+    const [, tid, tabName, extra, node] = segs;
+    if (!tid) { view = "home"; homeUi.focus = project; return null; }
+    if (tid === "settings") { view = "settings"; settingsScope = "project"; return null; }
+    view = "track"; current = tid;
+    if (["plan", "spec", "diagrams", "feedback"].includes(tabName)) tab = tabName;
+    const f = extra && extra.match(/^(phase|section)-(\d+|all)$/);
+    if (f) {
+      const kind = f[1] === "phase" ? "plan" : "spec";
+      showAll[kind] = f[2] === "all";
+      if (f[2] !== "all") setFocus(kind, Math.max(+f[2] - 1, 0));
+      return null;
+    }
+    return extra ? { slug: extra, node } : null;
   }
   function writeHash() {
-    if (view === "settings") return history.replaceState(null, "", "#/settings");
-    let extra = "";
-    const t = state && state.tracks.find((x) => x.id === current);
-    if (t && tab === "plan") extra = showAll.plan ? "/phase-all" : `/phase-${planFocus(t) + 1}`;
-    if (t && tab === "spec") extra = showAll.spec ? "/section-all" : `/section-${specFocus(t, specSections(t.spec)) + 1}`;
-    history.replaceState(null, "", `#/${encodeURIComponent(current)}/${tab}${extra}`);
+    let h;
+    if (view === "home") {
+      const q = new URLSearchParams();
+      if (homeUi.q) q.set("q", homeUi.q);
+      if (homeUi.status !== "all") q.set("status", homeUi.status);
+      h = "#/" + (homeUi.focus ? enc(homeUi.focus) : "") + (q.toString() ? "?" + q : "");
+    } else if (view === "settings") h = settingsScope === "main" || !project ? "#/settings" : `#/${enc(project)}/settings`;
+    else {
+      let extra = "";
+      const t = state && state.tracks.find((x) => x.id === current);
+      if (t && tab === "plan") extra = showAll.plan ? "/phase-all" : `/phase-${planFocus(t) + 1}`;
+      if (t && tab === "spec") extra = showAll.spec ? "/section-all" : `/section-${specFocus(t, specSections(t.spec)) + 1}`;
+      h = `#/${enc(project)}/${enc(current)}/${tab}${extra}`;
+    }
+    if (location.hash !== h) history.replaceState(null, "", h);
   }
 
   // Keep the frozen overview in view and land content just below it.
@@ -593,16 +834,31 @@
     const t = state.tracks.find((x) => x.id === current);
     const d = t && t.diagrams.find((x) => x.slug === slug);
     if (!d || d.type === "error") return;
-    history.replaceState(null, "", `#/${encodeURIComponent(current)}/${tab}/${slug}`);
+    history.replaceState(null, "", `#/${enc(project)}/${enc(current)}/${tab}/${enc(slug)}`);
     window.WorldMap.open(d, { md: (s) => md(s, { track: t }), onClose: writeHash, focus: node });
   }
 
+  async function navigate() {
+    if (window.WorldMap.isOpen()) window.WorldMap.close();
+    const deep = readHash();
+    try { await ensureProject(); } catch (e) { toast(e.message); view = "home"; }
+    render();
+    if (view === "track") settle(); else window.scrollTo(0, 0);
+    if (view === "home" && homeUi.focus) { const card = document.getElementById("proj-" + homeUi.focus); if (card) card.scrollIntoView({ block: "start" }); }
+    if (deep) openDiagram(deep.slug, deep.node);
+    writeHash();
+  }
+
+  async function homeAction(url, body, done) {
+    try { const j = await postJSON(url, body); if (done) toast(done(j)); await loadHome(); render(true); }
+    catch (e) { toast(e.message); }
+  }
+
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-view],[data-setting],[data-track],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter]");
+    const el = ev.target.closest("[data-view],[data-setting],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter],[data-status],[data-forget],[data-restore],[data-dismiss]");
     if (!el) return;
-    if (el.dataset.view) { view = el.dataset.view; writeHash(); render(); window.scrollTo(0, 0); }
+    if (el.dataset.view) { view = el.dataset.view; settingsScope = project ? "project" : "main"; writeHash(); render(); window.scrollTo(0, 0); }
     else if (el.dataset.setting) { if (el.getAttribute("aria-checked") !== "true") saveSetting(el.dataset.setting, el.dataset.value); }
-    else if (el.dataset.track) { view = "track"; current = el.dataset.track; prevStatuses = new Map(); writeHash(); render(); window.scrollTo(0, 0); }
     else if (el.dataset.tab) { tab = el.dataset.tab; writeHash(); render(); settle(); }
     else if (el.dataset.diagram) openDiagram(el.dataset.diagram);
     else if (el.dataset.comment) compose("comment", el.dataset.comment);
@@ -621,16 +877,30 @@
     }
     else if (el.dataset.showAll) { const k = el.dataset.showAll; showAll[k] = !showAll[k]; saveShowAll(); writeHash(); render(); settle(); }
     else if (el.dataset.fbfilter) { ui.feedbackFilter = el.dataset.fbfilter; render(); }
+    else if (el.dataset.status) { homeUi.status = el.dataset.status; writeHash(); render(); }
+    else if (el.dataset.forget) {
+      const p = projectById(el.dataset.forget);
+      if (p && confirm(`Stop listing ${p.name}? Its files are not touched, and you can add it again any time.`))
+        homeAction("api/projects", { action: "forget", id: p.id }, () => `Forgot ${p.name}.`);
+    }
+    else if (el.dataset.restore) homeAction("api/config/restore", { file: el.dataset.restore }, () => `Restored ${el.dataset.restore}.`);
+    else if (el.dataset.dismiss) homeAction("api/config/dismiss", { file: el.dataset.dismiss });
   });
-  // Links typed or pasted into an open tab (writeHash uses replaceState, so it never fires this).
-  window.addEventListener("hashchange", () => {
-    if (!state) return;
-    if (window.WorldMap.isOpen()) window.WorldMap.close();
-    view = "track";
-    const deep = readHash();
-    render(); settle();
-    if (deep) openDiagram(deep.slug, deep.node);
+  document.addEventListener("input", (ev) => {
+    if (ev.target.id !== "home-search") return;
+    homeUi.q = ev.target.value;
+    writeHash();
+    const pos = ev.target.selectionStart;
+    render();
+    const box = $("#home-search");
+    box.focus();
+    box.setSelectionRange(pos, pos);
   });
+  document.addEventListener("change", (ev) => {
+    if (ev.target.id === "project-switch") location.hash = ev.target.value ? projectHref(ev.target.value) : "#/";
+  });
+  // Links clicked or pasted (writeHash uses replaceState, so it never fires this).
+  window.addEventListener("hashchange", () => { if (home || state) navigate(); });
   $("#composer-form").addEventListener("submit", (ev) => { ev.preventDefault(); send(); });
   $("#composer-cancel").addEventListener("click", () => $("#composer").close());
   $("#composer-text").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); send(); } });
@@ -644,7 +914,6 @@
 
   /* boot */
   (async function boot() {
-    const deepDiagram = readHash();
     if (LOCAL) {
       $("#main").innerHTML = pickerScreen();
       document.addEventListener("change", (ev) => { if (ev.target.id === "pick-folder" && ev.target.files.length) openPicked(ev.target.files); });
@@ -652,10 +921,9 @@
       setLive("local");
       return;
     }
-    try { await load(); } catch (e) { setLive("off"); $("#main").innerHTML = `<div class="empty"><strong>Can't reach the viewer server</strong>${esc(e.message)}</div>`; return; }
-    render();
-    if (deepDiagram) openDiagram(deepDiagram.slug, deepDiagram.node);
-    else if (state.tracks.length || view === "settings") writeHash();
+    if (SNAPSHOT) { state = SNAPSHOT; project = state.project_id; }
+    try { await loadHome(); } catch (e) { setLive("off"); $("#main").innerHTML = `<div class="empty"><strong>Can't reach the viewer server</strong>${esc(e.message)}</div>`; return; }
+    await navigate();
     if (SNAPSHOT) setLive("snap"); else setTimeout(poll, 1500);
   })();
 })();

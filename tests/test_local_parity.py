@@ -126,14 +126,19 @@ class ParityTest(TempProject):
 
     def test_summaries(self):
         from test_summary import FEEDBACK as SUMMARY_FEEDBACK, PLAN as SUMMARY_PLAN
-        specs = ["", "intro\n\n# Title\n", "#\nnot a title\n# Real", "# CRLF title\r\n"]
-        metas = ["{}", '{"status": "completed", "description": "d", "type": "chore"}', '{"status": "DONE"}']
-        registries = ["", "- [x] **Track: Reg**\n*Link: [x](./tracks/t_1/index.md)*\n"]
+        specs = ["", "intro\n\n# Title\n", "#\nnot a title\n# Real", "# CRLF title\r\n", "# Spec: Prefixed\n",
+                 "# Spec \u2014 Dash\n", "# Spec:\n"]
+        metas = ["{}", '{"status": "completed", "description": "d", "type": "chore"}', '{"status": "DONE"}',
+                 '{"status": "in_progress"}']
+        registries = ["", "- [x] **Track: Reg**\n*Link: [x](./tracks/t_1/index.md)*\n",
+                      "- [~] **Track: Reg**\n*Link: [x](./tracks/t_1/index.md)*\n"]
         for spec in specs:
             for meta in metas:
                 for reg in registries:
                     files = {"conductor/tracks.md": reg, "conductor/tracks/t_1/spec.md": spec,
                              "conductor/tracks/t_1/metadata.json": meta, "conductor/tracks/t_1/plan.md": SUMMARY_PLAN,
+                             "conductor/tracks/t_2/plan.md": "## Phase 1: A\n- [x] Task: a\n- [ ] Task: b (diagram: x)\n",
+                             "conductor/tracks/t_2/metadata.json": meta,
                              "conductor/tracks/t_1/feedback.md": SUMMARY_FEEDBACK,
                              "conductor/archive/a_1/spec.md": spec}
                     for path, text in files.items():

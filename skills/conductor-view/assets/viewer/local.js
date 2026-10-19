@@ -169,15 +169,21 @@
     const status = reg.status || meta.status || "new";
     let current = null;
     phases.forEach((p, i) => p.tasks.forEach((task) => {
-      if (!current && (task.status === "in_progress" || task.subtasks.some((s) => s.status === "in_progress"))) current = { phase: i, text: cleanTitle(task.text) };
+      if (!current && (task.status === "in_progress" || task.subtasks.some((s) => s.status === "in_progress"))) current = { phase: i, text: cleanTitle(task.text), next: false };
     }));
+    const marked = status === "in_progress" || String(meta.status || "").toLowerCase() === "in_progress";
+    if (!current && marked) {
+      phases.some((p, i) => p.tasks.some((task) => task.status !== "done" && (current = { phase: i, text: cleanTitle(task.text), next: true })));
+    }
     const group = t.archived ? "archived"
       : status === "done" || ["done", "completed", "complete"].includes(String(meta.status || "").toLowerCase()) ? "done"
-      : current ? "now" : "open";
+      : current || marked ? "now" : "open";
     const h1 = t.spec.match(/^#[ \t]+(.+)$/m);
+    let specTitle = h1 && h1[1].trim();
+    if (specTitle) specTitle = specTitle.replace(/^(?:spec(?:ification)?|track)\s*[:\u2014\u2013-]\s*/i, "") || specTitle;
     return {
       id: t.id, archived: t.archived,
-      title: (h1 && h1[1].trim()) || meta.description || reg.description || t.id,
+      title: specTitle || meta.description || reg.description || t.id,
       description: reg.description || meta.description || "",
       type: meta.type || "track", status, group, current,
       done: tasks.filter((x) => x.status === "done").length, total: tasks.length,

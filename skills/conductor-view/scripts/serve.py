@@ -467,16 +467,22 @@ def summarize_track(t: dict) -> dict:
         for task in p["tasks"]:
             if current is None and (task["status"] == "in_progress"
                                     or any(s["status"] == "in_progress" for s in task["subtasks"])):
-                current = {"phase": i, "text": _clean_title(task["text"])}
+                current = {"phase": i, "text": _clean_title(task["text"]), "next": False}
+    marked = status == "in_progress" or str(meta.get("status", "")).lower() == "in_progress"
+    if current is None and marked:  # in progress, between tasks: show what's next
+        current = next(({"phase": i, "text": _clean_title(task["text"]), "next": True}
+                        for i, p in enumerate(phases) for task in p["tasks"] if task["status"] != "done"), None)
     if t["archived"]:
         group = "archived"
     elif status == "done" or str(meta.get("status", "")).lower() in ("done", "completed", "complete"):
         group = "done"
-    elif current:
+    elif current or marked:
         group = "now"
     else:
         group = "open"
     spec_title = next((m.group(1).strip() for m in [re.search(r"^#[ \t]+(.+)$", t["spec"], re.M)] if m), None)
+    if spec_title:  # "Spec: Home page" -> "Home page"
+        spec_title = re.sub(r"^(?:spec(?:ification)?|track)\s*[:\u2014\u2013-]\s*", "", spec_title, flags=re.I) or spec_title
     return {
         "id": t["id"],
         "archived": t["archived"],
@@ -1166,8 +1172,9 @@ def hand_over(port: int, root: Path) -> dict | None:
 def export(root: Path, out: Path) -> None:
     html = (VIEWER_DIR / "index.html").read_text(encoding="utf-8")
     css = (VIEWER_DIR / "style.css").read_text(encoding="utf-8")
-    js = (VIEWER_DIR / "map.js").read_text(encoding="utf-8") + "\n" + (VIEWER_DIR / "app.js").read_text(encoding="utf-8")
-    state = json.dumps(load_state(root)).replace("</", "<\\/")
+    js = "\n".join((VIEWER_DIR / name).read_text(encoding="utf-8") for name in ("map.js", "local.js", "app.js"))
+    snapshot = {**load_state(root), "project_id": _project_id(root, set())}
+    state = json.dumps(snapshot).replace("</", "<\\/")
     js = js.replace("</script", "<\\/script")
     html = html.replace('<link rel="stylesheet" href="style.css">', f"<style>{css}</style>")
     html = html.replace('<script src="map.js"></script>', "").replace('<script src="local.js"></script>', "")

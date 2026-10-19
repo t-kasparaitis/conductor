@@ -70,7 +70,7 @@ class SummaryTest(TempProject):
     def test_a_sub_task_in_progress_makes_the_track_current(self):
         s = self.summary()
         self.assertEqual(s["group"], "now")
-        self.assertEqual(s["current"], {"phase": 1, "text": "Waiting"})
+        self.assertEqual(s["current"], {"phase": 1, "text": "Waiting", "next": False})
 
     def test_feedback_counts_requests_and_decisions(self):
         s = self.summary()
@@ -79,7 +79,19 @@ class SummaryTest(TempProject):
         self.assertEqual(s["spec"], {"id": "FB-001", "kind": "approve", "status": "resolved"})
         self.assertEqual(s["plan"], {"id": "FB-003", "kind": "revise", "status": "open"})
 
+    def test_marked_in_progress_between_tasks_shows_the_next_task(self):
+        self.write("conductor/tracks/demo_1/plan.md", "## Phase 1: A\n- [x] Task: did\n- [ ] Task: Next thing\n")
+        s = self.summary()
+        self.assertEqual((s["group"], s["current"]), ("now", {"phase": 0, "text": "Next thing", "next": True}))
+
+    def test_spec_prefix_is_dropped_from_the_title(self):
+        for h1, title in (("Spec: Home page", "Home page"), ("Spec \u2014 Party frames", "Party frames"),
+                          ("Specification - X", "X"), ("Spectrum analyser", "Spectrum analyser"), ("Spec:", "Spec:")):
+            self.write("conductor/tracks/demo_1/spec.md", f"# {h1}\n")
+            self.assertEqual(self.summary()["title"], title, h1)
+
     def test_groups(self):
+        self.write("conductor/tracks.md", "- [ ] **Track: Registry words**\n*Link: [x](./tracks/demo_1/index.md)*\n")
         self.write("conductor/tracks/demo_1/plan.md", "## Phase 1: A\n- [ ] Task: x\n")
         self.assertEqual(self.summary()["group"], "open")
         self.write("conductor/tracks.md", "- [x] **Track: Registry words**\n*Link: [x](./tracks/demo_1/index.md)*\n")

@@ -404,3 +404,73 @@ h1.track-title { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; margin: 0
 .picker p { max-width: 560px; margin: 12px auto; }
 .picker .btn { cursor: pointer; margin-top: 6px; }
 .live.snap { cursor: default; }
+
+/* ---------- home page ---------- */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.switch select { font: 12.5px var(--mono); color: var(--text); background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px; padding: 4px 8px; max-width: 46vw; }
+a.track-link { text-decoration: none; }
+.track-link .gear { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line-2); color: var(--accent); }
+.back-link { display: inline-block; margin: 0 8px 10px; font-size: 12.5px; text-decoration: none; color: var(--text-2); }
+.back-link:hover { color: var(--text); }
+.side-archive summary { list-style: none; cursor: pointer; }
+.side-archive summary::-webkit-details-marker { display: none; }
+.side-archive summary h2::before { content: "▸ "; }
+.side-archive[open] summary h2::before { content: "▾ "; }
+.home-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.home-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 20px; }
+.home-tools input[type="search"] { flex: 1 1 260px; min-width: 0; font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line-2); border-radius: 9px; padding: 7px 12px; }
+.home-tools input[type="search"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.fchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fchip { border: 1px solid var(--line-2); background: var(--panel); color: var(--text-2); border-radius: 999px; padding: 4px 11px; font-size: 12.5px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.fchip:hover { color: var(--text); border-color: var(--muted); }
+.fchip[aria-pressed="true"] { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+.fchip .count, .tgroup h3 .count { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.proj-card { border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius); padding: 16px 18px 10px; margin-bottom: 18px; scroll-margin-top: 70px; }
+.proj-card.active { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+.proj-card.focused { box-shadow: 0 0 0 2px var(--accent-soft); border-color: var(--accent); }
+.proj-card.missing { border-style: dashed; }
+.proj-head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-start; justify-content: space-between; }
+.proj-titles { min-width: 0; flex: 1 1 260px; }
+.proj-name { margin: 0; font-size: 18px; letter-spacing: -.2px; }
+.proj-name a { color: var(--text); text-decoration: none; }
+.proj-name a:hover { text-decoration: underline; }
+.proj-path { color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proj-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+a.chip { text-decoration: none; }
+a.chip:hover { border-color: var(--accent); color: var(--text); }
+.proj-counts { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--text-2); margin: 10px 0 4px; }
+.proj-counts strong { color: var(--text); }
+.tgroup { margin-top: 12px; }
+.tgroup h3 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 650; }
+.tgroup.g-now h3 { color: var(--prog); }
+details.tgroup summary { list-style: none; cursor: pointer; }
+details.tgroup summary::-webkit-details-marker { display: none; }
+details.tgroup summary h3::before { content: "▸ "; }
+details.tgroup[open] summary h3::before { content: "▾ "; }
+.trows { list-style: none; margin: 0; padding: 0; }
+.trow { display: grid; grid-template-columns: minmax(0, 1fr) 200px; grid-template-areas: "main progress" "chips chips"; gap: 4px 16px; align-items: center; padding: 10px 12px; border-radius: 10px; border: 1px solid transparent; }
+.trow + .trow { border-top-color: var(--line); border-top-style: dashed; border-radius: 0; }
+.trow:hover { background: var(--panel-2); }
+.trow.g-now { background: linear-gradient(90deg, var(--prog-soft), transparent 70%); border-left: 3px solid var(--prog); border-radius: 10px; }
+.trow.g-archived { opacity: .85; }
+.trow-main { grid-area: main; min-width: 0; text-decoration: none; color: inherit; display: flex; flex-direction: column; }
+.trow-main:hover .trow-title { text-decoration: underline; }
+.trow-title { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trow-sub { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trow-now { color: var(--prog); }
+.trow-progress { grid-area: progress; display: flex; align-items: center; gap: 8px; }
+.trow-chips { grid-area: chips; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip.review { font-size: 11px; }
+.pbar { flex: 1; display: flex; gap: 2px; height: 8px; min-width: 60px; }
+.pbar.empty { background: var(--line); border-radius: 4px; }
+.pseg { flex-basis: 0; background: var(--line-2); border-radius: 3px; overflow: hidden; }
+.pseg i { display: block; height: 100%; background: var(--done); }
+.pseg.in_progress { box-shadow: inset 0 0 0 1px var(--prog); }
+.banner { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; border: 1px solid var(--line-2); background: var(--panel); border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; }
+.banner.warn { border-color: color-mix(in srgb, var(--prog) 50%, var(--line)); background: var(--prog-soft); }
+.banner code { word-break: break-all; }
+.banner-actions { display: flex; gap: 8px; }
+@media (max-width: 760px) {
+  .trow { grid-template-columns: 1fr; grid-template-areas: "main" "progress" "chips"; }
+  .back-link { display: none; }
+}
