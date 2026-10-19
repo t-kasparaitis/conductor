@@ -565,7 +565,14 @@ def watch(root: Path, interval: float = 1.0) -> None:
     new one, plus a line whenever a workflow setting changes. Each line is meant
     to be an event for an agent that can stream a command's output."""
     seen: set[str] = set()
+    # Take the starting settings before announcing, so every later difference is a real change.
     settings = None
+    for _ in range(50):
+        loaded = load_settings(root)
+        if not loaded["error"]:
+            settings = {k: v["value"] for k, v in loaded["effective"].items()}
+            break
+        time.sleep(0.1)
     print(f"watching {root / 'conductor'} for feedback", flush=True)
     while True:
         try:
@@ -578,7 +585,11 @@ def watch(root: Path, interval: float = 1.0) -> None:
                 print(f"feedback {it['id']} · {it['kind']} · track {it['track']} · "
                       f"target {it['target'] or '-'}" + (f" · {body}" if body and body != "_(no message)_" else ""),
                       flush=True)
-            eff = {k: v["value"] for k, v in load_settings(root)["effective"].items()}
+            loaded = load_settings(root)
+            if loaded["error"]:  # caught mid-save, or broken: keep the last good values
+                time.sleep(interval)
+                continue
+            eff = {k: v["value"] for k, v in loaded["effective"].items()}
             if settings is not None and eff != settings:
                 changed = ", ".join(f"{k} = {v}" for k, v in eff.items() if settings.get(k) != v)
                 print(f"settings changed: {changed}", flush=True)

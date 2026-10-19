@@ -24,7 +24,7 @@
 
 - [x] Task: HTTP API, with tests: `/api/state` and `/api/version` shapes, `POST /api/feedback` round-trip, bad track ids and traversal rejected, bad `Content-Length` handled, bound to `127.0.0.1` only eedfe11
 - [x] Task: Persistence, with tests: atomic writes, LF on every OS, 10 concurrent posts → 10 distinct ids, nothing lost if the browser posts while an agent edits the file 754c07b
-- [ ] Task: Port reuse and `--export`, with tests
+- [x] Task: Port reuse and `--export`, with tests 5091d11
 - [ ] Task: `--watch`, with tests: already-open items first, then new ones, settings changes; survives a half-written file
 
 ## Phase 4: Viewer UI
