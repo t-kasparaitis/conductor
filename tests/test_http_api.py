@@ -30,7 +30,7 @@ class ApiTest(ServerTest):
     def test_state_shape(self):
         status, state = self.request("GET", "/api/state")
         self.assertEqual(status, 200)
-        self.assertEqual(set(state), {"project", "initialized", "tracks", "settings", "version"})
+        self.assertEqual(set(state), {"project", "project_id", "initialized", "tracks", "settings", "version"})
         self.assertTrue(state["initialized"])
         track = state["tracks"][0]
         self.assertEqual(set(track), {"id", "archived", "registry", "metadata", "metadata_error", "spec", "plan", "feedback", "diagrams"})

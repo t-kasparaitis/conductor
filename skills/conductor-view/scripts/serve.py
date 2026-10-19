@@ -31,6 +31,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import URLError
+from urllib.parse import parse_qs, urlsplit
 from urllib.request import urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -740,6 +741,109 @@ def resolve_port(flag: int | None) -> tuple[int, str, list[str]]:
     return DEFAULT_PORT, "default", warnings
 
 
+# ---------------------------------------------------------------- many projects
+
+_SUMMARIES: dict[str, tuple[tuple, dict]] = {}
+_REPOS: dict[str, tuple[bool, dict | None]] = {}
+_CACHE_LOCK = threading.Lock()
+
+
+def project_list(active: Path | None) -> list[dict]:
+    """Registered projects, plus the one this viewer was started for if it isn't registered."""
+    out = []
+    for e in registered_projects():
+        p = Path(e["path"])
+        out.append({"id": e["id"], "path": e["path"], "registered": True,
+                    "active": active is not None and _same_path(p, active), "missing": not (p / "conductor").is_dir()})
+    if active is not None and not any(x["active"] for x in out):
+        out.insert(0, {"id": _project_id(active, {x["id"] for x in out}), "path": str(active), "registered": False,
+                       "active": True, "missing": not (active / "conductor").is_dir()})
+    return out
+
+
+def _repo(root: Path) -> dict | None:
+    """gitinfo.repo_info, cached until a .git appears or disappears."""
+    key = str(root)
+    has_git = any((d / ".git").exists() for d in (root, *root.parents))
+    with _CACHE_LOCK:
+        hit = _REPOS.get(key)
+    if hit and hit[0] == has_git:
+        return hit[1]
+    info = gitinfo.repo_info(root) if has_git else None
+    with _CACHE_LOCK:
+        _REPOS[key] = (has_git, info)
+    return info
+
+
+def _project_key(root: Path) -> tuple:
+    return (state_version(root), gitinfo.git_version(_repo(root)))
+
+
+def project_summary(entry: dict) -> dict:
+    """One project card: its tracks' summaries with git facts. Rebuilt only
+    when the project's files or git state change."""
+    root = Path(entry["path"])
+    base = {**entry, "name": root.name}
+    if entry["missing"]:
+        return {**base, "initialized": False, "tracks": [], "git": None, "settings": {}, "settings_error": None}
+    key = _project_key(root)
+    with _CACHE_LOCK:
+        hit = _SUMMARIES.get(entry["path"])
+    if hit and hit[0] == key:
+        return {**hit[1], **base}
+    tracks = load_tracks(root)
+    g = gitinfo.project_git(root, [(t["id"], t["archived"]) for t in tracks])
+    summaries = []
+    for t in tracks:
+        s = summarize_track(t)
+        s["git"] = g["tracks"].get(t["id"])
+        summaries.append(s)
+    settings = load_settings(root)
+    summary = {
+        **base,
+        "initialized": (root / "conductor" / "index.md").is_file(),
+        "tracks": summaries,
+        "git": {k: g[k] for k in ("git", "branch", "main", "remote", "last_fetch")},
+        "settings": {k: v["value"] for k, v in settings["effective"].items()},
+        "settings_error": settings["error"],
+    }
+    with _CACHE_LOCK:
+        _SUMMARIES[entry["path"]] = (key, summary)
+    return summary
+
+
+def _stat_key(p: Path) -> str:
+    try:
+        st = p.stat()
+        return f"{st.st_mtime_ns}:{st.st_size}"
+    except OSError:
+        return "-"
+
+
+def home_version(active: Path | None) -> str:
+    """Changes when anything on the home page could: the registry, the viewer's
+    config, or any project's files or git state."""
+    h = hashlib.sha1()
+    home = config_home()
+    for name in USER_FILES:
+        h.update(f"{name}={_stat_key(home / name)};".encode())
+    h.update(json.dumps(sorted(CONFIG_PROBLEMS)).encode())
+    for e in project_list(active):
+        root = Path(e["path"])
+        h.update(f"{e['id']}={e['path']}:{_project_key(root) if not e['missing'] else 'missing'};".encode())
+    return h.hexdigest()[:16]
+
+
+def resolve_project(pid: str | None, active: Path | None) -> Path:
+    """The folder for a project id the browser sent. Ids only: the browser never names a path."""
+    for e in project_list(active):
+        if (pid is None and e["active"]) or e["id"] == pid:
+            if e["missing"]:
+                raise LookupError(f"project folder not found: {e['path']}")
+            return Path(e["path"])
+    raise LookupError("unknown project")
+
+
 # ---------------------------------------------------------------- server
 
 
@@ -771,27 +875,81 @@ class Handler(BaseHTTPRequestHandler):
         port = self.server.server_address[1]
         return self.headers.get("Host", "") in {f"127.0.0.1:{port}", f"localhost:{port}"}
 
+    def _query(self) -> dict:
+        q = parse_qs(urlsplit(self.path).query)
+        return {k: v[0] for k, v in q.items()}
+
+    def _root_for(self, pid):
+        return resolve_project(pid, self.root)
+
     def do_GET(self):
         if not self._local_host():
             return self._json({"error": "forbidden host"}, HTTPStatus.FORBIDDEN)
-        path = self.path.split("?", 1)[0]
-        if path == "/api/state":
-            return self._json(load_state(self.root))
-        if path == "/api/version":
-            return self._json({"version": state_version(self.root)})
+        path, q = urlsplit(self.path).path, self._query()
+        try:
+            if path == "/api/state":
+                root = self._root_for(q.get("project"))
+                pid = next(e["id"] for e in project_list(self.root) if _same_path(Path(e["path"]), root))
+                return self._json({**load_state(root), "project_id": pid})
+            if path == "/api/version":
+                return self._json({"version": state_version(self._root_for(q.get("project")))})
+            if path == "/api/projects":
+                return self._json(self._home())
+            if path == "/api/home-version":
+                return self._json({"version": home_version(self.root)})
+            if path == "/api/git":
+                tid = q.get("track", "")
+                root = self._root_for(q.get("project"))
+                track = next((t for t in load_tracks(root) if t["id"] == tid), None)
+                if not track:
+                    raise LookupError("unknown track")
+                return self._json(gitinfo.track_detail(root, tid, track["archived"]))
+        except LookupError as e:
+            return self._json({"error": str(e)}, HTTPStatus.NOT_FOUND)
         if path == "/api/ping":
-            return self._json({"app": "conductor-view", "root": str(self.root.resolve())})
+            return self._json({"app": APP, "root": str(self.root.resolve()) if self.root else None})
         name = "index.html" if path in ("/", "/index.html") else path.lstrip("/")
         if name not in {"index.html", "app.js", "map.js", "local.js", "style.css"}:
             return self._send(HTTPStatus.NOT_FOUND, b"not found", "text/plain")
         ctype = {"html": "text/html", "js": "text/javascript", "css": "text/css"}[name.rsplit(".", 1)[1]]
         self._send(HTTPStatus.OK, (VIEWER_DIR / name).read_bytes(), ctype + "; charset=utf-8")
 
+    def _home(self) -> dict:
+        saved_port = load_config().get("port")  # read the viewer's files first, so their problems are reported below
+        projects = [project_summary(e) for e in project_list(self.root)]
+        return {
+            "projects": projects,
+            "problems": [{"name": k, **v} for k, v in sorted(CONFIG_PROBLEMS.items())],
+            "port": {"value": self.server.server_address[1], "source": self.port_source,
+                     "saved": saved_port, "default": DEFAULT_PORT},
+            "config_home": str(config_home()),
+            "version": home_version(self.root),
+        }
+
+    def _post(self, path: str, payload: dict):
+        """Route a POST. Returns (result, status)."""
+        if path == "/api/feedback":
+            return append_feedback(self._root_for(payload.get("project")), payload), HTTPStatus.CREATED
+        if path == "/api/settings":
+            return update_setting(self._root_for(payload.get("project")), payload), HTTPStatus.OK
+        if path == "/api/projects":
+            action = payload.get("action")
+            if action == "add":
+                return add_project(payload.get("path", "")), HTTPStatus.OK
+            if action == "forget":
+                return forget_project(str(payload.get("id", ""))), HTTPStatus.OK
+            raise ValueError("action must be add or forget")
+        if path == "/api/config":
+            return set_config(str(payload.get("key", "")), payload.get("value")), HTTPStatus.OK
+        if path == "/api/config/restore":
+            return restore_user_json(str(payload.get("file", ""))), HTTPStatus.OK
+        if path == "/api/config/dismiss":
+            return dismiss_problem(str(payload.get("file", ""))), HTTPStatus.OK
+        raise FileNotFoundError
+
     def do_POST(self):
         if not self._local_host():
             return self._json({"error": "forbidden host"}, HTTPStatus.FORBIDDEN)
-        if self.path not in ("/api/feedback", "/api/settings"):
-            return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
         # Same-origin only: browsers send Origin on POST; reject other sites.
         origin = self.headers.get("Origin")
         host = self.headers.get("Host", "")
@@ -809,9 +967,10 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length) or b"{}")
             if not isinstance(payload, dict):
                 raise ValueError("expected a JSON object")
-            if self.path == "/api/settings":
-                return self._json(update_setting(self.root, payload))
-            return self._json(append_feedback(self.root, payload), HTTPStatus.CREATED)
+            result, status = self._post(urlsplit(self.path).path, payload)
+            return self._json(result, status)
+        except FileNotFoundError:
+            return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
         except LookupError as e:
             return self._json({"error": str(e)}, HTTPStatus.NOT_FOUND)
         except RuntimeError as e:
