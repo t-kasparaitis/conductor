@@ -201,7 +201,8 @@ class PhoneWidthTest(UserHome, ServerTest):
         self.write("conductor/tracks/now_1/spec.md", "# A rather long track title that goes on and on for a while\n")
         b = Browser(width=390, height=844)
         try:
-            for hash_ in ("#/", "#/settings", f"#/{serve._project_id(self.root, set())}/settings"):
+            pid = serve._project_id(self.root, set())
+            for hash_ in ("#/", "#/settings", f"#/{pid}/settings", f"#/{pid}/now_1/plan"):
                 b.goto("about:blank")
                 b.goto(f"http://127.0.0.1:{self.port}/{hash_}", ready="document.querySelector('main').children.length > 1")
                 self.assertLessEqual(b.js("document.documentElement.scrollWidth"), b.js("window.innerWidth"), hash_)

@@ -507,3 +507,14 @@ details.tgroup[open] summary h3::before { content: "▾ "; }
 .gitcheck ul ul { max-height: 120px; overflow: auto; }
 .gitcheck { margin: 0; }
 @media (max-width: 760px) { .row-actions { opacity: 1; } }
+.project { min-width: 0; flex: 0 1 auto; }
+.switch select { max-width: 100%; }
+@media (max-width: 760px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .topbar { gap: 10px; padding: 0 12px; }
+  .project { flex: 1 1 auto; }
+  .switch select { width: 100%; }
+}
+@media (max-width: 520px) {
+  .brand-dim, #live-text { display: none; }
+}
