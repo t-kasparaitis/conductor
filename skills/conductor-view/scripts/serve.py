@@ -480,7 +480,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/ping":
             return self._json({"app": "conductor-view", "root": str(self.root.resolve())})
         name = "index.html" if path in ("/", "/index.html") else path.lstrip("/")
-        if name not in {"index.html", "app.js", "map.js", "style.css"}:
+        if name not in {"index.html", "app.js", "map.js", "local.js", "style.css"}:
             return self._send(HTTPStatus.NOT_FOUND, b"not found", "text/plain")
         ctype = {"html": "text/html", "js": "text/javascript", "css": "text/css"}[name.rsplit(".", 1)[1]]
         self._send(HTTPStatus.OK, (VIEWER_DIR / name).read_bytes(), ctype + "; charset=utf-8")
@@ -541,7 +541,7 @@ def export(root: Path, out: Path) -> None:
     state = json.dumps(load_state(root)).replace("</", "<\\/")
     js = js.replace("</script", "<\\/script")
     html = html.replace('<link rel="stylesheet" href="style.css">', f"<style>{css}</style>")
-    html = html.replace('<script src="map.js"></script>', "")
+    html = html.replace('<script src="map.js"></script>', "").replace('<script src="local.js"></script>', "")
     html = html.replace('<script src="app.js"></script>',
                         f"<script>window.CONDUCTOR_SNAPSHOT={state};</script><script>{js}</script>")
     out.write_text(html, encoding="utf-8")

@@ -398,3 +398,7 @@ h1.track-title { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; margin: 0
 @media (min-width: 761px) {
   .sidebar { position: sticky; top: 52px; align-self: start; height: calc(100vh - 52px); overflow-y: auto; }
 }
+/* ---------- opened from disk ---------- */
+.picker p { max-width: 560px; margin: 12px auto; }
+.picker .btn { cursor: pointer; margin-top: 6px; }
+.live.snap { cursor: default; }

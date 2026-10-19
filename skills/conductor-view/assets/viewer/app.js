@@ -3,6 +3,8 @@
   "use strict";
 
   const SNAPSHOT = window.CONDUCTOR_SNAPSHOT || null;
+  // Opened straight from disk with no server: read a picked folder (local.js), copy feedback instead of saving.
+  const LOCAL = !SNAPSHOT && location.protocol === "file:" && !!window.ConductorLocal;
   const $ = (s, el = document) => el.querySelector(s);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -103,6 +105,7 @@
 
   async function load() {
     if (SNAPSHOT) { state = SNAPSHOT; return; }
+    if (LOCAL) return;  // state comes from the folder picker
     const r = await fetch("api/state", { cache: "no-store" });
     if (!r.ok) throw new Error("state " + r.status);
     state = await r.json();
@@ -128,6 +131,7 @@
     el.classList.remove("off", "flash", "snap");
     if (mode === "off") { el.classList.add("off"); txt.textContent = "disconnected"; }
     else if (mode === "snap") { el.classList.add("snap"); txt.textContent = "snapshot"; }
+    else if (mode === "local") { el.classList.add("snap"); txt.textContent = state ? "from disk · reopen" : "from disk"; el.title = "Read from the folder you picked. Click to pick it again for changes."; }
     else if (mode === "flash") { el.classList.add("flash"); txt.textContent = "updated"; clearTimeout(setLive.t); setLive.t = setTimeout(() => setLive("on"), 1800); }
     else if (!el.classList.contains("flash")) txt.textContent = "live";
   }
@@ -429,7 +433,8 @@
     const titles = { comment: "Comment", revise: "Request changes", approve: "Approve" };
     $("#composer-kind").textContent = titles[kind];
     $("#composer-target").textContent = target;
-    $("#composer-file").textContent = `conductor/tracks/${current}/feedback.md`;
+    $("#composer-file").textContent = LOCAL ? "your clipboard, to paste to your agent" : `conductor/tracks/${current}/feedback.md`;
+    $("#composer-send").textContent = LOCAL ? "Copy" : "Send";
     $("#composer-text").value = "";
     $("#composer-text").placeholder = kind === "approve" ? "Optional note for the agent…" : "What should the agent change, clarify or consider?";
     $("#composer").showModal();
@@ -439,6 +444,7 @@
   async function send() {
     const text = $("#composer-text").value.trim();
     if (pending.kind !== "approve" && !text) { $("#composer-text").focus(); return; }
+    if (LOCAL) return copyForChat(window.ConductorLocal.feedbackForChat(current, pending.kind, pending.target, text));
     try {
       const r = await fetch("api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ track: current, kind: pending.kind, target: pending.target, text }) });
       const j = await r.json();
@@ -447,6 +453,35 @@
       toast(`Saved ${j.id} to feedback.md — tell your agent “check feedback”.`);
       await load(); render(true);
     } catch (e) { toast("Could not save feedback: " + e.message); }
+  }
+
+  async function copyForChat(block) {
+    try {
+      await navigator.clipboard.writeText(block);
+      $("#composer").close();
+      toast("Copied. Paste it to your agent; it will add it to feedback.md.");
+    } catch {
+      // No clipboard access (some browsers on file://): leave it selected for Ctrl+C.
+      $("#composer-text").value = block;
+      $("#composer-text").select();
+      toast("Press Ctrl+C (⌘C on a Mac) to copy, then paste it to your agent.");
+    }
+  }
+
+  function pickerScreen() {
+    return `<div class="empty picker"><strong>Open a Conductor project</strong>
+      <p>This page was opened from disk, so there's no server to read your files. Pick the project folder (or just its <code>conductor</code> folder) to view it read-only. Feedback is copied for you to paste to your agent.</p>
+      <label class="btn primary"><input type="file" id="pick-folder" webkitdirectory multiple hidden>Open project folder</label>
+      <p class="muted small">Your browser may ask to confirm reading the folder. Nothing leaves your computer. For live updates and saving feedback, run <code>python3 serve.py --open</code> instead.</p></div>`;
+  }
+
+  async function openPicked(fileList) {
+    const { files, project } = await window.ConductorLocal.readPicked(fileList);
+    if (!Object.keys(files).some((p) => p.startsWith("conductor/"))) { toast("No conductor/ folder in what you picked."); return; }
+    state = window.ConductorLocal.buildState(files, project);
+    readHash();
+    render();
+    setLive("local");
   }
 
   function toast(msg) {
@@ -492,7 +527,7 @@
             ${e.source === "invalid" ? `<span class="chip warn">invalid value in file — using default</span>` : e.source === "default" ? `<span class="chip">default</span>` : ""}
             ${e.value !== st.default ? `<span class="chip mono">default: ${esc(optionOf(st.key, st.default)?.label || st.default)}</span>` : ""}</div>
           <div class="opts" role="radiogroup" aria-label="${esc(st.label)}">
-            ${st.options.map((o) => `<button class="opt" role="radio" aria-checked="${o.value === e.value}" data-setting="${esc(st.key)}" data-value="${esc(o.value)}"${SNAPSHOT ? " disabled" : ""}>
+            ${st.options.map((o) => `<button class="opt" role="radio" aria-checked="${o.value === e.value}" data-setting="${esc(st.key)}" data-value="${esc(o.value)}"${SNAPSHOT || LOCAL ? " disabled" : ""}>
               <span class="opt-label"><span class="radio"></span>${esc(o.label)}</span>
               <span class="opt-summary">${inline(o.summary || "", {})}</span></button>`).join("")}
           </div>
@@ -610,6 +645,13 @@
   /* boot */
   (async function boot() {
     const deepDiagram = readHash();
+    if (LOCAL) {
+      $("#main").innerHTML = pickerScreen();
+      document.addEventListener("change", (ev) => { if (ev.target.id === "pick-folder" && ev.target.files.length) openPicked(ev.target.files); });
+      $("#live").addEventListener("click", () => { if (state) { $("#main").innerHTML = pickerScreen(); $("#pick-folder").click(); } });
+      setLive("local");
+      return;
+    }
     try { await load(); } catch (e) { setLive("off"); $("#main").innerHTML = `<div class="empty"><strong>Can't reach the viewer server</strong>${esc(e.message)}</div>`; return; }
     render();
     if (deepDiagram) openDiagram(deepDiagram.slug, deepDiagram.node);
