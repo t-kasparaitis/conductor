@@ -157,23 +157,27 @@
     const registry = parseRegistry(files["conductor/tracks.md"] || "")
       .filter((e) => e.track_id && TRACK_ID_RE.test(e.track_id) && e.track_id !== "." && e.track_id !== "..");
     const byId = new Map(registry.map((e) => [e.track_id, e]));
-    const folders = new Set(Object.keys(files).map((p) => p.match(/^conductor\/tracks\/([^/]+)\//)).filter(Boolean).map((m) => m[1]));
+    const foldersIn = (dir) => new Set(Object.keys(files).map((p) => p.slice(0, dir.length) === dir ? p.slice(dir.length).split("/") : null)
+      .filter((parts) => parts && parts.length > 1 && TRACK_ID_RE.test(parts[0])).map((parts) => parts[0]));
+    const folders = foldersIn("conductor/tracks/");
     const order = registry.map((e) => e.track_id).concat([...folders].filter((f) => !byId.has(f)).sort());
-    const tracks = [];
-    for (const tid of order) {
-      if (!folders.has(tid)) continue;
-      const base = `conductor/tracks/${tid}/`;
+    const loadTrack = (tid, base, archived) => {
       let meta = {}, metaError = null;
       if (files[base + "metadata.json"]) {
         try { meta = JSON.parse(files[base + "metadata.json"]); if (!meta || typeof meta !== "object" || Array.isArray(meta)) { meta = {}; metaError = "must be a JSON object"; } }
         catch (e) { metaError = e.message; }
       }
-      tracks.push({
-        id: tid, registry: byId.get(tid) || null, metadata: meta, metadata_error: metaError,
+      return {
+        id: tid, archived, registry: byId.get(tid) || null, metadata: meta, metadata_error: metaError,
         spec: files[base + "spec.md"] || "", plan: parsePlan(files[base + "plan.md"] || ""),
         feedback: parseFeedback(files[base + "feedback.md"] || ""), diagrams: loadDiagrams(files, base + "diagrams/"),
-      });
-    }
+      };
+    };
+    const tracks = order.filter((tid) => folders.has(tid)).map((tid) => loadTrack(tid, `conductor/tracks/${tid}/`, false));
+    const seen = new Set(tracks.map((t) => t.id));
+    // Same as serve.py: sorted by code point, and a folder in both places keeps the live copy.
+    [...foldersIn("conductor/archive/")].filter((tid) => !seen.has(tid)).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+      .forEach((tid) => tracks.push(loadTrack(tid, `conductor/archive/${tid}/`, true)));
     let values = {}, error = null;
     if (has("conductor/settings.json")) {
       try { values = JSON.parse(files["conductor/settings.json"]); } catch (e) { error = "settings.json: " + e.message; }
@@ -188,7 +192,7 @@
   async function readPicked(fileList) {
     const files = {};
     let project = "";
-    const wanted = /^conductor\/(index\.md|tracks\.md|settings\.json|tracks\/[^/]+\/(spec\.md|plan\.md|feedback\.md|metadata\.json|diagrams\/[^/]+\.(json|svg)))$/;
+    const wanted = /^conductor\/(index\.md|tracks\.md|settings\.json|(?:tracks|archive)\/[^/]+\/(spec\.md|plan\.md|feedback\.md|metadata\.json|diagrams\/[^/]+\.(json|svg)))$/;
     for (const f of fileList) {
       const parts = (f.webkitRelativePath || f.name).split("/");
       const top = parts.shift();

@@ -88,6 +88,28 @@ class LoadersTest(TempProject):
             self.write(f"conductor/tracks/{tid}/plan.md", "")
         self.assertEqual([t["id"] for t in serve.load_state(self.root)["tracks"]], ["b_2", "a_1", "c_3"])
 
+    def test_archived_tracks_come_last_and_are_flagged(self):
+        self.write("conductor/tracks.md", "- [~] **Track: Live**\n*Link: [x](./tracks/live_1/index.md)*\n")
+        self.write("conductor/tracks/live_1/plan.md", "")
+        self.write("conductor/archive/old_1/plan.md", "# P\n## Phase 1: A\n- [x] Task: x abc1234\n")
+        self.write("conductor/archive/older_0/spec.md", "# Older\n")
+        tracks = serve.load_state(self.root)["tracks"]
+        self.assertEqual([(t["id"], t["archived"]) for t in tracks],
+                         [("live_1", False), ("old_1", True), ("older_0", True)])
+        self.assertEqual(tracks[1]["plan"]["phases"][0]["done"], 1)
+
+    def test_a_folder_in_both_places_shows_the_live_copy_once(self):
+        self.write("conductor/tracks/dup_1/spec.md", "# Live\n")
+        self.write("conductor/archive/dup_1/spec.md", "# Archived\n")
+        tracks = serve.load_state(self.root)["tracks"]
+        self.assertEqual([(t["id"], t["archived"], t["spec"]) for t in tracks], [("dup_1", False, "# Live\n")])
+
+    def test_archive_files_count_towards_the_version(self):
+        self.write("conductor/archive/old_1/plan.md", "a")
+        v1 = serve.state_version(self.root)
+        self.write("conductor/archive/old_1/plan.md", "ab")
+        self.assertNotEqual(v1, serve.state_version(self.root))
+
     def test_version_changes_when_a_file_changes(self):
         self.write("conductor/tracks/t_1/plan.md", "a")
         v1 = serve.state_version(self.root)

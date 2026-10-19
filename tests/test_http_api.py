@@ -33,7 +33,7 @@ class ApiTest(ServerTest):
         self.assertEqual(set(state), {"project", "initialized", "tracks", "settings", "version"})
         self.assertTrue(state["initialized"])
         track = state["tracks"][0]
-        self.assertEqual(set(track), {"id", "registry", "metadata", "metadata_error", "spec", "plan", "feedback", "diagrams"})
+        self.assertEqual(set(track), {"id", "archived", "registry", "metadata", "metadata_error", "spec", "plan", "feedback", "diagrams"})
 
     def test_version_and_ping(self):
         status, body = self.request("GET", "/api/version")

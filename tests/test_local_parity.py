@@ -112,6 +112,9 @@ class ParityTest(TempProject):
             "conductor/tracks/legacy_2/plan.md": "",
             "conductor/tracks/legacy_2/metadata.json": "[1]",
             "conductor/tracks/zz_9/spec.md": "unregistered",
+            "conductor/archive/old_1/plan.md": "## Phase 1: A\n- [x] Task: done abc1234\n",
+            "conductor/archive/Old_2/metadata.json": '{"status": "archived"}',
+            "conductor/archive/zz_9/spec.md": "same id as a live track",
         }
         for path, text in files.items():
             self.write(path, text)

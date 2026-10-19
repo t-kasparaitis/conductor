@@ -305,7 +305,36 @@ def update_setting(root: Path, payload: dict) -> dict:
         return _rewrite(path, build)
 
 
-def load_state(root: Path) -> dict:
+def _load_track(tdir: Path, registry_entry: dict | None, archived: bool) -> dict:
+    meta_text = _read(tdir / "metadata.json")
+    try:
+        meta = json.loads(meta_text) if meta_text else {}
+        meta_error = None if isinstance(meta, dict) else "must be a JSON object"
+    except json.JSONDecodeError as e:
+        meta, meta_error = {}, str(e)
+    if meta_error:
+        meta = {}
+    return {
+        "id": tdir.name,
+        "archived": archived,
+        "registry": registry_entry,
+        "metadata": meta,
+        "metadata_error": meta_error,
+        "spec": _read(tdir / "spec.md") or "",
+        "plan": parse_plan(_read(tdir / "plan.md") or ""),
+        "feedback": parse_feedback(_read(tdir / "feedback.md") or ""),
+        "diagrams": load_diagrams(tdir / "diagrams"),
+    }
+
+
+def _track_dirs(d: Path) -> list[Path]:
+    if not d.is_dir():
+        return []
+    return sorted((p for p in d.iterdir() if p.is_dir() and TRACK_ID_RE.match(p.name)), key=lambda p: p.name)
+
+
+def load_tracks(root: Path) -> list[dict]:
+    """Registry order, then unregistered folders, then conductor/archive/ (read-only)."""
     cdir = root / "conductor"
     tracks_dir = cdir / "tracks"
     registry = parse_registry(_read(cdir / "tracks.md") or "")
@@ -313,36 +342,19 @@ def load_state(root: Path) -> dict:
     registry = [e for e in registry if e["track_id"] and TRACK_ID_RE.match(e["track_id"]) and e["track_id"] not in (".", "..")]
     by_id = {e["track_id"]: e for e in registry}
     order = [e["track_id"] for e in registry]
-    if tracks_dir.is_dir():
-        order += sorted(p.name for p in tracks_dir.iterdir() if p.is_dir() and p.name not in by_id)
-    tracks = []
-    for tid in order:
-        tdir = tracks_dir / tid
-        if not tdir.is_dir():
-            continue
-        meta_text = _read(tdir / "metadata.json")
-        try:
-            meta = json.loads(meta_text) if meta_text else {}
-            meta_error = None if isinstance(meta, dict) else "must be a JSON object"
-        except json.JSONDecodeError as e:
-            meta, meta_error = {}, str(e)
-        if meta_error:
-            meta = {}
-        plan_text = _read(tdir / "plan.md") or ""
-        tracks.append({
-            "id": tid,
-            "registry": by_id.get(tid),
-            "metadata": meta,
-            "metadata_error": meta_error,
-            "spec": _read(tdir / "spec.md") or "",
-            "plan": parse_plan(plan_text),
-            "feedback": parse_feedback(_read(tdir / "feedback.md") or ""),
-            "diagrams": load_diagrams(tdir / "diagrams"),
-        })
+    order += [p.name for p in _track_dirs(tracks_dir) if p.name not in by_id]
+    tracks = [_load_track(tracks_dir / tid, by_id.get(tid), False) for tid in order if (tracks_dir / tid).is_dir()]
+    seen = {t["id"] for t in tracks}
+    # A folder in both places keeps the live copy: ids must stay unique in links.
+    tracks += [_load_track(d, by_id.get(d.name), True) for d in _track_dirs(cdir / "archive") if d.name not in seen]
+    return tracks
+
+
+def load_state(root: Path) -> dict:
     return {
         "project": root.resolve().name,
-        "initialized": (cdir / "index.md").is_file(),
-        "tracks": tracks,
+        "initialized": (root / "conductor" / "index.md").is_file(),
+        "tracks": load_tracks(root),
         "settings": load_settings(root),
         "version": state_version(root),
     }
