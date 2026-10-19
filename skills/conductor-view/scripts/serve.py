@@ -251,9 +251,55 @@ def _get(values: dict, key: str):
     return cur
 
 
-def load_settings(root: Path) -> dict:
-    """Project settings plus the schema that describes them. Missing keys fall back to defaults."""
+def _set_nested(values: dict, key: str, value) -> None:
+    cur = values
+    parts = key.split(".")
+    for part in parts[:-1]:
+        if not isinstance(cur.get(part), dict):
+            cur[part] = {}
+        cur = cur[part]
+    cur[parts[-1]] = value
+
+
+def _del_nested(values: dict, key: str) -> bool:
+    """Remove a dotted key, and any parent it leaves empty. True if it was there."""
+    parts = key.split(".")
+    chain = [values]
+    for part in parts[:-1]:
+        nxt = chain[-1].get(part)
+        if not isinstance(nxt, dict):
+            return False
+        chain.append(nxt)
+    if parts[-1] not in chain[-1]:
+        return False
+    del chain[-1][parts[-1]]
+    for i in range(len(parts) - 1, 0, -1):
+        if not chain[i]:
+            del chain[i - 1][parts[i - 1]]
+    return True
+
+
+def main_rules() -> dict:
+    """The main workflow rules every project follows unless it has an exception:
+    settings.json in the viewer's config folder, over the schema defaults."""
     schema = load_schema()
+    values = load_user_json("settings.json")
+    effective = {}
+    if schema:
+        for key, st in schema_settings(schema).items():
+            v = _get(values, key)
+            ok = _is_option(st, v)
+            effective[key] = {"value": v if ok else st["default"],
+                              "source": "main" if ok else ("invalid" if v is not None else "default")}
+    return {"schema": schema, "values": values, "effective": effective,
+            "file": str(config_home() / "settings.json"), "error": CONFIG_PROBLEMS.get("settings.json", {}).get("error")}
+
+
+def load_settings(root: Path) -> dict:
+    """A project's workflow settings, per key: the repo's value (an exception),
+    else the main rule, else the built-in default."""
+    rules = main_rules()
+    schema = rules["schema"]
     path = root / "conductor" / "settings.json"
     text = _read(path)
     values, error = {}, None
@@ -264,27 +310,46 @@ def load_settings(root: Path) -> dict:
                 values, error = {}, "settings.json must contain a JSON object"
         except json.JSONDecodeError as e:
             error = f"settings.json: {e}"
-    effective = {}
+    effective, exceptions, same = {}, [], []
     if schema:
         for key, st in schema_settings(schema).items():
+            main = rules["effective"][key]
             v = _get(values, key)
             ok = _is_option(st, v)
-            effective[key] = {"value": v if ok else st["default"],
-                              "source": "file" if ok else ("invalid" if v is not None else "default")}
-    return {"schema": schema, "exists": text is not None, "values": values,
-            "effective": effective, "error": error}
+            effective[key] = {"value": v if ok else main["value"],
+                              "source": "repo" if ok else ("invalid" if v is not None else main["source"]),
+                              "repo": v, "main": main["value"], "main_source": main["source"]}
+            if ok:
+                (exceptions if v != main["value"] else same).append(key)
+    return {"schema": schema, "exists": text is not None, "values": values, "effective": effective,
+            "exceptions": exceptions, "same_as_main": same, "error": error}
 
 
-def update_setting(root: Path, payload: dict) -> dict:
+def update_setting(root: Path | None, payload: dict) -> dict:
+    """Set one setting for a project (scope "project") or in the main rules
+    (scope "main"). A value of null removes the key: the project goes back to
+    the main rule, or the main rule back to the built-in default."""
     schema = load_schema()
     if not schema:
         raise LookupError("settings schema not found next to conductor-setup")
     key, value = str(payload.get("key", "")), payload.get("value")
+    scope = payload.get("scope", "project")
     st = schema_settings(schema).get(key)
     if not st:
         raise ValueError("unknown setting")
-    if not _is_option(st, value):
+    if value is not None and not _is_option(st, value):
         raise ValueError("invalid value")
+    if scope == "main":
+        def change(data):
+            data.setdefault("version", schema.get("version", 1))
+            if value is None:
+                _del_nested(data, key)
+            else:
+                _set_nested(data, key, value)
+            return {"key": key, "value": value, "scope": "main"}
+        return _update_user_json("settings.json", change)
+    if scope != "project" or root is None:
+        raise ValueError("scope must be project or main")
     path = root / "conductor" / "settings.json"
 
     def build(text):
@@ -297,14 +362,30 @@ def update_setting(root: Path, payload: dict) -> dict:
                 values = None
             if not isinstance(values, dict):
                 raise ValueError("settings.json is not valid JSON; fix it by hand first")
-        cur = values
-        parts = key.split(".")
-        for part in parts[:-1]:
-            if not isinstance(cur.get(part), dict):
-                cur[part] = {}
-            cur = cur[part]
-        cur[parts[-1]] = value
-        return json.dumps(values, indent=2) + "\n", {"key": key, "value": value}
+        if value is None:
+            _del_nested(values, key)
+        else:
+            _set_nested(values, key, value)
+        return json.dumps(values, indent=2) + "\n", {"key": key, "value": value, "scope": "project"}
+
+    with WRITE_LOCK:
+        return _rewrite(path, build)
+
+
+def tidy_settings(root: Path) -> dict:
+    """Remove the repo's keys that equal the main rule, so only real exceptions remain."""
+    path = root / "conductor" / "settings.json"
+    same = load_settings(root)["same_as_main"]
+
+    def build(text):
+        try:
+            values = json.loads(text or "")
+        except json.JSONDecodeError:
+            values = None
+        if not isinstance(values, dict):
+            raise ValueError("settings.json is not valid JSON; fix it by hand first")
+        removed = [k for k in same if _del_nested(values, k)]
+        return json.dumps(values, indent=2) + "\n", {"removed": removed}
 
     with WRITE_LOCK:
         return _rewrite(path, build)
@@ -777,7 +858,8 @@ def _repo(root: Path) -> dict | None:
 
 
 def _project_key(root: Path) -> tuple:
-    return (state_version(root), gitinfo.git_version(_repo(root)))
+    # The main rules decide which repo values are exceptions, so they're part of every project's key.
+    return (state_version(root), gitinfo.git_version(_repo(root)), _stat_key(config_home() / "settings.json"))
 
 
 def project_summary(entry: dict) -> dict:
@@ -786,7 +868,8 @@ def project_summary(entry: dict) -> dict:
     root = Path(entry["path"])
     base = {**entry, "name": root.name}
     if entry["missing"]:
-        return {**base, "initialized": False, "tracks": [], "git": None, "settings": {}, "settings_error": None}
+        return {**base, "initialized": False, "tracks": [], "git": None, "settings": {}, "exceptions": [],
+                "same_as_main": [], "settings_error": None}
     key = _project_key(root)
     with _CACHE_LOCK:
         hit = _SUMMARIES.get(entry["path"])
@@ -806,6 +889,8 @@ def project_summary(entry: dict) -> dict:
         "tracks": summaries,
         "git": {k: g[k] for k in ("git", "branch", "main", "remote", "last_fetch")},
         "settings": {k: v["value"] for k, v in settings["effective"].items()},
+        "exceptions": settings["exceptions"],
+        "same_as_main": settings["same_as_main"],
         "settings_error": settings["error"],
     }
     with _CACHE_LOCK:
@@ -926,6 +1011,7 @@ class Handler(BaseHTTPRequestHandler):
             "port": {"value": self.server.server_address[1], "source": self.port_source,
                      "saved": saved_port, "default": DEFAULT_PORT},
             "config_home": str(config_home()),
+            "main_settings": main_rules(),
             "version": home_version(self.root),
         }
 
@@ -934,7 +1020,10 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/feedback":
             return append_feedback(self._root_for(payload.get("project")), payload), HTTPStatus.CREATED
         if path == "/api/settings":
-            return update_setting(self._root_for(payload.get("project")), payload), HTTPStatus.OK
+            root = None if payload.get("scope") == "main" else self._root_for(payload.get("project"))
+            return update_setting(root, payload), HTTPStatus.OK
+        if path == "/api/settings/tidy":
+            return tidy_settings(self._root_for(payload.get("project"))), HTTPStatus.OK
         if path == "/api/projects":
             action = payload.get("action")
             if action == "add":

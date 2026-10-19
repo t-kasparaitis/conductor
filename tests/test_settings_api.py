@@ -8,7 +8,7 @@ from helpers import ServerTest
 class SettingsApiTest(ServerTest):
     def test_valid_change_creates_the_file_with_version(self):
         status, body = self.post_setting("git.strategy", "trunk")
-        self.assertEqual((status, body), (200, {"key": "git.strategy", "value": "trunk"}))
+        self.assertEqual((status, body), (200, {"key": "git.strategy", "value": "trunk", "scope": "project"}))
         self.assertEqual(self.settings_file(), {"version": 1, "git": {"strategy": "trunk"}})
 
     def test_change_keeps_other_values(self):
@@ -53,7 +53,8 @@ class SettingsApiTest(ServerTest):
         self.post_setting("git.notes", "off")
         status, state = self.request("GET", "/api/state")
         self.assertEqual(status, 200)
-        self.assertEqual(state["settings"]["effective"]["git.notes"], {"value": "off", "source": "file"})
+        self.assertEqual({k: v for k, v in state["settings"]["effective"]["git.notes"].items() if k in ("value", "source")},
+                         {"value": "off", "source": "repo"})
 
 
 class DnsRebindingTest(ServerTest):

@@ -34,7 +34,7 @@ class LoadSettingsTest(TempProject):
         self.write_settings({"version": 1, "git": {"strategy": "trunk"}, "testing": {"verification": "track"}})
         result = serve.load_settings(self.root)
         self.assertEqual(values(result), {**DEFAULTS, "git.strategy": "trunk", "testing.verification": "track"})
-        self.assertEqual(sources(result)["git.strategy"], "file")
+        self.assertEqual(sources(result)["git.strategy"], "repo")
         self.assertEqual(sources(result)["git.commit"], "default")
 
     def test_unknown_value_falls_back_to_default_and_is_flagged(self):
