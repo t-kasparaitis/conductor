@@ -33,6 +33,9 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import gitinfo  # noqa: E402  (sibling module)
+
 VIEWER_DIR = Path(__file__).resolve().parent.parent / "assets" / "viewer"
 # The settings schema belongs to conductor-setup (it asks the questions); we only render it.
 SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent / "conductor-setup" / "assets" / "settings.schema.json"
