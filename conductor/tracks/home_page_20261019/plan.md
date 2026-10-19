@@ -36,8 +36,8 @@
 ## Phase 4: Archive, restore and delete requests
 
 - [x] Task: `archive`, `restore` and `delete` request items in `feedback.md` (server and `local.js`), withdraw, typed confirmation for delete, with tests ba98942
-- [ ] Task: Confirm dialog shows the git safety check and "Delete anyway" when work would be lost, with browser tests
-- [ ] Task: "Requested, waiting for the agent" state on rows and track pages, with browser tests
+- [x] Task: Confirm dialog shows the git safety check and "Delete anyway" when work would be lost, with browser tests 97bcb40
+- [x] Task: "Requested, waiting for the agent" state on rows and track pages, with browser tests 97bcb40
 - [ ] Task: Agent side: re-check git state before acting and report it; never delete uncommitted work without an explicit OK; request processing in `conductor-view/SKILL.md`, formats in `file-contract.md`, aligned with `conductor-review` Track Cleanup, with skill-doc tests
 
 ## Phase 5: Docs
