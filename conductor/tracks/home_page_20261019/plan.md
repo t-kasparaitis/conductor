@@ -19,7 +19,7 @@
 - [x] Task: Per-project summary cache keyed on each project's file versions; the poll re-reads only changed projects, with tests for 50 projects and two changing at once 4006dfc
 - [x] Task: Layered workflow settings: Conductor-wide `settings.json` + repo file + schema defaults, per-key resolution with its source, exceptions = keys that differ, remove-key and tidy, with tests (server and `local.js`) 7efea4d
 - [x] Task: `--watch --all`: feedback and settings changes across every registered project, labelled by project, with tests ec656d3
-- [ ] Task: Start command registers its project; a second start hands the project to the running viewer and exits; `--add`, `--forget`, `--list`, with CLI tests
+- [x] Task: Start command registers its project; a second start hands the project to the running viewer and exits; `--add`, `--forget`, `--list`, with CLI tests 8bce88a
 - [ ] Task: Find projects: depth-limited scan with skip list and a time cap, add selected; add by path, with tests
 
 ## Phase 3: Home page
