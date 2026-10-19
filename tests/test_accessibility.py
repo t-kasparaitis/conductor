@@ -2,7 +2,7 @@
 
 import unittest
 
-from browser import Browser, find_chrome
+from browser import Browser, browser_name, find_browser
 from test_viewer_browser import PLAN, SPEC
 from helpers import ServerTest
 
@@ -13,8 +13,12 @@ NAMELESS = """[...document.querySelectorAll('button, a[href], [role=tab], [role=
   .map(el => el.outerHTML.slice(0, 120))"""
 
 
-@unittest.skipUnless(find_chrome(), "no Chrome, Chromium or Edge installed")
+@unittest.skipUnless(find_browser(), "test browser not installed")
 class AccessibilityTest(ServerTest):
+    # Headless Firefox never has window focus, so it delivers key events but
+    # doesn't turn Enter/Space into clicks or show focus rings. Real Firefox does.
+    real_keys = unittest.skipIf(browser_name() == "firefox", "headless Firefox doesn't activate buttons from synthetic keys")
+
     @classmethod
     def setUpClass(cls):
         cls.b = Browser(width=1300, height=800)
@@ -46,6 +50,7 @@ class AccessibilityTest(ServerTest):
         self.b.wait("window.WorldMap.isOpen()")
         self.assertEqual(self.b.js(NAMELESS), [])
 
+    @real_keys
     def test_keyboard_reaches_and_uses_the_progress_bar(self):
         self.open("#/demo_1/plan")
         self.b.js("document.querySelector('.pg-phase[data-goto-phase=\"2\"]').focus()")
@@ -55,6 +60,7 @@ class AccessibilityTest(ServerTest):
         self.b.key(" ", code="Space", key_code=32)
         self.b.wait("document.querySelector('article.phase').id === 'phase-0'")
 
+    @real_keys
     def test_focus_is_visible(self):
         self.open("#/demo_1/plan")
         self.b.js("document.querySelector('.tab').focus()")
@@ -62,6 +68,7 @@ class AccessibilityTest(ServerTest):
         style = self.b.js("getComputedStyle(document.activeElement).outlineStyle")
         self.assertNotEqual(style, "none")
 
+    @real_keys
     def test_tabs_and_dialog_by_keyboard(self):
         self.open("#/demo_1/plan")
         self.b.js("document.querySelector('[data-tab=spec]').focus()")

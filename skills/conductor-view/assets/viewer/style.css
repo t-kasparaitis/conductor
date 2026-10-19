@@ -76,6 +76,7 @@ button { font: inherit; color: inherit; }
   display: flex; align-items: center; gap: 16px;
   height: 52px; padding: 0 18px;
   background: color-mix(in srgb, var(--bg) 85%, transparent);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
@@ -297,7 +298,7 @@ h1.track-title { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; margin: 0
 
 /* ---------- composer / toast ---------- */
 .composer { border: 1px solid var(--line-2); border-radius: 14px; background: var(--panel); color: var(--text); padding: 0; width: min(560px, calc(100vw - 32px)); box-shadow: var(--shadow); }
-.composer::backdrop { background: rgba(5, 8, 12, .55); backdrop-filter: blur(2px); }
+.composer::backdrop { background: rgba(5, 8, 12, .55); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
 .composer form { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .composer-head { display: flex; flex-direction: column; gap: 2px; }
 .composer-kind { font-weight: 650; }
@@ -337,7 +338,7 @@ h1.track-title { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; margin: 0
 .wm.has-sel .wm-edge:not(.hot) { opacity: .25; }
 .wm-arrow { fill: var(--edge); }
 .wm-arrow-hot { fill: var(--accent); }
-.wm-node { position: absolute; width: 190px; padding: 10px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line-2); box-shadow: 0 4px 14px rgba(0,0,0,.18); cursor: pointer; user-select: none; display: flex; gap: 10px; align-items: flex-start; transition: opacity .2s, border-color .2s, box-shadow .2s, transform .15s; color: var(--text); text-align: left; font: inherit; }
+.wm-node { position: absolute; width: 190px; padding: 10px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line-2); box-shadow: 0 4px 14px rgba(0,0,0,.18); cursor: pointer; -webkit-user-select: none; user-select: none; display: flex; gap: 10px; align-items: flex-start; transition: opacity .2s, border-color .2s, box-shadow .2s, transform .15s; color: var(--text); text-align: left; font: inherit; }
 .wm-node:hover { border-color: var(--muted); transform: translateY(-1px); }
 .wm-node .k-icon { flex: none; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: color-mix(in srgb, var(--tone) 16%, transparent); color: var(--tone); }
 .wm-node .n-label { font-weight: 600; font-size: 13.5px; line-height: 1.3; }

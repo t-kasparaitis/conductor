@@ -4,6 +4,7 @@ touches this repo's own conductor/ directory."""
 import http.client
 import importlib.util
 import json
+import os
 import shutil
 import tempfile
 import threading
@@ -28,7 +29,11 @@ class TempProject(unittest.TestCase):
     """A throwaway project root with an empty conductor/ directory."""
 
     def setUp(self):
-        self.root = Path(tempfile.mkdtemp(prefix="conductor-test-"))
+        # CONDUCTOR_TEST_TMP: somewhere a sandboxed browser can read (a snap Firefox can't see /tmp).
+        base = os.environ.get("CONDUCTOR_TEST_TMP")
+        if base:
+            os.makedirs(base, exist_ok=True)
+        self.root = Path(tempfile.mkdtemp(prefix="conductor-test-", dir=base))
         self.addCleanup(shutil.rmtree, self.root, True)
         (self.root / "conductor").mkdir()
 

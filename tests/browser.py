@@ -1,7 +1,9 @@
-"""A tiny headless-Chrome driver over the DevTools protocol, standard library only.
+"""Tiny headless browser drivers, standard library only: Chrome/Chromium/Edge
+over the DevTools protocol and Firefox over WebDriver BiDi.
 
-Enough for browser tests: open a page, evaluate JavaScript, click, take a
-screenshot. Tests that use it skip when no Chrome/Chromium/Edge is installed.
+Enough for browser tests: open a page, evaluate JavaScript, click, press
+keys, take a screenshot. Pick the browser with CONDUCTOR_TEST_BROWSER=chrome
+(default) or firefox; tests skip when that browser isn't installed.
 """
 
 import base64
@@ -90,7 +92,9 @@ class _WebSocket:
         self.sock.close()
 
 
-class Browser:
+class Chrome:
+    name = "chrome"
+
     def __init__(self, width=1300, height=800):
         exe = find_chrome()
         if not exe:
@@ -189,3 +193,161 @@ class Browser:
         except subprocess.TimeoutExpired:
             self.proc.kill()
         shutil.rmtree(self.profile, ignore_errors=True)
+
+
+def find_firefox():
+    env = os.environ.get("CONDUCTOR_TEST_FIREFOX")
+    if env:
+        return env
+    for name in ("firefox", "firefox-esr"):
+        path = shutil.which(name)
+        if path:
+            return path
+    for path in ("/Applications/Firefox.app/Contents/MacOS/firefox",
+                 os.path.expandvars(r"%ProgramFiles%\Mozilla Firefox\firefox.exe")):
+        if os.path.exists(path):
+            return path
+    return None
+
+
+_NUMBERS = {"NaN": float("nan"), "-0": -0.0, "Infinity": float("inf"), "-Infinity": float("-inf")}
+
+
+def _from_bidi(v):
+    """WebDriver BiDi RemoteValue -> the same plain data the Chrome driver returns."""
+    kind = v.get("type")
+    if kind in ("undefined", "null"):
+        return None
+    if kind == "number":
+        return _NUMBERS.get(v["value"], v["value"]) if isinstance(v["value"], str) else v["value"]
+    if kind in ("string", "boolean"):
+        return v["value"]
+    if kind == "bigint":
+        return int(v["value"])
+    if kind in ("array", "set"):
+        return [_from_bidi(x) for x in v.get("value", [])]
+    if kind in ("object", "map"):
+        return {(k if isinstance(k, str) else _from_bidi(k)): _from_bidi(x) for k, x in v.get("value", [])}
+    return None  # nodes, functions, windows: like Chrome's returnByValue, not data
+
+
+def _is_snap_wrapper(exe):
+    try:
+        with open(exe, "rb") as f:
+            head = f.read(2048)
+    except OSError:
+        return False
+    return head.startswith(b"#!") and b"/snap/bin/firefox" in head
+
+
+# WebDriver key codes for the keys tests press.
+_WD_KEYS = {"Enter": "\ue006", "Escape": "\ue00c", "Tab": "\ue004", "ArrowLeft": "\ue012",
+            "ArrowUp": "\ue013", "ArrowRight": "\ue014", "ArrowDown": "\ue015"}
+
+
+class Firefox:
+    name = "firefox"
+
+    def __init__(self, width=1300, height=800):
+        exe = find_firefox()
+        if not exe:
+            raise FileNotFoundError("no Firefox found")
+        # A snap-packaged Firefox can only use a profile inside its own folder.
+        # Ubuntu's /usr/bin/firefox is a shell script that hands over to the snap.
+        snap = "/snap/" in os.path.realpath(exe) or _is_snap_wrapper(exe)
+        base = os.path.expanduser("~/snap/firefox/common") if snap else None
+        if base:
+            os.makedirs(base, exist_ok=True)
+        self.profile = tempfile.mkdtemp(prefix="conductor-firefox-", dir=base)
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        self.proc = subprocess.Popen([exe, "--headless", "--no-remote", "--profile", self.profile,
+                                      "--remote-debugging-port", str(port), "about:blank"],
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                     env=dict(os.environ, MOZ_NO_REMOTE="1"))
+        self.ws = None
+        deadline = time.time() + 30
+        while self.ws is None:
+            try:
+                self.ws = _WebSocket(f"ws://127.0.0.1:{port}/session")
+            except OSError:
+                if time.time() > deadline:
+                    self.close()
+                    raise TimeoutError("Firefox did not start")
+                time.sleep(0.2)
+        self._id = 0
+        self.call("session.new", capabilities={})
+        self.context = self.call("browsingContext.getTree")["contexts"][0]["context"]
+        self.call("browsingContext.setViewport", context=self.context, viewport={"width": width, "height": height})
+        # Without this the headless window never has focus, so key presses go nowhere.
+        self.call("browsingContext.activate", context=self.context)
+
+    def call(self, method, **params):
+        self._id += 1
+        self.ws.send(json.dumps({"id": self._id, "method": method, "params": params}))
+        while True:
+            msg = json.loads(self.ws.recv())
+            if msg.get("id") == self._id:
+                if msg.get("type") == "error":
+                    raise RuntimeError(f"{method}: {msg.get('error')}: {msg.get('message')}")
+                return msg.get("result", {})
+
+    def js(self, expression):
+        """Evaluate JavaScript (statements allowed, promises awaited) and return its value as JSON-like data."""
+        res = self.call("script.evaluate", expression=expression, target={"context": self.context},
+                        awaitPromise=True, resultOwnership="none",
+                        serializationOptions={"maxObjectDepth": 50, "maxDomDepth": 0})
+        if res.get("type") == "exception":
+            raise RuntimeError(res["exceptionDetails"].get("text"))
+        return _from_bidi(res["result"])
+
+    def goto(self, url, ready="document.readyState === 'complete'"):
+        self.call("browsingContext.navigate", context=self.context, url=url, wait="complete")
+        self.wait(ready)
+
+    wait = Chrome.wait
+    click = Chrome.click
+
+    def key(self, key, code=None, key_code=0):
+        value = _WD_KEYS.get(key, key)
+        self.call("input.performActions", context=self.context, actions=[
+            {"type": "key", "id": "keyboard", "actions": [{"type": "keyDown", "value": value}, {"type": "keyUp", "value": value}]}])
+
+    def init_script(self, source):
+        return self.call("script.addPreloadScript", functionDeclaration=f"() => {{ {source} }}")["script"]
+
+    def remove_init_script(self, identifier):
+        self.call("script.removePreloadScript", script=identifier)
+
+    def screenshot(self, path):
+        data = self.call("browsingContext.captureScreenshot", context=self.context)["data"]
+        with open(path, "wb") as f:
+            f.write(base64.b64decode(data))
+
+    def close(self):
+        # Ask Firefox to quit over the protocol: a sandboxed snap Firefox may ignore signals.
+        if self.ws is not None:
+            try:
+                self.call("browser.close")
+            except Exception:
+                pass
+            self.ws.close()
+        try:
+            self.proc.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+        shutil.rmtree(self.profile, ignore_errors=True)
+
+
+def browser_name():
+    return os.environ.get("CONDUCTOR_TEST_BROWSER", "chrome").lower()
+
+
+def find_browser():
+    """The configured test browser's executable, or None (tests then skip)."""
+    return find_firefox() if browser_name() == "firefox" else find_chrome()
+
+
+def Browser(width=1300, height=800):
+    return (Firefox if browser_name() == "firefox" else Chrome)(width=width, height=height)

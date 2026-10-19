@@ -31,7 +31,7 @@
 
 - [x] Task: Frozen overview and focus mode (FB-002) — the track header, progress groups and tabs stay pinned at the top; clicking a phase or task shows just that phase instead of scrolling a long page, with an "All phases" switch a336d97
 - [x] Task: Zero-runtime fallback — open from disk, folder picker, read-only render, "Copy feedback" for chat a1b8f70
-- [ ] Task: Accessibility and theming pass (keyboard, focus, contrast, light/dark, works with `localStorage` blocked)
+- [x] Task: Accessibility and theming pass (keyboard, focus, contrast, light/dark, works with `localStorage` blocked) 84e55b5
 - [ ] Task: Cross-browser audit — Chrome, Edge, Firefox, Safari: CSS/JS against support tables; wheel, trackpad and touch behaviour
 
 ## Phase 5: World-Map Diagrams (diagram: world-map)

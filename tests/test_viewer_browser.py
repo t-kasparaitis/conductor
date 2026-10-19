@@ -3,7 +3,7 @@ rendering. Skipped when no Chrome, Chromium or Edge is installed."""
 
 import unittest
 
-from browser import Browser, find_chrome
+from browser import Browser, find_browser
 from helpers import ServerTest
 
 PLAN = """# Implementation Plan: Demo
@@ -41,7 +41,7 @@ Lots of requirements.
 """
 
 
-@unittest.skipUnless(find_chrome(), "no Chrome, Chromium or Edge installed")
+@unittest.skipUnless(find_browser(), "test browser not installed")
 class ViewerBrowserTest(ServerTest):
     @classmethod
     def setUpClass(cls):

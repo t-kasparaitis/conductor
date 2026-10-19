@@ -5,7 +5,7 @@ the from-disk page end to end with a simulated folder pick."""
 import json
 import unittest
 
-from browser import Browser, find_chrome
+from browser import Browser, find_browser
 from helpers import REPO, TempProject, serve
 from test_plan_parser import PLAN
 
@@ -65,7 +65,7 @@ def errors_to_flags(value):
     return value
 
 
-@unittest.skipUnless(find_chrome(), "no Chrome, Chromium or Edge installed")
+@unittest.skipUnless(find_browser(), "test browser not installed")
 class ParityTest(TempProject):
     @classmethod
     def setUpClass(cls):
@@ -119,7 +119,7 @@ class ParityTest(TempProject):
         self.assertEqual(errors_to_flags(actual), errors_to_flags(expected))
 
 
-@unittest.skipUnless(find_chrome(), "no Chrome, Chromium or Edge installed")
+@unittest.skipUnless(find_browser(), "test browser not installed")
 class FromDiskPageTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

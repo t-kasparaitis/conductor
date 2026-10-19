@@ -6,7 +6,7 @@ import subprocess
 import sys
 import unittest
 
-from browser import Browser, find_chrome
+from browser import Browser, find_browser
 from helpers import SERVE_PY, ServerTest, TempProject, serve
 
 
@@ -96,7 +96,7 @@ class ExportTest(TempProject):
     def test_plan_text_cannot_close_the_script_tag(self):
         self.assertEqual(self.html.count("</script>"), 2)  # the two script tags we wrote
 
-    @unittest.skipUnless(find_chrome(), "no Chrome, Chromium or Edge installed")
+    @unittest.skipUnless(find_browser(), "test browser not installed")
     def test_snapshot_renders_read_only_in_a_browser(self):
         b = Browser()
         try:

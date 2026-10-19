@@ -350,20 +350,43 @@
     }
 
     /* input */
-    let drag = null;
+    let drag = null, pinch = null;
+    const pts = new Map();  // active pointers, for two-finger pinch on touch screens
+    const local = (x, y) => { const r = vp.getBoundingClientRect(); return [x - r.left, y - r.top]; };
+    const pinchState = () => {
+      const [a, b] = [...pts.values()];
+      return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: local((a.x + b.x) / 2, (a.y + b.y) / 2) };
+    };
     vp.addEventListener("pointerdown", (ev) => {
       if (ev.target.closest(".wm-panel, .wm-mini")) return;
       cancelAnimationFrame(anim);
-      drag = { x: ev.clientX, y: ev.clientY, cx: cam.x, cy: cam.y, moved: false, node: ev.target.closest(".wm-node") };
+      pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
       vp.setPointerCapture(ev.pointerId);
+      if (pts.size === 2) { const s = pinchState(); pinch = { d: s.d, k: cam.k, mid: s.mid }; drag = null; vp.classList.remove("dragging"); return; }
+      drag = { x: ev.clientX, y: ev.clientY, cx: cam.x, cy: cam.y, moved: false, node: ev.target.closest(".wm-node") };
     });
     vp.addEventListener("pointermove", (ev) => {
+      if (pts.has(ev.pointerId)) pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (pinch && pts.size === 2) {
+        const s = pinchState();
+        zoomAt(pinch.k * s.d / pinch.d, s.mid[0], s.mid[1]);
+        cam.x += s.mid[0] - pinch.mid[0]; cam.y += s.mid[1] - pinch.mid[1]; apply();
+        pinch.mid = s.mid;
+        return;
+      }
       if (!drag) return;
       const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
       if (!drag.moved && Math.hypot(dx, dy) > 4) { drag.moved = true; vp.classList.add("dragging"); }
       if (drag.moved) { cam.x = drag.cx + dx; cam.y = drag.cy + dy; apply(); }
     });
-    vp.addEventListener("pointerup", () => {
+    const lift = (ev) => { pts.delete(ev.pointerId); if (pts.size < 2) pinch = null; };
+    vp.addEventListener("pointercancel", (ev) => { lift(ev); drag = null; vp.classList.remove("dragging"); });
+    // Safari's trackpad pinch arrives as gesture events rather than ctrl+wheel.
+    let gestureK = 1;
+    vp.addEventListener("gesturestart", (ev) => { ev.preventDefault(); gestureK = cam.k; });
+    vp.addEventListener("gesturechange", (ev) => { ev.preventDefault(); const [x, y] = local(ev.clientX, ev.clientY); zoomAt(gestureK * ev.scale, x, y); });
+    vp.addEventListener("pointerup", (ev) => {
+      lift(ev);
       if (drag && !drag.moved) { tourAt = -1; if (stepBtn) stepBtn.textContent = `Tour · ${tour.length} stops`; select(drag.node ? drag.node.dataset.id : null, !!drag.node); }
       drag = null; vp.classList.remove("dragging");
     });
