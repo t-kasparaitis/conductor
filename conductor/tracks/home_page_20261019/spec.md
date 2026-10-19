@@ -55,8 +55,10 @@ write by hand, and it keeps working with one project or many.
         the current task's name.
     2.  **In progress / New:** the rest of the registry's open tracks.
     3.  **Done:** tracks marked `[x]` in the registry.
-    4.  **Archived:** tracks under `conductor/archive/`, collapsed by
-        default.
+    4.  **Archived:** that project's own `conductor/archive/`, collapsed by
+        default. Archives are per repo and are never pooled across projects;
+        the Archived filter on the home page still shows each one under its
+        project.
 -   **Each track row:** title, type, a progress bar split by phase (the same
     one the track page uses), done/total tasks, open feedback count, spec and
     plan approval state (approved / changes requested / waiting), the track's
@@ -128,17 +130,37 @@ work stands in git:
         everyone working on it shares it. It only needs the keys that differ.
     -   **Resolution, per key:** the repo's value, else the Conductor-wide
         default, else the built-in default from the schema.
--   **In the viewer:** the settings page has two scopes, **All projects**
-    and **This project**. Every value shows where it comes from ("this
-    repo", "all projects", "built-in"). In This project, each setting can
-    be set or **reset to inherit**, which removes the key from the repo's
-    file. The home page card shows the effective settings.
+-   **Main rules and exceptions:** the settings page is built around one
+    set of **main rules** (the Conductor-wide defaults) and an **exception
+    list**.
+    -   **Main rules:** edit once, apply to every project that follows them.
+    -   **Each project has a toggle:** **Follows main rules** (its repo file
+        has no workflow keys) or **Has exceptions** (its repo file sets some
+        keys).
+    -   **The exception list** shows only the projects that deviate, and for
+        each one only the settings that differ, side by side with the main
+        rule, e.g. `baseline-os · git.strategy: feature-branch (main rule:
+        trunk)`. Each exception has **Use main rule**, which removes that
+        key; the last one removed turns the project back to Follows main
+        rules.
+    -   **Adding an exception:** from a project's settings, change any value;
+        only that key is written to the repo file.
+    -   **Existing repos with a full `settings.json`** (every repo set up
+        before this track, this one included): keys that equal the main rule
+        are shown as "same as main rule" with a one-click **Tidy** that
+        removes them, so only real exceptions remain. Nothing is removed
+        without that click, because the file may be shared with
+        collaborators.
+    -   Every value on a track or project page shows where it comes from
+        ("this repo's exception", "main rules", "built-in"). The home page
+        card shows "follows main rules" or "N exceptions".
 -   **For agents:** skills read `conductor/settings.json` first, then the
     Conductor-wide file for missing keys, then the schema defaults. The
     paths per OS go in the file contract. An agent that can't read outside
     the repo (a sandbox) uses the repo file and the built-in defaults, and
     says so. `conductor-setup` offers the Conductor-wide defaults as the
-    starting choice for a new repo.
+    starting choice for a new repo: **follow the main rules** (writes no
+    workflow keys) or **set exceptions** (writes only the keys you change).
 -   **Workflow settings changes are still announced:** `--watch` reports a
     change in either layer, naming the project(s) it affects.
 
@@ -202,9 +224,10 @@ work stands in git:
 5.  `--port`, `CONDUCTOR_VIEW_PORT` and `config.json` each change the port,
     in that order of priority, and the settings page shows which one won.
 6.  Old `#/<track_id>/...` links still open the right track.
-7.  A key set only in the Conductor-wide `settings.json` applies to a repo
-    without that key, a repo value overrides it, and "reset to inherit"
-    removes the repo's key. The settings page shows the source of each
+7.  A main rule applies to every project without that key; a project with
+    an exception shows up in the exception list with only the differing
+    keys; "Use main rule" removes the key; Tidy removes keys equal to the
+    main rule and nothing else. The settings page shows the source of each
     value.
 8.  Ten registered projects with agents editing two of them at once: the
     home page shows both sets of changes within about two seconds and only

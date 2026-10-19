@@ -17,7 +17,7 @@
 - [ ] Task: Port priority `--port` > `CONDUCTOR_VIEW_PORT` > `config.json` > 4177, reported with its source, with tests
 - [ ] Task: Serve many projects: `/api/projects` and per-project `/api/state`; every path resolved inside a registered project; track ids always scoped by project, with HTTP and path-escape tests
 - [ ] Task: Per-project summary cache keyed on each project's file versions; the poll re-reads only changed projects, with tests for 50 projects and two changing at once
-- [ ] Task: Layered workflow settings: Conductor-wide `settings.json` + repo file + schema defaults, per-key resolution with its source, reset-to-inherit, with tests (server and `local.js`)
+- [ ] Task: Layered workflow settings: Conductor-wide `settings.json` + repo file + schema defaults, per-key resolution with its source, exceptions = keys that differ, remove-key and tidy, with tests (server and `local.js`)
 - [ ] Task: `--watch --all`: feedback and settings changes across every registered project, labelled by project, with tests
 - [ ] Task: Start command registers its project; a second start hands the project to the running viewer and exits; `--add`, `--forget`, `--list`, with CLI tests
 - [ ] Task: Find projects: depth-limited scan with skip list and a time cap, add selected; add by path, with tests
@@ -29,7 +29,7 @@
 - [ ] Task: Search and status chips kept in the URL, with browser tests
 - [ ] Task: Project switcher in the header; archived tracks open read-only with a banner, with browser tests
 - [ ] Task: Find projects and Add by path dialogs, with browser tests
-- [ ] Task: Settings page with All projects / This project scopes, value sources and reset to inherit, with browser tests
+- [ ] Task: Settings page as main rules + exception list: per-project toggle, differing keys only, Use main rule, Tidy for keys equal to the main rule, value sources everywhere, with browser tests
 - [ ] Task: Port in the settings page: value, source, save to `config.json`, restart hint, with tests
 - [ ] Task: Light/dark contrast and keyboard access for the new controls, with the existing contrast and accessibility tests
 
