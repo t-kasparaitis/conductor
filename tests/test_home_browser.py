@@ -143,6 +143,17 @@ class HomeBrowserTest(HomeFixture):
         self.assertEqual(len(self.js("[...document.querySelectorAll('#sidebar .side-proj')]")), 2)
         self.assertEqual(self.js("document.querySelectorAll('.pin-btn, [data-pin]').length"), 0)
 
+    def test_active_tracks_collapse_and_show_their_count(self):
+        self.open(ready="document.querySelector('.side-active')")
+        self.assertEqual(self.js("document.querySelector('.side-active summary').textContent.trim()"), "Active tracks · 5")
+        self.assertTrue(self.js("document.querySelector('.side-active').open"))
+        self.b.click(".side-active summary")
+        self.b.wait("!document.querySelector('.side-active').open")
+        self.open(ready="document.querySelector('.side-active')")  # remembered
+        self.assertFalse(self.js("document.querySelector('.side-active').open"))
+        self.b.click(".side-active summary")
+        self.b.wait("document.querySelector('.side-active').open")
+
     def test_track_page_sidebar_puts_its_project_first(self):
         self.open("#/beta/b_only/plan", ready="document.querySelector('.overview')")
         side = self.js(self.SIDE)

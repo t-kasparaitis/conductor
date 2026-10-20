@@ -654,3 +654,8 @@ main.wide { padding-left: clamp(16px, 2.2vw, 28px); padding-right: clamp(16px, 2
   .trow .c-feedback, .trow .c-git, .trow .c-activity { grid-column: 1 / -1; display: inline-flex; }
   .trow .c-feedback:has(> .muted:only-child) { display: none; }
 }
+.side-active { margin-top: 4px; }
+@media (max-width: 760px) {
+  .side-active { display: flex; gap: 6px; align-items: center; }
+  .side-active > summary h2 { display: block; white-space: nowrap; margin: 0 6px; }
+}

@@ -285,13 +285,27 @@
         <span class="tl-text"><div class="t-name">${esc(t.title)}</div><div class="t-id">${t.waiting_feedback ? `<span class="side-needs">${t.waiting_feedback} need${t.waiting_feedback === 1 ? "s" : ""} you · </span>` : ""}<span class="mono">${esc(t.id)}</span></div></span></a>`;
   }
   // The open project comes first.
+  // Collapsible sidebar sections; what you opened or closed is remembered per browser.
+  const sideOpen = {};
+  try { Object.assign(sideOpen, JSON.parse(localStorage.getItem("conductor-view-side")) || {}); } catch {}
+  const isOpen = (key, fallback) => (typeof sideOpen[key] === "boolean" ? sideOpen[key] : fallback);
+  document.addEventListener("toggle", (ev) => {
+    const d = ev.target;
+    if (!(d instanceof HTMLElement) || !d.dataset.sideSection) return;
+    sideOpen[d.dataset.sideSection] = d.open;
+    try { localStorage.setItem("conductor-view-side", JSON.stringify(sideOpen)); } catch {}
+  }, true);
+
   function activeSection(first) {
     const projects = home ? sortedProjects() : [];
     if (first) projects.sort((a, b) => (b.id === first) - (a.id === first));
     const groups = projects.map((p) => [p, p.tracks.filter((t) => ACTIVE.has(t.group))]).filter(([, ts]) => ts.length);
     const body = groups.map(([p, ts]) => `${projects.length > 1 ? `<h3 class="side-proj"><a href="${projectHref(p.id)}">${esc(p.name)}</a></h3>` : ""}
       ${ts.slice().sort((a, b) => (a.group === "now" ? 0 : 1) - (b.group === "now" ? 0 : 1)).map((t) => sideTrack(p, t)).join("")}`).join("");
-    return `<h2>Active tracks</h2>${body || `<p class="side-empty">No unfinished tracks. Done and archived ones are on the home page.</p>`}`;
+    const n = groups.reduce((k, [, ts]) => k + ts.length, 0);
+    return `<details class="side-archive side-active" data-side-section="active"${isOpen("active", true) ? " open" : ""}>
+      <summary><h2>Active tracks · ${n}</h2></summary>
+      ${body || `<p class="side-empty">No unfinished tracks. Done and archived ones are on the home page.</p>`}</details>`;
   }
 
   function renderSidebar() {
@@ -303,7 +317,7 @@
         ${SNAPSHOT || LOCAL ? "" : `<a class="track-link settings-link" href="#/settings" aria-current="${view === "settings"}">
           <span class="gear">${gearIcon}</span><span><div class="t-name">Main workflow rules</div><div class="t-id">for every project</div></span></a>`}
         ${activeSection(null)}
-        <details class="side-archive side-projects"${projects.length <= 6 ? " open" : ""}><summary><h2>Projects · ${projects.length}</h2></summary>` + projects.map((p) => {
+        <details class="side-archive side-projects" data-side-section="projects"${isOpen("projects", projects.length <= 6) ? " open" : ""}><summary><h2>Projects · ${projects.length}</h2></summary>` + projects.map((p) => {
         const live = p.tracks.filter((t) => !t.archived);
         const done = live.reduce((n, t) => n + t.done, 0), total = live.reduce((n, t) => n + t.total, 0);
         const now = p.tracks.filter((t) => t.group === "now").length;
