@@ -81,8 +81,8 @@ class ServerTest(TempProject):
         self.addCleanup(self.httpd.server_close)
         self.addCleanup(self.httpd.shutdown)
 
-    def request(self, method, path, body=None, headers=None):
-        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+    def request(self, method, path, body=None, headers=None, timeout=5):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=timeout)
         self.addCleanup(conn.close)
         data = body if isinstance(body, (bytes, type(None))) else json.dumps(body).encode()
         hdrs = {"Content-Type": "application/json"}

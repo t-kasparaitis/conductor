@@ -41,7 +41,9 @@ class ManyProjectsTest(UserHome, ServerTest):
 
     def load_home(self):
         start = time.perf_counter()
-        status, body = self.request("GET", "/api/projects")
+        # The first load runs git in 50 repos; on Windows starting git is slow, so wait as
+        # long as the "first load" limit below allows rather than the usual 5 s.
+        status, body = self.request("GET", "/api/projects", timeout=30)
         self.assertEqual(status, 200)
         return body, time.perf_counter() - start
 

@@ -95,10 +95,8 @@ class _WebSocket:
 class Chrome:
     name = "chrome"
 
-    def __init__(self, width=1300, height=800):
-        exe = find_chrome()
-        if not exe:
-            raise FileNotFoundError("no Chrome, Chromium or Edge found")
+    def _launch(self, exe, width, height):
+        """Start Chrome; its pages once DevTools answers, or None after 30 s."""
         self.profile = tempfile.mkdtemp(prefix="conductor-chrome-")
         with socket.socket() as s:
             s.bind(("127.0.0.1", 0))
@@ -108,19 +106,32 @@ class Chrome:
              "--no-first-run", "--no-default-browser-check", "--disable-gpu", "--disable-extensions",
              f"--window-size={width},{height}", "about:blank"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        deadline = time.time() + 20
-        while True:
+        deadline = time.time() + 30
+        while time.time() < deadline:
             try:
                 with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/list", timeout=2) as r:
                     pages = [t for t in json.load(r) if t["type"] == "page"]
                 if pages:
-                    break
+                    return pages
             except OSError:
                 pass
-            if time.time() > deadline:
-                self.close()
-                raise TimeoutError("Chrome did not start")
+            if self.proc.poll() is not None:
+                return None
             time.sleep(0.1)
+        return None
+
+    def __init__(self, width=1300, height=800):
+        exe = find_chrome()
+        if not exe:
+            raise FileNotFoundError("no Chrome, Chromium or Edge found")
+        # A cold start on a CI runner can be slow, or lose the port race: try twice.
+        for attempt in (1, 2):
+            pages = self._launch(exe, width, height)
+            if pages:
+                break
+            self.close()
+            if attempt == 2:
+                raise TimeoutError("Chrome did not start")
         self.ws = _WebSocket(pages[0]["webSocketDebuggerUrl"])
         self._id = 0
         self.call("Page.enable")
