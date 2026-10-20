@@ -310,7 +310,7 @@
     const order = (a, b) => GROUPS.findIndex(([g]) => g === a.group) - GROUPS.findIndex(([g]) => g === b.group);
     const body = groups.map(([p, ts]) => `${groups.length > 1 || projects.length > 1 ? `<h3 class="side-proj"><a href="${projectHref(p.id)}">${esc(p.name)}</a></h3>` : ""}
       ${ts.slice().sort(order).map((t) => sideTrack(p, t, { attr: "data-pinned" })).join("")}`).join("");
-    return `<h2>Pinned</h2>${body || `<p class="side-empty">New tracks show up here until they're done. Pin any track with ☆.</p>`}`;
+    return `<h2>Pinned</h2>${body || `<p class="side-empty">Nothing pinned. New tracks show up here until they're done; pin any track with ☆.</p>`}`;
   }
 
   function renderSidebar() {
@@ -337,7 +337,10 @@
     const p = projectById(project);
     // The project's summaries carry status and pins; fall back to the full state while home loads.
     const tracks = p ? p.tracks : (state ? state.tracks.map(window.ConductorLocal.summarizeTrack) : []);
-    const live = tracks.filter((t) => !t.archived), archived = tracks.filter((t) => t.archived);
+    // Pinned tracks are listed once, under Pinned; the project's list holds the rest.
+    const pinnedHere = SNAPSHOT || LOCAL ? () => false : isPinned;
+    const rest = tracks.filter((t) => !pinnedHere(t));
+    const live = rest.filter((t) => !t.archived), archived = rest.filter((t) => t.archived);
     const link = (t) => sideTrack(p || { id: project, name: "" }, t, { attr: "data-track" });
     sb.innerHTML = `${SNAPSHOT || LOCAL ? "" : `<a class="back-link" href="#/">← All projects</a>`}
       ${SNAPSHOT || LOCAL ? "" : pinnedSection()}
@@ -345,7 +348,7 @@
       <a class="track-link settings-link" href="#/${enc(project)}/settings" aria-current="${view === "settings"}">
         <span class="gear">${gearIcon}</span>
         <span><div class="t-name">Workflow settings</div><div class="t-id">${esc([label("git.strategy"), label("testing.verification")].filter(Boolean).join(" · "))}</div></span></a>
-      <h2>Tracks</h2>${live.map(link).join("")}
+      <h2>${rest.length < tracks.length ? "Other tracks" : "Tracks"}</h2>${live.map(link).join("") || `<p class="side-empty">${tracks.some((t) => !t.archived) ? "Every open track is pinned above." : "No tracks yet."}</p>`}
       ${archived.length ? `<details class="side-archive"${archived.some((t) => t.id === current) ? " open" : ""}><summary><h2>Archived · ${archived.length}</h2></summary>${archived.map(link).join("")}</details>` : ""}`;
   }
 

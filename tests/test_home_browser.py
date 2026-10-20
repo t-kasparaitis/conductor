@@ -167,13 +167,18 @@ class HomeBrowserTest(HomeFixture):
 
     def test_project_sidebar_marks_status_and_archive(self):
         self.open(f"#/{self.alpha}/now_1/plan", ready="document.querySelector('.overview')")
-        badges = self.js("Object.fromEntries([...document.querySelectorAll('#sidebar [data-track]')].map(a => [a.dataset.track, a.querySelector('.gbadge').textContent]))")
-        self.assertEqual(badges, {"now_1": "Now", "open_1": "Open", "done_1": "Done", "shared_1": "Open", "old_1": "Archived"})
+        badges = lambda attr: self.js(f"Object.fromEntries([...document.querySelectorAll('#sidebar [{attr}]')].map(a => [a.dataset.{attr[5:]}, a.querySelector('.gbadge').textContent]))")
+        # Each track once: pinned ones under Pinned (with beta's), the rest in the project's list.
+        self.assertEqual(badges("data-track"), {"done_1": "Done", "old_1": "Archived"})
+        self.assertEqual(badges("data-pinned"), {"now_1": "Now", "open_1": "Open", "shared_1": "Open", "b_only": "Open"})
+        ids = self.js("[...document.querySelectorAll('#sidebar [data-track], #sidebar [data-pinned]')].filter(a => a.closest('.side-item').querySelector('[data-project]').dataset.project === '%s').map(a => a.dataset.track || a.dataset.pinned)" % self.alpha)
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(self.js("[...document.querySelectorAll('#sidebar h2')].map(h => h.textContent)").count("Other tracks"), 1)
 
     def test_track_page_sidebar_belongs_to_its_project(self):
         self.open("#/beta/b_only/plan", ready="document.querySelector('.overview')")
-        self.assertEqual(self.js("[...document.querySelectorAll('#sidebar [data-track]')].map(a => a.dataset.track)"),
-                         ["b_only", "shared_1"])
+        self.assertEqual(self.js("[...document.querySelectorAll('#sidebar [data-track]')].map(a => a.dataset.track)"), [])
+        self.assertIn("Every open track is pinned above", self.js("document.querySelector('#sidebar').textContent"))
         self.assertEqual(self.js("document.querySelector('#project-switch').value"), "beta")
         self.b.click(".back-link")
         self.b.wait("document.querySelector('.proj-card')")

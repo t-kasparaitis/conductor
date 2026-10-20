@@ -55,3 +55,4 @@
 - [x] Task: Pinned tracks: `pins.json` in the config folder (pinned and unpinned lists), `/api/pins`, in the home payload and home version; new and open tracks are pinned automatically, done and archived ones drop off unless pinned by hand, with tests 38d9324
 - [x] Task: Sidebar shows pinned tracks across projects with a status badge (Now, Open, Done, Archived) and pin/unpin; a project's own track list gets the same badges, with browser tests b02cfd7
 - [x] Task: Home page as a table: one row per track across projects; sortable columns; Excel-style filters on Project, Status, Type and Git; show/hide columns; filters in the URL, sort and columns remembered in the browser; Cards kept as a second view, with browser tests 83b82d4
+- [ ] Task: Each track once in the sidebar: pinned tracks only under Pinned, the project's list holds the rest (FB-007), with browser tests
