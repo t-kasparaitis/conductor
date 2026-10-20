@@ -182,6 +182,10 @@ not pushed, pushed, landed). It's a table with one row per track: sort by any
 column, filter Project, Status, Type and Git spreadsheet-style, and choose
 which columns to show. A Cards layout groups the same tracks by project.
 
+-   **Feedback is a conversation.** Each comment shows the agent's replies
+    under it, with times. The agent can answer, finish it, or ask you
+    something back ("Needs your answer"); reply right there, and the item
+    goes back to the agent.
 -   **Sidebar.** Lists every unfinished track (in progress or open), grouped by
     project. Once a track is done or archived it leaves the sidebar; the
     table still has it.

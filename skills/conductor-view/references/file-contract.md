@@ -79,11 +79,16 @@ Written by the browser, answered by agents. One item per `###` heading:
 
 The user's text, as Markdown.
 
-> **Agent:** What the agent changed, or why not.
+> **Agent · 2026-10-07 14:20:** Which port should it fall back to?
+
+> **You · 2026-10-07 14:31:** The next free one.
+
+> **Agent · 2026-10-07 14:40:** Done: it tries the next 20 ports and prints which.
 ```
 
 -   `FB-NNN` ids increase by one per file and are never reused.
--   Status is `open` or `resolved`. Kind is `comment`, `revise` (request
+-   Status is `open` (the agent's turn), `waiting` (the agent asked the user
+    something; the user's turn) or `resolved`. Kind is `comment`, `revise` (request
     changes) or `approve`; `revise` and `approve` target `spec` or `plan`.
 -   Kinds `archive`, `restore` and `delete` are track requests (target
     `track`). The server writes their text, not the browser: what to do, the
@@ -95,10 +100,17 @@ The user's text, as Markdown.
     `> **Withdrawn** in the viewer before the agent acted on it.`
 -   `Target` is a path through the documents: `plan`, `plan › Phase N: Name`,
     `plan › Phase N: Name › Task text`, `spec`, or `spec › Section`.
--   Lines starting with `>` are the agent's reply. User text that would start
-    with `###` or `>` is escaped by the server, so it can't fake a heading or
-    a reply.
--   **Agents:** change `open` to `resolved` and add a `> **Agent:** …` line.
+-   Lines starting with `>` are the item's thread, oldest first. Each entry
+    starts with `> **Agent · <YYYY-MM-DD HH:MM>:**` or `> **You · <time>:**`;
+    later `>` lines continue it (`>` alone for a blank line). The older
+    `> **Agent:** …` (no time) still reads as an agent entry. Any other first
+    line, like a withdrawn request's, shows as a note.
+-   The user replies from the viewer: the server appends a `You` entry and
+    sets the item back to `open`, even if it was `resolved`. User text is
+    escaped by the server (`###` and `>` in a comment, entry starts in a
+    reply), so it can't fake a heading or an entry.
+-   **Agents:** add an `Agent` entry at the end of the item, then set the
+    status: `resolved` when it's done, `waiting` when you asked something.
     Never delete items or edit the user's text.
 
 The server appends with an atomic replace (write a temporary file, then

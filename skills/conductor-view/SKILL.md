@@ -144,14 +144,21 @@ shows "waiting for the agent" until you resolve the item. So:
     `### FB-NEW · open · …`. Add it to that track's `feedback.md` with the
     next free id, then process it like any other.
 
-For each `open` item, in order:
+Each item is a conversation: the user's comment, then a thread of `Agent`
+and `You` entries (see the file contract). For each `open` item, in order:
 
-1.  Act on it under the normal Conductor rules (edit `spec.md` / `plan.md`;
-    tech-stack changes go to `tech-stack.md` first). If it needs a decision,
-    ask the user in chat instead of guessing.
-2.  Change `open` to `resolved` in its heading and add a one-line reply
-    directly under the item: `> **Agent:** what you changed, or why not.`
-3.  An `approve` item counts as the user's approval of that document; a
+1.  Read the whole thread. If the last entry is the user's reply, that is
+    what to act on now, in the light of what came before.
+2.  Act on it under the normal Conductor rules (edit `spec.md` / `plan.md`;
+    tech-stack changes go to `tech-stack.md` first).
+3.  Add your entry at the end of the item,
+    `> **Agent · <YYYY-MM-DD HH:MM>:** …`, and set the status:
+    -   `resolved`: done. Say what you changed, or why not.
+    -   `waiting`: you need a decision or detail first. Ask it there,
+        instead of guessing, and mention it in chat too. The viewer shows
+        the item as "Needs your answer"; when the user replies, it comes
+        back as `open` with their answer as the last entry.
+4.  An `approve` item counts as the user's approval of that document; a
     `revise` item means revise before proceeding.
 
 **Re-read `feedback.md` right before you edit it.** The browser may have

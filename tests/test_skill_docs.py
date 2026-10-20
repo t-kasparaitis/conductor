@@ -138,6 +138,24 @@ class ViewSkillTest(unittest.TestCase):
         self.assertIsNone(serve._diagram_problem(example))
 
 
+class FeedbackThreadDocsTest(unittest.TestCase):
+    def test_the_documented_thread_parses(self):
+        import sys
+        sys.path.insert(0, str(SKILLS / "conductor-view" / "scripts"))
+        import serve
+        contract = (SKILLS / "conductor-view" / "references" / "file-contract.md").read_text(encoding="utf-8")
+        example = re.search(r"```markdown\n(### FB-.*?)```", contract, re.S).group(1)
+        [item] = serve.parse_feedback(example)
+        self.assertEqual([e["who"] for e in item["thread"]], ["agent", "you", "agent"])
+        self.assertTrue(all(e["when"] for e in item["thread"]))
+
+    def test_agents_are_told_to_ask_with_waiting(self):
+        skill = (SKILLS / "conductor-view" / "SKILL.md").read_text(encoding="utf-8")
+        for phrase in ("`waiting`", "Read the whole thread", "> **Agent · <YYYY-MM-DD HH:MM>:**"):
+            self.assertIn(phrase, skill)
+        self.assertIn("`waiting`", (SKILLS / "conductor-status" / "SKILL.md").read_text(encoding="utf-8"))
+
+
 class VisualCompanionHooksTest(unittest.TestCase):
     def test_core_skills_mention_the_viewer_and_its_feedback_file(self):
         for name in ("conductor-new-track", "conductor-implement", "conductor-review", "conductor-status"):
