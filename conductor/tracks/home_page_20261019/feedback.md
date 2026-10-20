@@ -39,3 +39,9 @@ What does corrupt files kept as .bad mean? elaborate in the spec
 looks good, we can iterate more after it is fleshed out and it's easy to see what needs work
 
 > **Agent:** Thanks, starting implementation with Phase 1. I'll commit task by task and come back once the home page is usable enough to iterate on.
+
+### FB-006 · open · comment
+- **Target:** plan › Phase 6: Track Verification › Try it with the user across this repo and the user's other Conductor projects, iterate on feedback, sign-off (Refer to workflow.md)
+- **When:** 2026-10-20 01:46
+
+I like how tracks appear on the left-hand side, and maybe we can have some way to make it clear whether they are archived etc. Obviously if you have a lot of projects it doesn't work well. But how they are listed on the main page i don't like. is there other ways of listing them out we could try? Even a table format more like excel with filters so you can show hide ones you want to see works. And then left-hand side can be something like where we have ones we 'bookmark' or save to show for quick reference. By default any new track we start shows up there and any complete track disappears, something like that.

@@ -49,3 +49,9 @@
 
 - [x] Task: Run the full suite in Chrome and Firefox — 256 tests; Chrome OK (1 Windows-only skip), Firefox OK (9 skips: Chrome-only key checks and the Windows test); Firefox found a phone-width overflow, fixed 0d6ccd9
 - [~] Task: Try it with the user across this repo and the user's other Conductor projects, iterate on feedback, sign-off (Refer to workflow.md)
+
+## Phase 7: Feedback round 1 (FB-006)
+
+- [ ] Task: Pinned tracks: `pins.json` in the config folder (pinned and unpinned lists), `/api/pins`, in the home payload and home version; new and open tracks are pinned automatically, done and archived ones drop off unless pinned by hand, with tests
+- [ ] Task: Sidebar shows pinned tracks across projects with a status badge (Now, Open, Done, Archived) and pin/unpin; a project's own track list gets the same badges, with browser tests
+- [ ] Task: Home page as a table: one row per track across projects; sortable columns; Excel-style filters on Project, Status, Type and Git; show/hide columns; filters in the URL, sort and columns remembered in the browser; Cards kept as a second view, with browser tests
