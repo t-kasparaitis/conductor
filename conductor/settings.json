@@ -2,9 +2,8 @@
   "version": 1,
   "git": {
     "strategy": "trunk",
-    "commit": "task",
-    "push": "ask",
-    "notes": "off"
+    "notes": "off",
+    "commit": "phase"
   },
   "testing": {
     "style": "with-task",
