@@ -3,6 +3,7 @@ lost edits when an agent changes the file at the same moment."""
 
 import os
 import threading
+from pathlib import Path
 from unittest import mock
 
 from helpers import TempProject, serve
@@ -70,7 +71,7 @@ class PersistenceTest(TempProject):
 
         def read_then_agent_edits(path):
             text = real_read(path)
-            if path == self.fb and calls["n"] == 0:
+            if Path(path).resolve() == self.fb.resolve() and calls["n"] == 0:
                 calls["n"] += 1
                 # The agent resolves FB-001 right after the server read the file.
                 agent = text.replace("### FB-001 · open ·", "### FB-001 · resolved ·") + "\n> **Agent:** fixed\n"
@@ -88,7 +89,7 @@ class PersistenceTest(TempProject):
 
         def always_changing(path):
             text = real_read(path)
-            if path == self.fb:
+            if Path(path).resolve() == self.fb.resolve():
                 self.fb.write_text((text or "") + "x", encoding="utf-8")
             return text
 

@@ -46,7 +46,8 @@ class TempProject(unittest.TestCase):
     def write(self, rel, text):
         path = self.root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8", newline="\n")
+        with open(path, "w", encoding="utf-8", newline="\n") as f:  # write_text(newline=) is 3.10+
+            f.write(text)
         return path
 
     def write_settings(self, obj):

@@ -945,7 +945,7 @@ def scan_projects(roots: list[str] | None = None, depth: int = 4, time_limit: fl
     queue = [(p, 0) for p in starts]
     seen = set()
     while queue:
-        if time.monotonic() > deadline or len(found) >= max_results:
+        if time.monotonic() >= deadline or len(found) >= max_results:
             truncated = True
             break
         d, level = queue.pop(0)

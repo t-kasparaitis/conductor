@@ -960,7 +960,7 @@
     const name = (p && p.name) || (state && state.project) || "this project";
     let head;
     if (main) {
-      head = `<div class="eyebrow"><span class="chip type">All projects</span><span class="chip mono">${esc(S.file || "settings.json")}</span></div>
+      head = `<div class="eyebrow"><span class="chip type">All projects</span><span class="chip mono chip-path" title="${esc(S.file || "settings.json")}">${esc(S.file || "settings.json")}</span></div>
         <h1 class="track-title">Main workflow rules</h1>
         <p class="track-sub">Every project follows these unless it has an exception. They're yours: saved on this machine, never in a repo.</p>`;
     } else {

@@ -438,6 +438,8 @@ a.track-link { text-decoration: none; }
 .proj-path { color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .proj-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 a.chip { text-decoration: none; }
+/* Paths can't wrap (Windows ones have no break points): shorten them with an ellipsis instead. */
+.chip-path { display: inline-block; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
 a.chip:hover { border-color: var(--accent); color: var(--text); }
 .proj-counts { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--text-2); margin: 10px 0 4px; }
 .proj-counts strong { color: var(--text); }

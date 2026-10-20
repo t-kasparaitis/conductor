@@ -320,5 +320,10 @@ class PhoneWidthTest(UserHome, ServerTest):
                 b.goto("about:blank")
                 b.goto(f"http://127.0.0.1:{self.port}/{hash_}", ready="document.querySelector('main').children.length > 1")
                 self.assertLessEqual(b.js("document.documentElement.scrollWidth"), b.js("window.innerWidth"), hash_)
+            # Windows paths have no break points; this is what CI on Windows caught.
+            b.goto("about:blank")
+            b.goto(f"http://127.0.0.1:{self.port}/#/settings", ready="document.querySelector('.chip-path')")
+            b.js(r"""document.querySelector('.chip-path').textContent = 'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\conductor-view-home-abcdefgh\\settings.json'""")
+            self.assertLessEqual(b.js("document.documentElement.scrollWidth"), b.js("window.innerWidth"), "Windows path")
         finally:
             b.close()
