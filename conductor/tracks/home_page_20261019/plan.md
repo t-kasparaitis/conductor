@@ -70,4 +70,4 @@
 - [x] Task: Settings in the header (user request): a gear next to the theme toggle opens the settings page; the always-on "live" pill only appears when it means something (disconnected, snapshot, read from disk); setup asks a first-time user to set their own main rules, keep the built-in defaults, or set this repo only, with browser and skill-doc tests ff18680
 - [x] Task: Track overview as numbers (user request): one neutral button per phase with its number (✓ when done) and tasks done as X/Y, names shown for up to five phases; the per-task coloured segments removed, with browser tests 5a965be
 - [x] Task: Home progress as numbers too (user request): a small ring, tasks done as X/Y and "phase N of M" instead of the segmented bar; heavier, higher-contrast text in project cards and phase buttons, with browser tests e297334
-- [ ] Task: Home progress rings show their percentage, like the sidebar's, with browser tests
+- [x] Task: Home progress rings show their percentage, like the sidebar's, with browser tests 44dd6c6
