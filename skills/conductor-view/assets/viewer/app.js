@@ -267,6 +267,47 @@
     return home.projects.slice().sort((a, b) => (b.active - a.active) || (projectActivity(b) - projectActivity(a)) || a.name.localeCompare(b.name));
   }
 
+  // Pinned tracks fill the sidebar. New and open ones are pinned automatically and drop
+  // off once done or archived; the server adds what you pinned or unpinned by hand.
+  const AUTO_PIN = new Set(["now", "open"]);
+  const isPinned = (t) => (typeof t.pinned === "boolean" ? t.pinned : AUTO_PIN.has(t.group));
+  const GROUP_LABEL = { now: "Now", open: "Open", done: "Done", archived: "Archived" };
+  const groupBadge = (g) => `<span class="gbadge g-${g}">${GROUP_LABEL[g] || g}</span>`;
+  const starIcon = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>';
+  function pinButton(pid, t) {
+    if (SNAPSHOT || LOCAL) return "";
+    const on = isPinned(t);
+    const why = on ? (t.pin === "pinned" ? "Pinned by you" : "Pinned while it's open") : t.pin === "unpinned" ? "Unpinned by you" : "Not pinned";
+    return `<button class="pin-btn" data-pin="${esc(t.id)}" data-project="${esc(pid)}" aria-pressed="${on}"
+      aria-label="${on ? "Unpin" : "Pin"} ${esc(t.title)}" title="${why}. Click to ${on ? "unpin" : "pin to the sidebar"}.">${starIcon}</button>`;
+  }
+  async function togglePin(pid, tid) {
+    const p = projectById(pid), t = p && p.tracks.find((x) => x.id === tid);
+    if (!t) return;
+    const want = !isPinned(t);
+    // A choice that matches the automatic rule isn't stored, so the track keeps following it.
+    const pinned = want === AUTO_PIN.has(t.group) ? null : want;
+    try { await postJSON("api/pins", { project: pid, track: tid, pinned }); await loadHome(); render(true); }
+    catch (e) { toast(e.message); }
+  }
+
+  function sideTrack(p, t, opts = {}) {
+    const here = view === "track" && project === p.id && current === t.id;
+    const sub = opts.project ? esc(p.name) : `<span class="mono">${esc(t.id)}</span>`;
+    return `<div class="side-item${isPinned(t) ? " pinned" : ""}"><a class="track-link" href="${trackHref(p.id, t.id)}" ${opts.attr || "data-side"}="${esc(t.id)}" aria-current="${here}">
+        <span class="ring" style="--p:${pct(t.done, t.total)}" data-label="${pct(t.done, t.total)}%"></span>
+        <span class="tl-text"><div class="t-name">${esc(t.title)}</div><div class="t-id">${groupBadge(t.group)} ${sub}</div></span></a>
+        ${pinButton(p.id, t)}</div>`;
+  }
+  function pinnedSection() {
+    const projects = home ? sortedProjects() : [];
+    const groups = projects.map((p) => [p, p.tracks.filter(isPinned)]).filter(([, ts]) => ts.length);
+    const order = (a, b) => GROUPS.findIndex(([g]) => g === a.group) - GROUPS.findIndex(([g]) => g === b.group);
+    const body = groups.map(([p, ts]) => `${groups.length > 1 || projects.length > 1 ? `<h3 class="side-proj"><a href="${projectHref(p.id)}">${esc(p.name)}</a></h3>` : ""}
+      ${ts.slice().sort(order).map((t) => sideTrack(p, t, { attr: "data-pinned" })).join("")}`).join("");
+    return `<h2>Pinned</h2>${body || `<p class="side-empty">New tracks show up here until they're done. Pin any track with ☆.</p>`}`;
+  }
+
   function renderSidebar() {
     const sb = $("#sidebar");
     if (view === "home" || (view === "settings" && settingsScope === "main") || !project) {
@@ -275,30 +316,27 @@
           <span class="gear">${homeIcon}</span><span><div class="t-name">All projects</div><div class="t-id">${projects.length} project${projects.length === 1 ? "" : "s"}</div></span></a>
         ${SNAPSHOT || LOCAL ? "" : `<a class="track-link settings-link" href="#/settings" aria-current="${view === "settings"}">
           <span class="gear">${gearIcon}</span><span><div class="t-name">Main workflow rules</div><div class="t-id">for every project</div></span></a>`}
-        <h2>Projects</h2>` + projects.map((p) => {
+        ${pinnedSection()}
+        <details class="side-archive side-projects"${projects.length <= 6 ? " open" : ""}><summary><h2>Projects · ${projects.length}</h2></summary>` + projects.map((p) => {
         const live = p.tracks.filter((t) => !t.archived);
         const done = live.reduce((n, t) => n + t.done, 0), total = live.reduce((n, t) => n + t.total, 0);
         const now = p.tracks.filter((t) => t.group === "now").length;
-        return `<a class="track-link" href="${projectHref(p.id)}" aria-current="${view === "home" && homeUi.focus === p.id}">
+        return `<a class="track-link" href="${projectHref(p.id)}" data-project-link="${esc(p.id)}" aria-current="${view === "home" && homeUi.focus === p.id}">
           <span class="ring" style="--p:${pct(done, total)}" data-label="${pct(done, total)}%"></span>
           <span><div class="t-name">${esc(p.name)}</div><div class="t-id">${p.missing ? "not found" : `${live.length} track${live.length === 1 ? "" : "s"}${now ? ` · ${now} now` : ""}`}</div></span></a>`;
-      }).join("");
+      }).join("") + `</details>`;
       return;
     }
     const eff = (state && state.settings && state.settings.effective) || {};
     const label = (key) => optionOf(key, eff[key] && eff[key].value)?.label || "";
-    const tracks = state ? state.tracks : [];
-    const link = (t) => {
-      const { done, total } = trackTotals(t);
-      const name = (t.registry && t.registry.description) || trackTitle(t);
-      return `<a class="track-link" href="${trackHref(project, t.id)}" data-track="${esc(t.id)}" aria-current="${view === "track" && t.id === current}">
-        <span class="ring" style="--p:${pct(done, total)}" data-label="${pct(done, total)}%"></span>
-        <span><div class="t-name">${esc(name)}</div><div class="t-id">${esc(t.id)}</div></span></a>`;
-    };
-    const live = tracks.filter((t) => !t.archived), archived = tracks.filter((t) => t.archived);
     const p = projectById(project);
+    // The project's summaries carry status and pins; fall back to the full state while home loads.
+    const tracks = p ? p.tracks : (state ? state.tracks.map(window.ConductorLocal.summarizeTrack) : []);
+    const live = tracks.filter((t) => !t.archived), archived = tracks.filter((t) => t.archived);
+    const link = (t) => sideTrack(p || { id: project, name: "" }, t, { attr: "data-track" });
     sb.innerHTML = `${SNAPSHOT || LOCAL ? "" : `<a class="back-link" href="#/">← All projects</a>`}
-      <h2>${esc((p && p.name) || (state && state.project) || "Project")}</h2>
+      ${SNAPSHOT || LOCAL ? "" : pinnedSection()}
+      <h2 class="side-proj-head">${esc((p && p.name) || (state && state.project) || "Project")}</h2>
       <a class="track-link settings-link" href="#/${enc(project)}/settings" aria-current="${view === "settings"}">
         <span class="gear">${gearIcon}</span>
         <span><div class="t-name">Workflow settings</div><div class="t-id">${esc([label("git.strategy"), label("testing.verification")].filter(Boolean).join(" · "))}</div></span></a>
@@ -478,6 +516,7 @@
         ${created ? `<span class="chip mono">${esc(created)}</span>` : ""}
         ${badge(dSpec, "Spec")}${badge(dPlan, "Plan")}
         ${t.metadata_error ? `<span class="chip warn">metadata.json: ${esc(t.metadata_error)}</span>` : ""}
+        ${trackSummary(t) ? pinButton(project, trackSummary(t)) : ""}
       </div>
       <div class="header-row">
         <div>
@@ -1151,12 +1190,13 @@
   }
 
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-view],[data-setting],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter],[data-status],[data-forget],[data-restore],[data-dismiss],[data-dialog],[data-find],[data-close],[data-reset],[data-tidy],[data-follow],[data-port-clear],[data-request],[data-withdraw]");
+    const el = ev.target.closest("[data-view],[data-setting],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter],[data-status],[data-forget],[data-restore],[data-dismiss],[data-dialog],[data-find],[data-close],[data-reset],[data-tidy],[data-follow],[data-port-clear],[data-request],[data-withdraw],[data-pin]");
     if (!el) return;
     if (el.dataset.dialog) return el.dataset.dialog === "find" ? findDialog(null) : addDialog();
     if ("find" in el.dataset) return runFind();
     if ("close" in el.dataset) return $("#dlg").close();
     if (el.dataset.request) return requestDialog(el.dataset.request, el.dataset.project, el.dataset.track);
+    if (el.dataset.pin) return togglePin(el.dataset.project, el.dataset.pin);
     if (el.dataset.withdraw) return withdraw(el.dataset.project, el.dataset.track, el.dataset.withdraw);
     if (el.dataset.view) { view = el.dataset.view; settingsScope = project ? "project" : "main"; writeHash(); render(); window.scrollTo(0, 0); }
     else if (el.dataset.setting) { if (el.getAttribute("aria-checked") !== "true") saveSetting(el.dataset.setting, el.dataset.value, el.dataset.scope || "project"); }

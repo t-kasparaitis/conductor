@@ -24,6 +24,8 @@ PAIRS = [
     ("text", "accent-soft", "panel"), ("text-2", "accent-soft", "panel"),
     ("text", "panel-2", None), ("text-2", "panel-2", None), ("muted", "panel-2", None),
     ("accent-ink", "danger", None),
+    # Status badges in the sidebar.
+    ("prog", "prog-soft", "bg-2"), ("done", "done-soft", "bg-2"), ("text-2", "bg-2", None),
 ]
 
 

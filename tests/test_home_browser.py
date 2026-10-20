@@ -58,7 +58,8 @@ class HomeBrowserTest(UserHome, ServerTest):
         self.assertEqual(self.js("[...document.querySelectorAll('.proj-card')].map(c => c.id)"),
                          [f"proj-{self.alpha}", "proj-beta"])
         self.assertIn("this folder", self.js("document.querySelector('.proj-card').textContent"))
-        self.assertEqual(self.js("document.querySelectorAll('#sidebar a.track-link').length"), 4)  # home, rules, 2 projects
+        self.assertEqual(self.js("[...document.querySelectorAll('#sidebar [data-project-link]')].map(a => a.dataset.projectLink)"),
+                         [self.alpha, "beta"])
 
     def test_tracks_are_grouped_with_now_first_and_archive_collapsed(self):
         self.open(ready="document.querySelector('.proj-card')")
@@ -128,6 +129,38 @@ class HomeBrowserTest(UserHome, ServerTest):
         self.open(f"#/{self.alpha}/now_1/plan", ready="document.querySelector('.overview')")
         self.assertGreater(self.js("document.querySelectorAll('.comment-btn').length"), 0)
         self.assertEqual(self.js("document.querySelectorAll('.archived-banner').length"), 0)
+
+    def pinned(self):
+        return self.js("[...document.querySelectorAll('#sidebar [data-pinned]')].map(a => a.closest('.side-item').querySelector('[data-project]').dataset.project + '/' + a.dataset.pinned)")
+
+    def test_sidebar_pins_open_tracks_with_their_status(self):
+        self.open(ready="document.querySelector('#sidebar [data-pinned]')")
+        self.assertEqual(sorted(self.pinned()), sorted([f"{self.alpha}/now_1", f"{self.alpha}/open_1", f"{self.alpha}/shared_1",
+                                                        "beta/b_only", "beta/shared_1"]))
+        badge = self.js(f"document.querySelector('#sidebar [data-pinned=now_1]').querySelector('.gbadge').textContent")
+        self.assertEqual(badge, "Now")
+        self.assertEqual(self.js("[...document.querySelectorAll('#sidebar .side-proj')].map(h => h.textContent.trim())"),
+                         [self.js(f"document.querySelector('[data-project-link={self.alpha}] .t-name').textContent"), "beta"])
+
+    def test_pin_and_unpin(self):
+        self.open(f"#/{self.alpha}/done_1/plan", ready="document.querySelector('.eyebrow .pin-btn')")
+        self.assertEqual(self.js("document.querySelector('.eyebrow .pin-btn').getAttribute('aria-pressed')"), "false")
+        self.b.click(".eyebrow .pin-btn")
+        self.b.wait("document.querySelector('#sidebar [data-pinned=done_1]')")
+        self.assertIn(f"{self.alpha}/done_1", serve.load_pins()["pinned"])
+        self.assertEqual(self.js("document.querySelector('#sidebar [data-pinned=done_1] .gbadge').textContent"), "Done")
+        # Unpinning a track that's open by default is remembered too; pinning it again just clears that.
+        self.b.click(f'#sidebar .side-item:has([data-pinned=now_1]) .pin-btn')
+        self.b.wait("!document.querySelector('#sidebar [data-pinned=now_1]')")
+        self.assertEqual(serve.load_pins()["unpinned"], [f"{self.alpha}/now_1"])
+        self.b.click('#sidebar .side-item:has([data-track=now_1]) .pin-btn')
+        self.b.wait("document.querySelector('#sidebar [data-pinned=now_1]')")
+        self.assertEqual(serve.load_pins(), {"pinned": [f"{self.alpha}/done_1"], "unpinned": []})
+
+    def test_project_sidebar_marks_status_and_archive(self):
+        self.open(f"#/{self.alpha}/now_1/plan", ready="document.querySelector('.overview')")
+        badges = self.js("Object.fromEntries([...document.querySelectorAll('#sidebar [data-track]')].map(a => [a.dataset.track, a.querySelector('.gbadge').textContent]))")
+        self.assertEqual(badges, {"now_1": "Now", "open_1": "Open", "done_1": "Done", "shared_1": "Open", "old_1": "Archived"})
 
     def test_track_page_sidebar_belongs_to_its_project(self):
         self.open("#/beta/b_only/plan", ready="document.querySelector('.overview')")
