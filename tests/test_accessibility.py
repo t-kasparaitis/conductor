@@ -77,10 +77,10 @@ class AccessibilityTest(ServerTest):
     @real_keys
     def test_keyboard_reaches_and_uses_the_progress_bar(self):
         self.open("#/demo_1/plan")
-        self.b.js("document.querySelector('.pg-phase[data-goto-phase=\"2\"]').focus()")
+        self.b.js("document.querySelector('.pg[data-goto-phase=\"2\"]').focus()")
         self.b.key("Enter", key_code=13)
         self.b.wait("document.querySelector('article.phase') && document.querySelector('article.phase').id === 'phase-2'")
-        self.b.js("document.querySelector('.pg-task[data-goto-task=\"0/0\"]').focus()")
+        self.b.js("document.querySelector('.pg[data-goto-phase=\"0\"]').focus()")
         self.b.key(" ", code="Space", key_code=32)
         self.b.wait("document.querySelector('article.phase').id === 'phase-0'")
 

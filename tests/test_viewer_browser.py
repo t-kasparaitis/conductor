@@ -75,16 +75,19 @@ class ViewerBrowserTest(ServerTest):
 
     def test_clicking_a_phase_bar_switches_to_it(self):
         self.open()
-        self.b.click('.pg-phase[data-goto-phase="2"]')
+        self.b.click('.pg[data-goto-phase="2"]')
         self.assertEqual(self.visible_phases(), ["phase-2"])
         self.assertTrue(self.b.js("location.hash.endsWith('/phase-3')"))
-        self.assertEqual(self.b.js("document.querySelector('.pg-phase[aria-current=true]').dataset.gotoPhase"), "2")
+        self.assertEqual(self.b.js("document.querySelector('.pg[aria-current=true]').dataset.gotoPhase"), "2")
 
-    def test_clicking_a_task_segment_switches_phase_and_highlights_the_task(self):
+    def test_phase_buttons_show_tasks_done_as_numbers(self):
         self.open()
-        self.b.click('.pg-task[data-goto-task="0/1"]')
-        self.assertEqual(self.visible_phases(), ["phase-0"])
-        self.assertTrue(self.b.js("document.querySelector('.task[data-key=\"0/1\"]').classList.contains('pulse')"))
+        counts = self.b.js("[...document.querySelectorAll('.progress-groups .pg')].map((p) => p.querySelector('.pg-count').textContent)")
+        self.assertEqual(len(counts), 3)
+        self.assertTrue(all(c.count("/") == 1 and all(n.isdigit() for n in c.split("/")) for c in counts), counts)
+        self.assertIsNone(self.b.js("document.querySelector('.pg-task')"))
+        # A short plan names its phases; past five phases only the numbers show.
+        self.assertGreater(self.b.js("document.querySelector('.pg-name').offsetWidth"), 0)
 
     def test_pager_moves_between_phases(self):
         self.open("#/demo_1/plan/phase-1")
@@ -109,7 +112,7 @@ class ViewerBrowserTest(ServerTest):
     def test_switching_phase_while_scrolled_keeps_content_below_the_overview(self):
         self.open("#/demo_1/plan/phase-3")
         self.b.js("window.scrollTo(0, document.body.scrollHeight)")
-        self.b.click('.pg-phase[data-goto-phase="0"]')
+        self.b.click('.pg[data-goto-phase="0"]')
         gap = self.b.js("""(() => {
           const ov = document.querySelector('#overview').getBoundingClientRect();
           const ph = document.querySelector('article.phase').getBoundingClientRect();

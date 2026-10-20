@@ -146,21 +146,17 @@ h1.track-title { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; margin: 0
 
 .progress { margin: 0; }
 .progress-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
-.progress-groups { display: flex; gap: 10px; }
-.pg { flex-basis: 0; min-width: 34px; display: flex; flex-direction: column; gap: 4px; }
-.pg-phase { display: flex; align-items: center; gap: 6px; height: 18px; padding: 0 6px 0 2px; border: 0; border-radius: 9px; background: var(--line-2); color: var(--muted); font: 600 11px/1 var(--sans, inherit); cursor: pointer; overflow: hidden; text-align: left; }
-.pg-num { flex: none; display: grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: var(--bg); font-family: var(--mono); font-size: 9.5px; }
-.pg-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pg.done .pg-phase { background: var(--done); color: var(--accent-ink); }
-.pg.done .pg-num { color: var(--done); }
-.pg.in_progress .pg-phase { background: var(--prog-soft); color: var(--prog); box-shadow: inset 0 0 0 1.5px var(--prog); }
-.pg-tasks { display: flex; gap: 3px; }
-.pg-task { flex: 1; min-width: 4px; height: 6px; padding: 0; border: 0; border-radius: 3px; background: var(--line-2); cursor: pointer; }
-.pg-task.done { background: var(--done); }
-.pg-task.in_progress { background: var(--prog); }
-.pg-phase:hover, .pg-task:hover { filter: brightness(1.2); }
-.pg-task:hover { transform: scaleY(1.6); }
-.pg-phase:focus-visible, .pg-task:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.progress-groups { display: flex; flex-wrap: wrap; gap: 6px; }
+.progress-groups.compact .pg { flex: 0 0 auto; min-width: 0; }
+.progress-groups.compact .pg-name { display: none; }
+.pg { flex: 1 1 0; min-width: 120px; display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px 0 5px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text-2); font: 12px/1 var(--sans); cursor: pointer; text-align: left; }
+.pg:hover { border-color: var(--line-2); color: var(--text); }
+.pg-num { flex: none; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line-2); color: var(--muted); font: 600 10.5px/1 var(--mono); }
+.pg-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-count { flex: none; margin-left: auto; color: var(--muted); font: 11.5px/1 var(--mono); }
+.pg.done .pg-num { border-color: var(--done); color: var(--done); }
+.pg.in_progress .pg-num { border-color: var(--prog); color: var(--prog); }
+.pg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .task.pulse { animation: pulse 1.6s ease-out; }
 @keyframes pulse { 0%, 30% { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); } 100% { background: transparent; box-shadow: inset 3px 0 0 transparent; } }
 @media (prefers-reduced-motion: reduce) { .task.pulse { animation: none; outline: 2px solid var(--accent); } }
@@ -394,7 +390,7 @@ h1.track-title { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; margin: 0
 .progress-meta > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .link-btn { flex: none; border: 0; background: none; padding: 2px 4px; color: var(--accent); font-size: 12px; cursor: pointer; }
 .link-btn:hover { text-decoration: underline; }
-.pg-phase[aria-current="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pg[aria-current="true"] { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
 .spec-toc button[aria-current="true"] { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
 .spec-toc .link-btn { border: 0; background: none; margin-left: auto; }
 .task, .phase, .spec-section { scroll-margin-top: var(--sticky-offset, 200px); }
@@ -402,7 +398,7 @@ h1.track-title { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; margin: 0
 .pager .btn { max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 640px) {
   .pg-name { display: none; }
-  .pg-phase { justify-content: center; padding: 0; }
+  .pg { flex: 0 0 auto; min-width: 0; padding: 0 8px 0 4px; gap: 5px; }
 }
 @media (min-width: 761px) {
   .sidebar { position: sticky; top: 52px; align-self: start; height: calc(100vh - 52px); overflow-y: auto; }
