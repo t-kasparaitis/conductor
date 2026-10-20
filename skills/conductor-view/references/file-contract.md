@@ -173,8 +173,9 @@ key (and any group it empties) when the user picks "use main rule".
 | `projects.json` | `{"version": 1, "projects": [{"id": "my-app", "path": "/abs/path", "added_at": "…"}]}`: registered projects. Ids are the folder name, lower-cased, made unique. |
 | `config.json` | `{"port": 5000}`: the saved port. Priority: `--port`, then `CONDUCTOR_VIEW_PORT`, then this, then 4177. |
 | `settings.json` | The main workflow rules, same shape as a repo's `conductor/settings.json`. |
+| `pins.json` | `{"version": 1, "pinned": ["my-app/auth_20261020"], "unpinned": []}`: sidebar pins made by hand, as `<project>/<track>`. Without an entry, a track is pinned while it's new or open (Now, Open) and drops off once done or archived. |
 
-All three are written atomically. One that can't be read is renamed to
+All four are written atomically. One that can't be read is renamed to
 `<name>.bad-<time>` (never overwritten), the viewer starts that file fresh,
 and every page shows a banner with the error and a Restore button. Restore
 puts the fixed copy back and keeps whatever it replaces as
@@ -188,8 +189,8 @@ track, or the viewer was started in the one that does.
 
 | Link | Opens |
 | --- | --- |
-| `#/` | Home (`?q=<search>&status=now\|open\|done\|archived` filters it) |
-| `#/<project>` | Home, scrolled to that project |
+| `#/` | Home. Filters: `?q=<search>`, and comma lists `status=now,open,done,archived`, `project=<ids>`, `type=<types>`, `git=uncommitted,unpushed,committed,nogit,pushed,landed`. Without `status`, archived tracks are hidden. `?layout=table\|cards` picks the layout (remembered per browser). |
+| `#/<project>` | Home, showing only that project |
 | `#/settings` | Main workflow rules and every project's exceptions |
 | `#/<project>/settings` | One project's workflow settings |
 | `#/<project>/<id>/plan/phase-<n>` | One phase (`phase-all` for the whole plan) |

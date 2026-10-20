@@ -178,7 +178,13 @@ python3 skills/conductor-view/scripts/serve.py --root /path/to/project --open
 listing every Conductor project you've registered and its tracks: what's
 being worked on now (and which task), what's open, done and archived, each
 with its progress, review state, open comments and git state (uncommitted,
-not pushed, pushed, landed). Search and filter across all of them.
+not pushed, pushed, landed). It's a table with one row per track: sort by any
+column, filter Project, Status, Type and Git spreadsheet-style, and choose
+which columns to show. A Cards layout groups the same tracks by project.
+
+-   **Pinned tracks.** The sidebar keeps the tracks you care about one click
+    away. New and open tracks are pinned automatically and drop off once
+    they're done or archived; pin or unpin any track with its ☆.
 
 -   **Registering projects.** Starting the viewer in a project registers it;
     starting it in a second project adds that one to the viewer already

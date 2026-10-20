@@ -33,8 +33,9 @@ containing this `SKILL.md`.
         viewer's settings page). If it's taken by something else, the viewer
         moves to the next free port and prints which.
     -   `--open` opens the user's default system browser, not an IDE preview.
-    -   Tell the user the URL it prints. The home page (`#/`) lists every
-        registered project and its tracks.
+    -   Tell the user the URL it prints. The home page (`#/`) is a table of
+        every registered project's tracks, and the sidebar holds pinned
+        tracks (new and open ones automatically).
 4.  **If you can't run a long-lived process** (sandboxed agent): give the user
     that command to run themselves.
 5.  **Without Python:** tell the user to open `<skill>/assets/viewer/index.html`

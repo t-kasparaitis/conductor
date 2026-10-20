@@ -13,7 +13,11 @@
   let current = null, tab = "plan", view = "home", settingsScope = "main";
   let prevStatuses = new Map();
   const ui = { feedbackFilter: "open", focus: {} };
-  const homeUi = { q: "", status: "all", focus: null };
+  // Home filters live in the link; null means "no filter". Sort and hidden columns are per browser.
+  const homeUi = { q: "", focus: null, layout: "table", filters: {}, openMenu: null };
+  const tablePrefs = { sort: { key: "status", dir: 1 }, hidden: ["branch", "type", "reviews"] };
+  try { Object.assign(tablePrefs, JSON.parse(localStorage.getItem("conductor-view-table")) || {}); } catch {}
+  function saveTablePrefs() { try { localStorage.setItem("conductor-view-table", JSON.stringify(tablePrefs)); } catch {} }
   const enc = encodeURIComponent;
   // Focus mode: the plan shows one phase and the spec one section at a time,
   // unless "show all" is on. ui.focus[track] = { plan: index, spec: index }.
@@ -219,7 +223,8 @@
     renderSidebar();
     const main = $("#main");
     const scroll = window.scrollY;
-    if (view === "home") main.innerHTML = renderHome();
+    main.classList.toggle("wide", view === "home" && homeUi.layout === "table");
+    if (view === "home") { main.innerHTML = renderHome(); placeMenus(); }
     else if (view === "settings") main.innerHTML = renderSettings();
     else if (!state) main.innerHTML = `<div class="empty"><strong>Loading…</strong></div>`;
     else if (!state.initialized && !state.tracks.length) {
@@ -399,21 +404,27 @@
     return (t.requests || []).map((r) => `<span class="chip wait req" title="The agent acts on it the next time it reads feedback. Say “check feedback” in chat.">${esc(REQ[r.kind].done)} · waiting for the agent</span>
       ${SNAPSHOT || LOCAL ? "" : `<button class="link-btn" data-withdraw="${esc(r.id)}" data-project="${esc(pid)}" data-track="${esc(t.id)}">Withdraw</button>`}`).join("");
   }
-  function requestButtons(pid, t) {
+  const REQ_ICON = {
+    archive: '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 5h16v4H4zM5.5 9v10h13V9M10 13h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+    restore: '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+    delete: '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10.5 11v5.5M13.5 11v5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+  };
+  function requestButtons(pid, t, icons) {
     const pending = new Set((t.requests || []).map((r) => r.kind));
     const kinds = (t.archived ? ["restore", "delete"] : ["archive", "delete"]).filter((k) => !pending.has(k));
-    return kinds.map((k) => `<button class="link-btn${k === "delete" ? " danger" : ""}" data-request="${k}" data-project="${esc(pid)}" data-track="${esc(t.id)}" aria-label="${REQ[k].verb} ${esc(t.title)}">${REQ[k].verb}</button>`).join("");
+    return kinds.map((k) => `<button class="${icons ? "icon-act" : "link-btn"}${k === "delete" ? " danger" : ""}" data-request="${k}" data-project="${esc(pid)}" data-track="${esc(t.id)}" aria-label="${REQ[k].verb} ${esc(t.title)}"${icons ? ` title="${REQ[k].verb}…"` : ""}>${icons ? REQ_ICON[k] : REQ[k].verb}</button>`).join("");
   }
 
-  function matchesSearch(t) {
+  function matchesSearch(t, p) {
     const q = homeUi.q.trim().toLowerCase();
-    return !q || [t.title, t.id, t.description].some((s) => String(s || "").toLowerCase().includes(q));
+    return !q || [t.title, t.id, t.description, p && p.name].some((x) => String(x || "").toLowerCase().includes(q));
   }
-  const groupShown = (g) => homeUi.status === "all" || homeUi.status === g;
+  const statusFilter = () => homeUi.filters.status || null;
+  const groupShown = (g) => !statusFilter() || statusFilter().has(g);
 
   function projectCard(p) {
-    const tracks = p.tracks.filter(matchesSearch);
-    const filtering = homeUi.q.trim() || homeUi.status !== "all";
+    const tracks = p.tracks.filter((t) => matchesSearch(t, p));
+    const filtering = homeUi.q.trim() || statusFilter();
     if (filtering && !tracks.some((t) => groupShown(t.group))) return "";
     const counts = Object.fromEntries(GROUPS.map(([g]) => [g, p.tracks.filter((t) => t.group === g).length]));
     const settingsChip = !p.exceptions || !p.exceptions.length
@@ -441,7 +452,7 @@
       if (!rows.length) return "";
       const body = `<ul class="trows">${rows.map((t) => trackRow(p, t)).join("")}</ul>`;
       const title = `<h3>${label} <span class="count">${rows.length}</span></h3>`;
-      if (g === "archived") return `<details class="tgroup g-archived"${homeUi.status === "archived" || homeUi.q.trim() ? " open" : ""}><summary>${title}</summary>${body}</details>`;
+      if (g === "archived") return `<details class="tgroup g-archived"${(statusFilter() && statusFilter().has("archived")) || homeUi.q.trim() ? " open" : ""}><summary>${title}</summary>${body}</details>`;
       return `<div class="tgroup g-${g}">${title}${body}</div>`;
     }).join("");
     const live = p.tracks.filter((t) => !t.archived);
@@ -451,31 +462,189 @@
       ${groups || `<div class="empty small"><strong>No tracks yet</strong>Ask your agent in this project to start one.</div>`}</section>`;
   }
 
+  /* The table: one row per track across projects, Excel-style filters per column. */
+  const GROUP_ORDER = Object.fromEntries(GROUPS.map(([g], i) => [g, i]));
+  const SAFETY_ORDER = { uncommitted: 0, unpushed: 1, committed: 2, nogit: 3, pushed: 4, landed: 5 };
+  const safetyOf = (t) => (t.git && t.git.safety) || "nogit";
+  const reviewScore = (t) => (t.spec && t.spec.kind === "approve" ? 1 : 0) + (t.plan && t.plan.kind === "approve" ? 1 : 0);
+  const COLS = [
+    { key: "pin", label: "Pinned", head: starIcon, fixed: true, cell: (p, t) => pinButton(p.id, t) },
+    { key: "track", label: "Track", fixed: true, sort: (t) => t.title.toLowerCase(),
+      cell: (p, t) => `<a class="tt-title" href="${trackHref(p.id, t.id)}">${esc(t.title)}</a>
+        <div class="tt-sub"><span class="mono">${esc(t.id)}</span>${t.current && t.group === "now" ? ` · <span class="trow-now">${t.current.next ? "next:" : "▶"} ${esc(t.current.text)}</span>` : ""}</div>` },
+    { key: "project", label: "Project", sort: (t, p) => p.name.toLowerCase(), filter: (t, p) => p.id,
+      name: (v) => (projectById(v) || { name: v }).name, cell: (p) => `<a class="tt-proj" href="${projectHref(p.id)}" title="${esc(p.path || p.name)}">${esc(p.name)}</a>` },
+    { key: "status", label: "Status", sort: (t) => GROUP_ORDER[t.group], filter: (t) => t.group, name: (v) => GROUP_LABEL[v] || v,
+      values: GROUPS.map(([g]) => g), def: ["now", "open", "done"], cell: (p, t) => groupBadge(t.group) },
+    { key: "progress", label: "Progress", desc: true, sort: (t) => (t.total ? t.done / t.total : -1),
+      cell: (p, t) => `<div class="tt-progress">${phaseBar(t)}<span class="mono small muted">${t.done}/${t.total}</span></div>` },
+    { key: "reviews", label: "Spec / plan", sort: reviewScore, cell: (p, t) => `<span class="tt-chips">${reviewChip(t.spec, "Spec")}${reviewChip(t.plan, "Plan")}</span>` },
+    { key: "feedback", label: "Feedback", desc: true, sort: (t) => t.open_feedback + (t.requests || []).length,
+      cell: (p, t) => `<span class="tt-chips">${t.open_feedback ? `<a class="chip warn" href="${trackHref(p.id, t.id, "feedback")}" title="Open feedback">${commentIcon}${t.open_feedback}</a>` : `<span class="muted small">—</span>`}${requestChips(p.id, t)}</span>` },
+    { key: "git", label: "Git", sort: (t) => SAFETY_ORDER[safetyOf(t)], filter: safetyOf, name: (v) => SAFETY_NAME[v] || v,
+      values: Object.keys(SAFETY_ORDER), cell: (p, t) => safetyChip(t.git) || `<span class="muted small">—</span>` },
+    { key: "branch", label: "Branch", sort: (t) => (t.git && t.git.branch) || "~",
+      cell: (p, t) => (t.git && t.git.branch ? `<span class="chip mono">⎇ ${esc(t.git.branch)}</span>` : `<span class="muted small">—</span>`) },
+    { key: "type", label: "Type", sort: (t) => t.type, filter: (t) => t.type, name: (v) => v, cell: (p, t) => `<span class="chip type">${esc(t.type)}</span>` },
+    { key: "activity", label: "Last activity", desc: true, sort: (t) => (t.git && t.git.last_activity) || 0,
+      cell: (p, t) => (t.git && t.git.last_activity ? `<span class="small" title="${esc(new Date(t.git.last_activity * 1000).toLocaleString())}">${esc(ago(t.git.last_activity))}</span>` : `<span class="muted small">—</span>`) },
+    { key: "actions", label: "Actions", fixed: true, cell: (p, t) => (SNAPSHOT ? "" : `<span class="row-actions">${requestButtons(p.id, t, true)}</span>`) },
+  ];
+  const SAFETY_NAME = { uncommitted: "Uncommitted", unpushed: "Not pushed", committed: "Committed, no remote", nogit: "No git", pushed: "Pushed", landed: "Landed" };
+  const colByKey = (k) => COLS.find((c) => c.key === k);
+  const FILTER_KEYS = COLS.filter((c) => c.filter).map((c) => c.key);
+
+  // The filter a column applies: its own set, the column's default, or none.
+  function activeFilter(key) {
+    const own = homeUi.filters[key];
+    if (own) return own;
+    if (key === "project" && homeUi.focus) return new Set([homeUi.focus]);
+    const def = colByKey(key).def;
+    return homeUi.layout === "table" && def ? new Set(def) : null;
+  }
+  const isFiltered = (key) => !!homeUi.filters[key] || (key === "project" && !!homeUi.focus);
+  function tableRows(except) {
+    const rows = [];
+    for (const p of sortedProjects()) for (const t of p.tracks) {
+      if (!matchesSearch(t, p)) continue;
+      if (FILTER_KEYS.some((k) => k !== except && activeFilter(k) && !activeFilter(k).has(colByKey(k).filter(t, p)))) continue;
+      rows.push([p, t]);
+    }
+    return rows;
+  }
+  function sortRows(rows) {
+    const col = colByKey(tablePrefs.sort.key) || colByKey("status");
+    const dir = tablePrefs.sort.dir || 1;
+    const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+    const activity = (t) => (t.git && t.git.last_activity) || 0;
+    return rows.slice().sort(([pa, a], [pb, b]) => dir * cmp(col.sort(a, pa), col.sort(b, pb))
+      || cmp(GROUP_ORDER[a.group], GROUP_ORDER[b.group]) || activity(b) - activity(a) || cmp(a.title, b.title));
+  }
+  function filterMenu(col) {
+    const counts = new Map();
+    for (const [p, t] of tableRows(col.key)) { const v = col.filter(t, p); counts.set(v, (counts.get(v) || 0) + 1); }
+    const on = activeFilter(col.key);
+    const values = col.key === "project" ? sortedProjects().filter((p) => !p.missing).map((p) => p.id)
+      : col.key === "status" ? col.values
+      : [...new Set([...(col.values || []).filter((v) => counts.has(v) || (on && on.has(v))), ...[...counts.keys()].sort()])];
+    const open = homeUi.openMenu === col.key;
+    return `<details class="th-filter" data-menu="${col.key}"${open ? " open" : ""}>
+      <summary class="th-funnel${isFiltered(col.key) ? " on" : ""}" aria-label="Filter ${esc(col.label)}${isFiltered(col.key) ? " (filtered)" : ""}" title="Filter ${esc(col.label)}">
+        <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M4 5h16l-6.2 7.4V19l-3.6-1.8v-4.8z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></summary>
+      <div class="menu" role="group" aria-label="Show ${esc(col.label.toLowerCase())}">
+        ${values.map((v) => `<label class="menu-item"><input type="checkbox" data-filter="${col.key}" value="${esc(v)}"${!on || on.has(v) ? " checked" : ""}>
+          <span>${esc(col.name(v))}</span><span class="count">${counts.get(v) || 0}</span></label>`).join("")}
+        <div class="menu-foot"><button class="link-btn" data-filter-set="${col.key}:all">Select all</button>
+          ${col.def ? `<button class="link-btn" data-filter-set="${col.key}:reset">Default</button>` : ""}
+          <button class="link-btn" data-filter-set="${col.key}:none">Clear</button></div>
+      </div></details>`;
+  }
+  function columnsMenu() {
+    const open = homeUi.openMenu === "columns";
+    return `<details class="th-filter cols-menu" data-menu="columns"${open ? " open" : ""}>
+      <summary class="btn">Columns</summary>
+      <div class="menu" role="group" aria-label="Columns to show">
+        ${COLS.filter((c) => !c.fixed).map((c) => `<label class="menu-item"><input type="checkbox" data-col="${c.key}"${tablePrefs.hidden.includes(c.key) ? "" : " checked"}><span>${esc(c.label)}</span></label>`).join("")}
+      </div></details>`;
+  }
+  function renderTable() {
+    const cols = COLS.filter((c) => c.fixed || !tablePrefs.hidden.includes(c.key));
+    const rows = sortRows(tableRows());
+    const head = cols.map((c) => {
+      const sorted = tablePrefs.sort.key === c.key;
+      const aria = sorted ? (tablePrefs.sort.dir > 0 ? "ascending" : "descending") : "none";
+      const label = c.head ? `<span class="sr-only">${esc(c.label)}</span>${c.head}` : esc(c.label);
+      return `<th scope="col" class="c-${c.key}"${c.sort ? ` aria-sort="${aria}"` : ""}><div class="th">
+        ${c.sort ? `<button class="th-sort" data-sort="${c.key}">${label}<span class="arrow" aria-hidden="true">${sorted ? (tablePrefs.sort.dir > 0 ? "▲" : "▼") : ""}</span></button>` : `<span>${label}</span>`}
+        ${c.filter && !(c.key === "project" && home.projects.length < 2) ? filterMenu(c) : ""}</div></th>`;
+    }).join("");
+    const body = rows.map(([p, t]) => `<tr class="g-${t.group}" data-row="${esc(p.id)}/${esc(t.id)}">${cols.map((c) => `<td class="c-${c.key}">${c.cell(p, t)}</td>`).join("")}</tr>`).join("");
+    return `<div class="table-wrap"><table class="tracks-table">
+      <caption class="sr-only">Tracks, ${rows.length} shown</caption><thead><tr>${head}</tr></thead>
+      <tbody>${body}</tbody></table>
+      ${rows.length ? "" : `<div class="empty small"><strong>No tracks match</strong>${anyFilter() ? `<button class="link-btn" data-clear-filters>Clear filters</button>` : "Ask your agent in a project to start one."}</div>`}</div>`;
+  }
+  const anyFilter = () => !!homeUi.q.trim() || FILTER_KEYS.some(isFiltered);
+
+  // One project in view: its path, branch, settings and Forget, which the cards show per card.
+  function projectStrip(p) {
+    const settingsChip = !p.exceptions || !p.exceptions.length
+      ? `<a class="chip" href="#/${enc(p.id)}/settings" title="This project uses the main workflow rules">follows main rules</a>`
+      : `<a class="chip warn" href="#/${enc(p.id)}/settings" title="${esc(p.exceptions.join(", "))}">${p.exceptions.length} exception${p.exceptions.length === 1 ? "" : "s"}</a>`;
+    return `<div class="proj-strip" id="proj-${esc(p.id)}"><strong>${esc(p.name)}</strong>
+      ${p.path ? `<span class="proj-path mono" title="${esc(p.path)}">${esc(p.path)}</span>` : ""}
+      ${p.active ? `<span class="chip ok" title="The viewer was started in this project">this folder</span>` : ""}
+      ${p.git && p.git.git && p.git.branch ? `<span class="chip mono" title="Checked-out branch">⎇ ${esc(p.git.branch)}</span>` : ""}
+      ${settingsChip}
+      ${p.registered && !SNAPSHOT && !LOCAL ? `<button class="link-btn" data-forget="${esc(p.id)}" title="Stop listing this project. Its files are not touched.">Forget</button>` : ""}</div>`;
+  }
+
   function renderHome() {
     if (!home) return `<div class="empty"><strong>Loading…</strong></div>`;
     const problems = (home.problems || []).map((pr) => `<div class="banner warn" role="alert">
         <div><strong>Couldn't read ${esc(pr.name)}</strong> (${esc(pr.error)}). The viewer started fresh and kept your old file as <code>${esc(pr.saved_as)}</code>. Fix it, then Restore.</div>
         <div class="banner-actions"><button class="btn" data-restore="${esc(pr.name)}">Restore</button><button class="btn ghost" data-dismiss="${esc(pr.name)}">Dismiss</button></div></div>`).join("");
+    const table = homeUi.layout === "table";
     const projects = sortedProjects();
-    const all = projects.flatMap((p) => p.tracks.filter(matchesSearch));
-    const n = (g) => all.filter((t) => t.group === g).length;
-    const chips = [["all", "All", all.filter((t) => !t.archived).length], ...GROUPS.map(([g, l]) => [g, l, n(g)])]
-      .map(([g, l, c]) => `<button class="fchip" data-status="${g}" aria-pressed="${homeUi.status === g}">${l} <span class="count">${c}</span></button>`).join("");
-    const cards = projects.map(projectCard).join("");
-    const filtering = homeUi.q.trim() || homeUi.status !== "all";
-    return `${SNAPSHOT ? `<div class="snapshot-banner">Read-only snapshot. Run <code>serve.py</code> for the live view.</div>` : ""}${problems}
+    const searched = projects.flatMap((p) => p.tracks.filter((t) => matchesSearch(t, p)));
+    // Quick status chips: counts follow every other filter, like the column menus.
+    const base = table ? tableRows("status").map(([, t]) => t) : searched;
+    const n = (g) => base.filter((t) => t.group === g).length;
+    const sf = statusFilter();
+    const only = (g) => !!sf && sf.size === 1 && sf.has(g);
+    const chips = [["all", "All", base.filter((t) => !t.archived).length, !sf], ...GROUPS.map(([g, l]) => [g, l, n(g), only(g)])]
+      .map(([g, l, c, on]) => `<button class="fchip" data-status="${g}" aria-pressed="${on}">${l} <span class="count">${c}</span></button>`).join("");
+    const missing = table ? projects.filter((p) => p.missing).map((p) => `<div class="banner warn"><div><strong>${esc(p.name)}: folder not found</strong> (<span class="mono">${esc(p.path)}</span>). It may have moved or been deleted. Forget it, or add it again from its new place.</div>
+        <div class="banner-actions"><button class="btn" data-forget="${esc(p.id)}">Forget</button></div></div>`).join("") : "";
+    const inView = activeFilter("project");
+    const one = table && (projects.length === 1 ? projects[0] : inView && inView.size === 1 ? projectById([...inView][0]) : null);
+    let content;
+    if (table) content = (one && !one.missing ? projectStrip(one) : "") + renderTable();
+    else {
+      const cards = projects.map(projectCard).join("");
+      const filtering = homeUi.q.trim() || sf;
+      content = cards || (filtering ? `<div class="empty"><strong>No tracks match</strong>Try another search or status.</div>`
+        : `<div class="empty"><strong>No projects yet</strong>Start the viewer inside a Conductor project, or add one.</div>`);
+    }
+    if (!projects.length) content = `<div class="empty"><strong>No projects yet</strong>Start the viewer inside a Conductor project, or add one.</div>`;
+    const live = searched.filter((t) => !t.archived);
+    return `${SNAPSHOT ? `<div class="snapshot-banner">Read-only snapshot. Run <code>serve.py</code> for the live view.</div>` : ""}${problems}${missing}
       <div class="home-head">
-        <div><h1 class="track-title">${projects.length === 1 ? esc(projects[0].name) : "Projects"}</h1>
-          <p class="track-sub">${projects.length} project${projects.length === 1 ? "" : "s"} · ${all.filter((t) => !t.archived).length} tracks${n("now") ? ` · ${n("now")} in progress now` : ""}</p></div>
+        <div><h1 class="track-title">${projects.length === 1 ? esc(projects[0].name) : one ? esc(one.name) : "Projects"}</h1>
+          <p class="track-sub">${projects.length} project${projects.length === 1 ? "" : "s"} · ${live.length} tracks${live.some((t) => t.group === "now") ? ` · ${live.filter((t) => t.group === "now").length} in progress now` : ""}</p></div>
+        <div class="seg" role="group" aria-label="Layout">
+          <button class="seg-btn" data-layout="table" aria-pressed="${table}">Table</button><button class="seg-btn" data-layout="cards" aria-pressed="${!table}">Cards</button></div>
       </div>
       <div class="home-tools">
         ${SNAPSHOT || LOCAL ? "" : `<div class="home-actions"><button class="btn" data-dialog="find">${searchIcon}Find projects</button><button class="btn" data-dialog="add">＋ Add by path</button></div>`}
-        <input type="search" id="home-search" placeholder="Search tracks by name or id" aria-label="Search tracks" value="${esc(homeUi.q)}">
+        <input type="search" id="home-search" placeholder="Search tracks by name, id or project" aria-label="Search tracks" value="${esc(homeUi.q)}">
         <div class="fchips" role="group" aria-label="Filter by status">${chips}</div>
+        ${table ? columnsMenu() : ""}
+        ${table && anyFilter() ? `<button class="link-btn" data-clear-filters>Clear filters</button>` : ""}
       </div>
-      ${cards || (filtering ? `<div class="empty"><strong>No tracks match</strong>Try another search or status.</div>`
-        : `<div class="empty"><strong>No projects yet</strong>Start the viewer inside a Conductor project, or add one.</div>`)}`;
+      ${content}`;
   }
+
+  // Menus are fixed-position so the table's sideways scroll can't clip them.
+  function placeMenus() {
+    const d = homeUi.openMenu && document.querySelector(`.th-filter[data-menu="${homeUi.openMenu}"][open]`);
+    if (!d) return;
+    const r = d.querySelector("summary").getBoundingClientRect(), menu = d.querySelector(".menu");
+    const w = menu.offsetWidth || 220;
+    menu.style.top = `${Math.round(r.bottom + 4)}px`;
+    menu.style.left = `${Math.round(Math.max(8, Math.min(r.left, window.innerWidth - w - 8)))}px`;
+  }
+  function setFilter(key, values) {
+    const col = colByKey(key);
+    if (key === "project") homeUi.focus = null;
+    const universe = key === "project" ? sortedProjects().filter((p) => !p.missing).map((p) => p.id)
+      : [...new Set(home.projects.flatMap((p) => p.tracks.map((t) => col.filter(t, p))))];
+    // Nothing filtered out (or exactly the column's default) is stored as no filter.
+    const none = col.def ? values.size === col.def.length && col.def.every((v) => values.has(v)) : universe.every((v) => values.has(v));
+    homeUi.filters[key] = none ? null : values;
+    writeHash(); render();
+  }
+
 
   function renderTrack(t) {
     const ctx = { track: t };
@@ -949,7 +1118,12 @@
     const [pathPart, query = ""] = raw.split("?");
     const q = new URLSearchParams(query);
     homeUi.q = q.get("q") || "";
-    homeUi.status = GROUPS.some(([g]) => g === q.get("status")) ? q.get("status") : "all";
+    homeUi.filters = {};
+    for (const k of FILTER_KEYS) if (q.has(k)) homeUi.filters[k] = new Set(q.get(k).split(",").filter(Boolean));
+    // Layout is remembered per browser; ?layout= in a link picks one (and is remembered too).
+    let layout = q.get("layout");
+    try { if (layout) localStorage.setItem("conductor-view-layout", layout); else layout = localStorage.getItem("conductor-view-layout"); } catch {}
+    homeUi.layout = layout === "cards" ? "cards" : "table";
     let segs = pathPart.split("/").filter(Boolean).map((s) => { try { return decodeURIComponent(s); } catch { return s; } });
     homeUi.focus = null;
     if (!segs.length) { view = "home"; return null; }
@@ -979,7 +1153,7 @@
     if (view === "home") {
       const q = new URLSearchParams();
       if (homeUi.q) q.set("q", homeUi.q);
-      if (homeUi.status !== "all") q.set("status", homeUi.status);
+      for (const k of FILTER_KEYS) if (homeUi.filters[k]) q.set(k, [...homeUi.filters[k]].join(","));
       h = "#/" + (homeUi.focus ? enc(homeUi.focus) : "") + (q.toString() ? "?" + q : "");
     } else if (view === "settings") h = settingsScope === "main" || !project ? "#/settings" : `#/${enc(project)}/settings`;
     else {
@@ -1020,7 +1194,7 @@
     try { await ensureProject(); } catch (e) { toast(e.message); view = "home"; }
     render();
     if (view === "track") settle(); else window.scrollTo(0, 0);
-    if (view === "home" && homeUi.focus) { const card = document.getElementById("proj-" + homeUi.focus); if (card) card.scrollIntoView({ block: "start" }); }
+    if (view === "home" && homeUi.focus && homeUi.layout === "cards") { const card = document.getElementById("proj-" + homeUi.focus); if (card) card.scrollIntoView({ block: "start" }); }
     if (deep) openDiagram(deep.slug, deep.node);
     writeHash();
   }
@@ -1189,8 +1363,44 @@
     catch (e) { toast(e.message); }
   }
 
+  function closeMenus() {
+    homeUi.openMenu = null;
+    document.querySelectorAll(".th-filter[open]").forEach((d) => d.removeAttribute("open"));
+  }
+  document.addEventListener("toggle", (ev) => {
+    const d = ev.target;
+    if (!(d instanceof HTMLElement) || !d.classList.contains("th-filter")) return;
+    if (d.open) {
+      homeUi.openMenu = d.dataset.menu;
+      document.querySelectorAll(".th-filter[open]").forEach((o) => { if (o !== d) o.removeAttribute("open"); });
+      placeMenus();
+    } else if (homeUi.openMenu === d.dataset.menu) homeUi.openMenu = null;
+  }, true);
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Escape" || !homeUi.openMenu) return;
+    const summary = document.querySelector(`.th-filter[data-menu="${homeUi.openMenu}"] summary`);
+    closeMenus(); if (summary) summary.focus();
+  });
+  window.addEventListener("scroll", placeMenus, true);
+  window.addEventListener("resize", placeMenus);
+  document.addEventListener("change", (ev) => {
+    const t = ev.target;
+    if (t.dataset.filter) {
+      const k = t.dataset.filter;
+      setFilter(k, new Set([...document.querySelectorAll(`[data-filter="${k}"]:checked`)].map((i) => i.value)));
+      const again = document.querySelector(`[data-filter="${k}"][value="${CSS.escape(t.value)}"]`);
+      if (again) again.focus();
+    } else if (t.dataset.col) {
+      const k = t.dataset.col;
+      tablePrefs.hidden = t.checked ? tablePrefs.hidden.filter((x) => x !== k) : [...tablePrefs.hidden, k];
+      saveTablePrefs(); render();
+      const again = document.querySelector(`[data-col="${k}"]`);
+      if (again) again.focus();
+    }
+  });
   document.addEventListener("click", (ev) => {
-    const el = ev.target.closest("[data-view],[data-setting],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter],[data-status],[data-forget],[data-restore],[data-dismiss],[data-dialog],[data-find],[data-close],[data-reset],[data-tidy],[data-follow],[data-port-clear],[data-request],[data-withdraw],[data-pin]");
+    if (homeUi.openMenu && !ev.target.closest(".th-filter")) closeMenus();
+    const el = ev.target.closest("[data-view],[data-setting],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter],[data-status],[data-forget],[data-restore],[data-dismiss],[data-dialog],[data-find],[data-close],[data-reset],[data-tidy],[data-follow],[data-port-clear],[data-request],[data-withdraw],[data-pin],[data-sort],[data-layout],[data-filter-set],[data-clear-filters]");
     if (!el) return;
     if (el.dataset.dialog) return el.dataset.dialog === "find" ? findDialog(null) : addDialog();
     if ("find" in el.dataset) return runFind();
@@ -1222,7 +1432,26 @@
     }
     else if (el.dataset.showAll) { const k = el.dataset.showAll; showAll[k] = !showAll[k]; saveShowAll(); writeHash(); render(); settle(); }
     else if (el.dataset.fbfilter) { ui.feedbackFilter = el.dataset.fbfilter; render(); }
-    else if (el.dataset.status) { homeUi.status = el.dataset.status; writeHash(); render(); }
+    else if (el.dataset.status) {
+      homeUi.filters.status = el.dataset.status === "all" ? null : new Set([el.dataset.status]);
+      writeHash(); render();
+    }
+    else if (el.dataset.sort) {
+      const k = el.dataset.sort, col = colByKey(k);
+      tablePrefs.sort = tablePrefs.sort.key === k ? { key: k, dir: -tablePrefs.sort.dir } : { key: k, dir: col.desc ? -1 : 1 };
+      saveTablePrefs(); render(); $(`[data-sort="${k}"]`).focus();
+    }
+    else if (el.dataset.layout) {
+      homeUi.layout = el.dataset.layout; homeUi.openMenu = null;
+      try { localStorage.setItem("conductor-view-layout", homeUi.layout); } catch {}
+      writeHash(); render();
+    }
+    else if (el.dataset.filterSet) {
+      const [k, what] = el.dataset.filterSet.split(":"), col = colByKey(k);
+      const all = new Set([...document.querySelectorAll(`[data-filter="${k}"]`)].map((i) => i.value));
+      setFilter(k, what === "all" ? all : what === "reset" ? new Set(col.def) : new Set());
+    }
+    else if ("clearFilters" in el.dataset) { homeUi.filters = {}; homeUi.focus = null; homeUi.q = ""; writeHash(); render(); }
     else if (el.dataset.forget) {
       const p = projectById(el.dataset.forget);
       if (p && confirm(`Stop listing ${p.name}? Its files are not touched, and you can add it again any time.`))

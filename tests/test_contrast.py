@@ -25,6 +25,8 @@ PAIRS = [
     ("text", "panel-2", None), ("text-2", "panel-2", None), ("muted", "panel-2", None),
     ("accent-ink", "danger", None),
     # Status badges in the sidebar.
+    # The home table: current task, links and badges on plain and hovered rows.
+    ("prog", "panel", None), ("prog", "panel-2", None), ("accent", "panel-2", None), ("text-2", "panel-2", None),
     ("prog", "prog-soft", "bg-2"), ("done", "done-soft", "bg-2"), ("text-2", "bg-2", None),
 ]
 
