@@ -3,3 +3,10 @@
 *.sh text eol=lf
 *.md text
 *.ps1 text
+
+# conductor-view: keep source and Conductor files LF everywhere
+*.py text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.json text eol=lf

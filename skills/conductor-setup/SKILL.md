@@ -2,7 +2,7 @@
 name: conductor-setup
 description: Scaffolds the project and sets up the Conductor environment. Use this whenever a project needs to be initialized or if the Conductor configuration is missing.
 metadata:
-  version: "1.1"
+  version: "1.2"
 ---
 
 # Conductor Setup Skill
@@ -40,7 +40,7 @@ Example (for a new project):
 > "Welcome to Conductor. I will guide you through:
 > 1. **Project Discovery:** Verifying this directory is ready for a new project.
 > 2. **Product Definition:** Defining the vision and tech stack.
-> 3. **Configuration:** Setting up code style guides and workflow.
+> 3. **Configuration:** Setting up code style guides, workflow, and how this repository branches, commits, pushes and tests.
 > 4. **Track Generation:** Defining the first actionable track.
 > 
 > Let's get started!"
@@ -54,10 +54,12 @@ Check which setup artifacts already exist in the `conductor/` directory, in this
 3. `conductor/tech-stack.md` (Technology Stack)
 4. `conductor/code_styleguides/` (Code Style Guides)
 5. `conductor/workflow.md` (Workflow Configuration)
+6. `conductor/settings.json` (Repository Workflow)
 
 Setup is complete if `conductor/index.md` exists. The next pending step is the first item in the list above that is missing.
 
-- If setup is complete, announce that the project is already initialized and **HALT** execution.
+- If setup is complete **and** `conductor/settings.json` exists, announce that the project is already initialized and **HALT** execution.
+- If setup is complete but `conductor/settings.json` is missing (a project set up before workflow settings existed), say so and offer to run only **Repository Workflow** (Section 2.6). Do not touch any other file. The same applies whenever the user asks to "configure workflow settings" or similar in an initialized project: run Section 2.6 alone, with the current values as the recommendations.
 - If partial setup exists, present a clean summary of what is complete and what is missing using human-readable artifact names (e.g., `tech-stack.md`). Do NOT use internal section numbers (e.g., avoid "Section 2.3").
 - Identify the pending step (e.g., "Technology Stack") and advise that setup can be resumed from there.
 
@@ -166,9 +168,44 @@ Select and copy appropriate style guides from `assets/code_styleguides/` to the 
 Configure the operational rules for the project.
 
 1. **Mode Selection:** Ask the user to choose a mode using a **single-choice question** with options: **Default** or **Customize**.
-2. **Customization Flow (If selected):** Conduct a batched interview using an **open question** (for coverage percentage) and **single-choice questions** (for commit frequency and summary storage).
-3. **Explain:** Before copying, explain that the `workflow.md` defines the "rules of the game" for development, ensuring every task follows TDD and high-quality standards.
+2. **Customization Flow (If selected):** Ask an **open question** for the coverage percentage. Commit frequency, git notes, branching, pushing and testing cadence are asked in Repository Workflow (2.6), not here.
+3. **Explain:** Before copying, explain that the `workflow.md` defines the "rules of the game" for development: how each task is tested, committed and verified, following the settings chosen in the next step.
 4. **Write Action:** Copy `assets/workflow.md` to `conductor/workflow.md` and apply user choices if customized.
+
+### 2.6 Repository Workflow (`settings.json`)
+
+Choose how this repository branches, commits, pushes and tests. The choices go in `conductor/settings.json`, which every Conductor skill re-reads before it plans, commits, pushes or verifies, and which the user can change later (by hand, by asking, or in the Conductor viewer).
+
+**Main rules first:** the user's **main rules** are their own defaults for every project on this machine (`settings.json` in the Conductor viewer's config folder; the **Workflow**'s Workflow Settings section lists the paths). A repo's `conductor/settings.json` then holds only its **exceptions**. Each setting resolves to the repo's value, else the main rule, else the built-in default from the schema.
+
+-   **Main rules exist** (the file exists and you can read it): show its values as a short table and ask with a **single-choice question**: **Follow the main rules** (Recommended unless the repo's history says otherwise) or **Set exceptions for this repo**. To follow them, write `conductor/settings.json` with only `{"version": 1}` and go to step 7. For exceptions, run the steps below with each main rule as the recommendation, and in step 6 write only the keys that differ from the main rules.
+-   **No main rules yet** (the first project set up on this machine): explain in one sentence that main rules are set once and apply to every project unless a repo makes an exception, show the built-in defaults as a short table, and ask with a **single-choice question**:
+    -   **Use the built-in defaults** (Recommended unless the repo's history says otherwise): write no main rules, write `conductor/settings.json` with only `{"version": 1}` and go to step 7. The user can set main rules later on the viewer's settings page.
+    -   **Set my own main rules**: run the steps below, saying that these answers apply to every project. Skip the git-history evidence in step 3 (it describes this repo, not every project) and recommend the schema defaults. In step 6 write the answers to `settings.json` in the config folder (create the folder if needed), and `conductor/settings.json` with only `{"version": 1}`. If this repo's history suggests a different branching strategy, then offer it as an exception for this repo.
+    -   **Only this repo**: run the steps below, and in step 6 write only the keys that differ from the built-in defaults.
+-   **You can't read or write outside the repo** (a sandbox): say so, offer only **Use the built-in defaults** and **Only this repo**, and mention that main rules can be set on the viewer's settings page.
+
+1.  **Load the Schema:** Read `assets/settings.schema.json`. It lists every setting, its options (with a one-line `summary` and, for some, a longer `detail`), and its default. Ask only about settings in the schema, and offer only its options.
+2.  **Explain:** In two or three sentences, explain that these settings make the agent follow the repository's conventions rather than one fixed way of working, and that the defaults reproduce standard Conductor behaviour.
+3.  **Infer Recommendations (Brownfield):** If the project has git history, look at it before asking:
+    -   Compare `git rev-list --count --merges HEAD` with `git rev-list --count HEAD` on the main branch: regular merge commits suggest `feature-branch`; a straight line of commits suggests `trunk`. Few commits or no clear pattern: recommend the schema default.
+    -   `git remote` prints nothing: there is nowhere to push, so recommend `git.push = ask`.
+    -   Existing values (re-running this step): recommend the current value.
+    -   Otherwise recommend the schema default. Mention the evidence in the recommendation, e.g. *(Recommended: 48 of 138 commits are merges)*.
+4.  **Ask:** One **single-choice question** per setting, in schema order, following the Interaction Protocol: the option's `label` and `summary`, the recommended option first, and an "Other" option. Offer the `detail` text (for example the exact git commands) when the user asks what an option means. With `git.strategy = trunk`, add one sentence on the safety rule: force-pushes only ever go to the track's own branch, with `--force-with-lease --force-if-includes`, never to `main`.
+5.  **Confirm:** Show the chosen values as a short table and ask for approval with a **single-choice question**: **Approve** or **Revise**.
+6.  **Write Action:** Write the file chosen above (`conductor/settings.json`, or the main rules), nested by group. Main rules list every setting, defaults included, so the file documents itself; a repo file lists only its exceptions plus `"version": 1`. The full shape, with the built-in defaults:
+
+    ```json
+    {
+      "version": 1,
+      "git": { "strategy": "current", "commit": "task", "push": "ask", "notes": "on" },
+      "testing": { "style": "tdd", "verification": "phase" }
+    }
+    ```
+
+    Validate it with `python3 -m json.tool conductor/settings.json` if Python is available, or by re-reading it.
+7.  **Link It:** Make sure `conductor/index.md` links it under `## Workflow` as `[Workflow Settings](./settings.json)`. When running this step alone in an initialized project, add that one line and commit both files with `conductor(setup): Add workflow settings`.
 
 ## 3. The Handshake (Index Generation)
 
@@ -191,6 +228,7 @@ Create `conductor/index.md`. This is the **Single Source of Truth** for all tool
     ## Workflow
 
     -   [Workflow](./workflow.md)
+    -   [Workflow Settings](./settings.json)
     -   [Code Style Guides](./code_styleguides/)
 ```
 

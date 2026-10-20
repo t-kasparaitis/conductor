@@ -1,0 +1,156 @@
+{
+  "title": "Two ways to land a track",
+  "summary": "Trunk-based keeps history linear by rebasing a short-lived branch; feature-branch keeps every pushed commit and merges. Press Tour, or flip the setting in Workflow settings.",
+  "regions": [
+    {
+      "id": "trunk",
+      "label": "Trunk-based · git.strategy = trunk",
+      "tone": "teal"
+    },
+    {
+      "id": "merge",
+      "label": "Feature branch + merge · git.strategy = feature-branch",
+      "tone": "violet"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "t-branch",
+      "label": "Branch from origin/main",
+      "kind": "process",
+      "region": "trunk",
+      "x": 0,
+      "y": 0,
+      "detail": "```\ngit fetch origin\ngit switch -c <track_id> origin/main\n```\nShort-lived: hours to a few days."
+    },
+    {
+      "id": "t-commit",
+      "label": "Commit per setting",
+      "kind": "file",
+      "region": "trunk",
+      "x": 330,
+      "y": 0,
+      "detail": "Per task, phase or track (`git.commit`). Commits are local until the push rule says otherwise."
+    },
+    {
+      "id": "t-rebase",
+      "label": "Fetch + rebase",
+      "kind": "process",
+      "region": "trunk",
+      "x": 660,
+      "y": 0,
+      "detail": "```\ngit fetch origin\ngit rebase origin/main\n```\nReplays your commits on top of the latest main. Conflicts are resolved commit by commit, and history stays a straight line."
+    },
+    {
+      "id": "t-push",
+      "label": "Push with lease",
+      "kind": "process",
+      "region": "trunk",
+      "x": 990,
+      "y": 0,
+      "detail": "```\ngit push --force-with-lease --force-if-includes origin <track_id>\n```\nRebasing rewrote the branch, so it needs a force push. **With lease**: refuses if someone else pushed to it since you fetched. **If-includes**: also refuses if you never integrated their work. **Only ever on your own track branch.**"
+    },
+    {
+      "id": "t-land",
+      "label": "Fast-forward main",
+      "kind": "store",
+      "region": "trunk",
+      "x": 1320,
+      "y": 0,
+      "detail": "Rebase-merge or fast-forward into `main`, then delete the branch. `main` is never force-pushed."
+    },
+    {
+      "id": "m-branch",
+      "label": "Branch from main",
+      "kind": "process",
+      "region": "merge",
+      "x": 0,
+      "y": 300,
+      "detail": "```\ngit switch -c <track_id> main\n```\nCan live longer; nothing gets rewritten."
+    },
+    {
+      "id": "m-commit",
+      "label": "Commit per setting",
+      "kind": "file",
+      "region": "merge",
+      "x": 330,
+      "y": 300,
+      "detail": "Same `git.commit` rule as trunk."
+    },
+    {
+      "id": "m-push",
+      "label": "Push normally",
+      "kind": "process",
+      "region": "merge",
+      "x": 660,
+      "y": 300,
+      "detail": "```\ngit push -u origin <track_id>\n```\nNo force, ever. Pushed history is permanent."
+    },
+    {
+      "id": "m-merge",
+      "label": "Merge commit",
+      "kind": "process",
+      "region": "merge",
+      "x": 990,
+      "y": 300,
+      "detail": "```\ngit switch main && git pull\ngit merge --no-ff <track_id>\n```\nOr through a pull request. The merge commit records when the track landed."
+    },
+    {
+      "id": "m-land",
+      "label": "main (with merges)",
+      "kind": "store",
+      "region": "merge",
+      "x": 1320,
+      "y": 300,
+      "detail": "History shows the branch shape. Easier to see what landed together; noisier to read."
+    }
+  ],
+  "edges": [
+    {
+      "from": "t-branch",
+      "to": "t-commit"
+    },
+    {
+      "from": "t-commit",
+      "to": "t-rebase",
+      "label": "often"
+    },
+    {
+      "from": "t-rebase",
+      "to": "t-push"
+    },
+    {
+      "from": "t-push",
+      "to": "t-land",
+      "label": "linear"
+    },
+    {
+      "from": "m-branch",
+      "to": "m-commit"
+    },
+    {
+      "from": "m-commit",
+      "to": "m-push"
+    },
+    {
+      "from": "m-push",
+      "to": "m-merge",
+      "label": "PR / review"
+    },
+    {
+      "from": "m-merge",
+      "to": "m-land",
+      "label": "--no-ff"
+    }
+  ],
+  "tour": [
+    "t-branch",
+    "t-rebase",
+    "t-push",
+    "t-land",
+    "m-branch",
+    "m-push",
+    "m-merge",
+    "m-land"
+  ]
+}

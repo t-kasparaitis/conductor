@@ -1,0 +1,72 @@
+{
+  "title": "How --shout reaches the greeting",
+  "summary": "The CLI parser turns --shout (or its planned -s alias) into a boolean that selects upper-casing before the greeting is printed.",
+  "regions": [
+    { "id": "caller", "label": "Command line", "tone": "blue" },
+    { "id": "parser", "label": "Argument parsing", "tone": "violet" },
+    { "id": "program", "label": "Greeting logic", "tone": "amber" },
+    { "id": "terminal", "label": "Output", "tone": "green" }
+  ],
+  "nodes": [
+    {
+      "id": "argv",
+      "label": "CLI arguments",
+      "kind": "person",
+      "region": "caller",
+      "detail": "The user invokes `greet Ada --shout`. The command-line tokens reach `main(argv)`; `-s` will enter through this same path once the planned alias task is complete."
+    },
+    {
+      "id": "option",
+      "label": "Shout option",
+      "kind": "process",
+      "region": "parser",
+      "detail": "`ArgumentParser.add_argument` declares the `--shout` flag with `action=\"store_true\"`. The planned alias adds `-s` to this same declaration, so both spellings share one destination."
+    },
+    {
+      "id": "parse",
+      "label": "Parse arguments",
+      "kind": "process",
+      "region": "parser",
+      "detail": "`ap.parse_args(argv)` validates the command line and produces an argparse namespace containing the positional `name` and boolean `shout` values."
+    },
+    {
+      "id": "flag",
+      "label": "args.shout",
+      "kind": "store",
+      "region": "program",
+      "detail": "With `--shout` (or the planned `-s` alias), `args.shout` is `True`; without either flag it is `False`. This single boolean controls the transformation."
+    },
+    {
+      "id": "compose",
+      "label": "Build greeting",
+      "kind": "process",
+      "region": "program",
+      "detail": "The program first constructs the normal greeting as `Hello, {args.name}!`, preserving the existing no-flag behavior."
+    },
+    {
+      "id": "uppercase",
+      "label": "Upper-case text",
+      "kind": "process",
+      "region": "program",
+      "detail": "When `args.shout` is true, `greeting.upper()` transforms the entire greeting, including the supplied name, into `HELLO, ADA!`."
+    },
+    {
+      "id": "print",
+      "label": "Printed greeting",
+      "kind": "ui",
+      "region": "terminal",
+      "detail": "`print(greeting)` writes the selected greeting to standard output, followed by a newline. The command then returns exit code 0."
+    }
+  ],
+  "edges": [
+    { "from": "argv", "to": "option", "label": "includes --shout / -s", "style": "solid" },
+    { "from": "option", "to": "parse", "label": "defines store_true", "style": "solid" },
+    { "from": "parse", "to": "flag", "label": "sets boolean", "style": "solid" },
+    { "from": "parse", "to": "compose", "label": "supplies name", "style": "solid" },
+    { "from": "compose", "to": "uppercase", "label": "if args.shout", "style": "solid" },
+    { "from": "flag", "to": "uppercase", "label": "controls", "style": "solid" },
+    { "from": "uppercase", "to": "print", "label": "passes transformed text", "style": "solid" },
+    { "from": "compose", "to": "print", "label": "passes normal text", "style": "dashed" }
+  ],
+  "tour": ["argv", "option", "parse", "flag", "compose", "uppercase", "print"]
+}

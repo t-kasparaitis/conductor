@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "git": {
+    "strategy": "trunk",
+    "notes": "off",
+    "commit": "phase"
+  },
+  "testing": {
+    "style": "with-task",
+    "verification": "track"
+  }
+}

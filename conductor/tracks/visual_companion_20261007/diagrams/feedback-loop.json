@@ -1,0 +1,130 @@
+{
+  "title": "The feedback loop, one stop at a time",
+  "summary": "How a comment in the browser becomes a change in the plan — with no agent-specific API anywhere. Press Tour.",
+  "regions": [
+    {
+      "id": "browser",
+      "label": "Browser",
+      "tone": "teal"
+    },
+    {
+      "id": "disk",
+      "label": "Disk",
+      "tone": "amber"
+    },
+    {
+      "id": "agent",
+      "label": "Agent session",
+      "tone": "violet"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "read",
+      "label": "1 · You read the plan",
+      "kind": "person",
+      "region": "browser",
+      "detail": "The page shows the phase rail and every task. It live-updates while the agent works.",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "id": "comment",
+      "label": "2 · Comment on a task",
+      "kind": "ui",
+      "region": "browser",
+      "detail": "Hover a task → **Comment**. Or hit **Request changes** / **Approve** on the plan or spec.",
+      "x": 330,
+      "y": 0
+    },
+    {
+      "id": "append",
+      "label": "3 · FB-004 appended",
+      "kind": "file",
+      "region": "disk",
+      "detail": "```\n### FB-004 · open · comment\n- **Target:** plan › Phase 2 › Port reuse\n- **When:** 2026-10-07 14:02\n\nCan we pick a random free port instead?\n```",
+      "x": 330,
+      "y": 210
+    },
+    {
+      "id": "nudge",
+      "label": "4 · Agent notices",
+      "kind": "agent",
+      "region": "agent",
+      "detail": "Either you say *“check feedback”*, or the skill checks `feedback.md` at fixed points: before approval questions, at every phase checkpoint, and at review time.",
+      "x": 330,
+      "y": 420
+    },
+    {
+      "id": "act",
+      "label": "5 · Agent acts",
+      "kind": "process",
+      "region": "agent",
+      "detail": "Edits `spec.md` / `plan.md` as needed — the normal Conductor rules still apply (tech-stack changes documented first, etc.).",
+      "x": -330,
+      "y": 420
+    },
+    {
+      "id": "resolve",
+      "label": "6 · Reply & resolve",
+      "kind": "file",
+      "region": "disk",
+      "detail": "Flips the heading to `resolved` and adds a `> **Agent:**` reply line under the item.",
+      "x": -330,
+      "y": 210
+    },
+    {
+      "id": "see",
+      "label": "7 · Page updates",
+      "kind": "ui",
+      "region": "browser",
+      "detail": "Within ~2 s the plan shows the change and the feedback item shows the reply. Loop closed.",
+      "x": -330,
+      "y": 0
+    }
+  ],
+  "edges": [
+    {
+      "from": "read",
+      "to": "comment"
+    },
+    {
+      "from": "comment",
+      "to": "append",
+      "label": "POST /api/feedback"
+    },
+    {
+      "from": "append",
+      "to": "nudge",
+      "label": "file on disk"
+    },
+    {
+      "from": "nudge",
+      "to": "act"
+    },
+    {
+      "from": "act",
+      "to": "resolve"
+    },
+    {
+      "from": "resolve",
+      "to": "see",
+      "label": "/api/version changed"
+    },
+    {
+      "from": "see",
+      "to": "read",
+      "style": "dashed",
+      "label": "next round"
+    }
+  ],
+  "tour": [
+    "read",
+    "comment",
+    "append",
+    "nudge",
+    "act",
+    "resolve",
+    "see"
+  ]
+}

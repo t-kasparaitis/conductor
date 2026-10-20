@@ -66,6 +66,10 @@ or `.agents/skills/` directory instead of the home directory.
     in the loop.
 -   **Build on existing projects**: Intelligent initialization for both new
     (Greenfield) and existing (Brownfield) projects.
+-   **Your repo's workflow**: trunk-based or feature branches, when to commit,
+    push and test — chosen once at setup, switchable any time.
+-   **See it in a browser** (optional): a local, live view of every track with
+    a feedback box and pannable diagrams for hard ideas.
 
 --------------------------------------------------------------------------------
 
@@ -84,10 +88,12 @@ afterward:
 -   **Product guidelines**: prose style, brand messaging, visual identity
 -   **Tech stack**: language, database, frameworks
 -   **Workflow**: team preferences (TDD, commit strategy)
+-   **Workflow settings**: how this repo branches, commits, pushes and tests
+    (see [Workflow settings](#workflow-settings))
 
 Generated artifacts: `conductor/product.md`, `conductor/product-guidelines.md`,
 `conductor/tech-stack.md`, `conductor/workflow.md`,
-`conductor/code_styleguides/`, `conductor/tracks.md`
+`conductor/code_styleguides/`, `conductor/settings.json`, `conductor/tracks.md`
 
 ### 2. Start a New Track (Feature or Bug)
 
@@ -122,6 +128,106 @@ Command              | Description
     abandon the branch (cherry-picking anything worth keeping) or reset to a
     known-good commit — and start the task fresh.
 
+### Workflow settings
+
+`conductor/settings.json` records how this repository works. Setup asks one
+question per setting (on an existing repo it suggests a branching strategy
+from the git history), every skill re-reads the file before it plans,
+commits, pushes or verifies, and you can change it later by hand, by asking,
+or in the viewer.
+
+Setting | Options (default first)
+:------ | :----------------------
+Branching | **Current branch** (upstream behaviour) · **Feature branch + merge** · **Trunk-based** (short-lived branch, rebased on `origin/main`, `push --force-with-lease --force-if-includes` on that branch only)
+Commits | per task · per phase · per track
+Pushing | ask first · after each phase · at track end
+Git notes | on · off
+Writing tests | test-first (TDD) · with each task · after implementation
+Verification | after every phase · once, at track end
+
+Whatever the settings, the agent never force-pushes or merges into `main`:
+when a track is verified it stops at "branch ready" and shows you the
+commands. Without a `settings.json`, Conductor behaves exactly as upstream.
+
+**Main rules and exceptions.** Your **main rules** are your own defaults for
+every project on your machine, never committed. Setup offers to set them the
+first time (or keep the built-in defaults above), and you can change them any
+time on the viewer's settings page (the gear at the top right). A repo's
+`conductor/settings.json` then only holds its **exceptions**, the settings
+where it differs, and those are shared with everyone who works on that repo.
+For each setting the repo's value wins, then your main rule, then the
+default above. The settings page lists every project that deviates, with
+"Use main rule" and a Tidy button for repo files that repeat the main rules.
+
+### Visual companion (optional)
+
+`conductor-view` shows your Conductor project in a local web page: tracks,
+phases and tasks with live progress, the spec section by section, and
+**world-map diagrams** — pannable, zoomable canvases with a guided tour, for
+ideas too tangled for a list. Leave comments, request changes or approve a
+spec or plan right on the page; they're saved to the track's `feedback.md`,
+and the agent answers there.
+
+Ask your agent to "open the conductor view", or run it yourself:
+
+```bash
+python3 skills/conductor-view/scripts/serve.py --root /path/to/project --open
+# Windows: py -3 skills\conductor-view\scripts\serve.py --root C:\path\to\project --open
+```
+
+**One page for all your projects.** <http://127.0.0.1:4177/> is a home page
+listing every Conductor project you've registered and its tracks: what's
+being worked on now (and which task), what's open, done and archived, each
+with its progress, review state, open comments and git state (uncommitted,
+not pushed, pushed, landed). Each project is a card, its tracks grouped by
+status in aligned columns. Toggle which statuses show (archived is off by
+default), filter by project or git state, and sort by activity, progress or
+name.
+
+-   **Feedback is a conversation.** Each comment shows the agent's replies
+    under it, with times. The agent can answer, finish it, or ask you
+    something back ("Needs your answer"); reply right there, and the item
+    goes back to the agent.
+-   **Sidebar.** Lists every unfinished track (in progress or open), grouped by
+    project. Once a track is done or archived it leaves the sidebar; the
+    home page still has it.
+
+-   **Registering projects.** Starting the viewer in a project registers it;
+    starting it in a second project adds that one to the viewer already
+    running instead of opening another. On the home page, **Find projects**
+    searches folders you choose for Conductor projects, and **Add by path**
+    adds one. From a terminal: `serve.py --add <path>`, `--forget <id>`,
+    `--list`. The list lives in your user config folder
+    (`~/.config/conductor-view/`, `~/Library/Application Support/conductor-view/`
+    or `%APPDATA%\conductor-view\`), never in a repo.
+-   **Archive, restore, delete.** Each track has these on the home page. The
+    viewer only files the request in the track's `feedback.md`; your agent
+    does the move or delete and commits it. The confirm dialog checks git
+    first and names anything a delete would lose (uncommitted files, commits
+    that exist only on your machine), and the agent asks once more before
+    deleting.
+-   **Port.** 4177 by default. To change it: `--port 5000`, the
+    `CONDUCTOR_VIEW_PORT` environment variable, or save a port on the
+    settings page (used from the next start). That is also the order of
+    priority.
+
+-   **Local only.** It binds to `127.0.0.1`, uses Python's standard library
+    (3.9+), loads nothing from the internet, and in your projects writes only
+    feedback items and workflow settings. Git is only read.
+-   **Agent-agnostic.** Files are the interface: agents write Markdown and
+    JSON, the page reads them. It works the same with Claude Code, Codex CLI
+    or anything else that can edit files.
+-   **No Python?** Open `skills/conductor-view/assets/viewer/index.html` in
+    your browser and pick the project folder: a read-only view, with comments
+    copied for you to paste to the agent.
+-   **Share a snapshot:** `serve.py --export view.html` writes one self-contained
+    read-only file.
+-   **Browsers:** Chrome is the preferred browser and Firefox the second
+    choice; both are tested on Linux, macOS and Windows. Others (Edge, Safari
+    and the rest) are untested; they may well work, but no promises. File
+    formats are in
+    [`references/file-contract.md`](skills/conductor-view/references/file-contract.md).
+
 > **Note on token consumption:** the spec-driven approach reads and analyzes
 > your project's context, specs, and plans, which increases token usage —
 > especially in larger projects.
@@ -145,10 +251,26 @@ to run them as plain Agent Skills:
     handled with plain git: abandon the branch (cherry-picking what's worth
     keeping) or reset to a known-good commit, then restart the task.
 -   Inlined `scripts/resume.py` into the setup skill as plain instructions —
-    the repo is now pure markdown with no runtime dependencies.
+    the core skills are pure Markdown with no runtime dependencies.
 -   Removed Google's `CONTRIBUTING.md`/CLA and `VERSION`.
 -   Added `link.sh` (Linux/macOS) and `link.ps1` (Windows junctions) and
     rewrote this README for agent-agnostic use.
+
+And adds:
+
+-   **Workflow settings** (`conductor/settings.json`): branching strategy,
+    commit and push cadence, git notes, and when tests are written and run,
+    asked at setup and followed by every skill. A new "Current branch"
+    default keeps upstream behaviour for projects without the file.
+-   **Track Verification**: with verification at track end, phases run
+    straight through and one final phase tries the work with you.
+-   **`conductor-view`**, the optional visual companion above — the only part
+    with code, all Python standard library and plain browser JavaScript —
+    with a home page across all your projects.
+-   **Main rules and exceptions** for workflow settings across repos.
+-   **Tests** (`python3 -m unittest discover -s tests`), including real-browser
+    tests in Chrome and Firefox through small standard-library drivers, run in
+    CI on Linux, macOS and Windows.
 
 --------------------------------------------------------------------------------
 

@@ -2,7 +2,7 @@
 name: conductor-implement
 description: Executes the tasks defined in the specified track's plan. Use this to start or continue working on a feature, bug fix, or chore.
 metadata:
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Conductor Implement Skill
@@ -34,6 +34,7 @@ Before starting the implementation process, you MUST locate and read the project
     -   **Product Definition** (`product.md`)
     -   **Tech Stack** (`tech-stack.md`)
     -   **Workflow** (`workflow.md`)
+    -   **Workflow Settings** (`settings.json`, optional): read `conductor/settings.json` if it exists, whether or not the index links it: it holds this repo's exceptions. For any key it doesn't set, use the user's main rules (`settings.json` in the Conductor viewer's config folder; the **Workflow**'s Workflow Settings section lists the paths) if you can read them, else the default listed there.
     -   **Health Check:** You MUST verify that every linked file actually exists. If ANY of these core files are missing, HALT immediately. Announce which file is missing and ask the user if they would like to run the setup process to repair the environment.
 
 ---
@@ -65,13 +66,17 @@ Adhere to this sequence to identify and select the track to be implemented.
 
 Adhere to this sequence to execute the selected track.
 
-1.  **Announce Action:** Announce which track you are beginning to implement.
+1.  **Announce Action:** Announce which track you are beginning to implement, and the workflow settings in effect in one line (e.g. "trunk, commit per task, push: ask, tests with each task, verification at track end").
 
-2.  **Update Status to 'In Progress':**
-    -   Before beginning any work, update the status of the selected track to `[~]` in the **Tracks Registry** file.
-    -   Stage the file and commit: `chore(conductor): Mark track '<track_description>' as in progress`.
+2.  **Get on the Track Branch (`git.strategy`):**
+    -   `current`: stay on the current branch.
+    -   `trunk` / `feature-branch`: if a branch named `<track_id>` exists, switch to it (with `trunk`, then rebase it onto `origin/main` as the Workflow says). If it doesn't, create it with the **Start** commands in the Workflow's "Branching, Pushing and Landing" section. Never do the track's work on `main`.
 
-3.  **Load Track Context:**
+3.  **Update Status to 'In Progress':**
+    -   Before beginning any work, update the status of the selected track to `[~]` in the **Tracks Registry** file, and set `"status": "in_progress"` (and `updated_at`) in the track's `metadata.json`.
+    -   Stage both files and commit: `chore(conductor): Mark track '<track_description>' as in progress`.
+
+4.  **Load Track Context:**
     -   Identify the track folder from the tracks file to get the `<track_id>`.
     -   Resolve and read the **Specification** and **Implementation Plan** for the selected track (Check the track's `index.md` for links, or use default paths).
     -   Resolve and read the **Workflow** document (Check `conductor/index.md` for the link, or use default path).
@@ -79,14 +84,21 @@ Adhere to this sequence to execute the selected track.
     -   Check for installed skills in `.agents/skills/` and `~/.agents/extensions/conductor/skills/`.
     -   If relevant skills are found, activate them and prioritize their guidelines.
 
-4.  **Execute Tasks and Update Track Plan:**
+5.  **Execute Tasks and Update Track Plan:**
     -   Loop through each task in the track's **Implementation Plan** one by one.
-    -   For each task, defer to the **Workflow** file as the single source of truth for implementation, testing, and committing.
+    -   For each task, defer to the **Workflow** file as the single source of truth for implementation, testing, committing and pushing, applying the **Workflow Settings**.
+    -   **Visual companion (optional):** if the track has a `feedback.md` (written by the `conductor-view` skill's viewer), check it for `open` items before each task and handle them as that skill describes. A `revise` item means the plan or spec changes before you continue.
+    -   **Re-read `settings.json`** before every commit, push and verification step. The user can change it at any time (for example in the Conductor viewer); follow the new value from that point on and mention the change in chat.
+    -   **Phase ends:** follow the Workflow's "End of a Phase" steps. With `testing.verification = track` this means: run the suite, commit if `git.commit` is `phase`, rebase if `git.strategy` is `trunk`, push if `git.push` is `phase`, say in one line that the phase is done, and continue without waiting for the user.
+    -   **Pushing:** only as `git.push` says. With `ask`, push only when the user asks or agrees in chat; the Workflow asks once, after the track is verified. Never force-push `main` or a branch that wasn't created for this track.
     -   Ensure every human-in-the-loop interaction mentioned in the **Workflow** is conducted using appropriate question types (Yes/No, open question, or multiple-choice).
 
-5.  **Finalize Track:**
-    -   After all tasks are completed, update the track status to `[x]` in the **Tracks Registry**.
-    -   Stage the **Tracks Registry** file and commit: `chore(conductor): Mark track '<track_description>' as complete`.
+6.  **Finalize Track:**
+    -   With `testing.verification = track`, the final Track Verification phase (the Workflow's Track Verification protocol) must have ended with the user's explicit sign-off before you continue.
+    -   After all tasks are completed, update the track status to `[x]` in the **Tracks Registry** and set `"status": "completed"` in its `metadata.json`.
+    -   Stage both files and commit: `chore(conductor): Mark track '<track_description>' as complete`.
+    -   Push this last commit the same way the Track or Phase Verification protocol pushed (with `ask`, only if the user agreed there).
+    -   **Branch Ready:** with `trunk` or `feature-branch`, stop here. Never merge into or push to `main` yourself. Show the user the landing commands for their strategy from the Workflow (fast-forward / rebase-merge for `trunk`, PR or `merge --no-ff` for `feature-branch`).
     -   Announce that the track is fully complete.
 
 ---

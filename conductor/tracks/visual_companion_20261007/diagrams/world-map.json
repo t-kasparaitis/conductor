@@ -1,0 +1,36 @@
+{
+  "title": "Anatomy of a world map",
+  "summary": "What an agent writes, and what you get. Coordinates are optional — omit them and the viewer lays nodes out left to right.",
+  "regions": [
+    { "id": "json", "label": "diagrams/<slug>.json", "tone": "amber" },
+    { "id": "canvas", "label": "What you see", "tone": "teal" }
+  ],
+  "nodes": [
+    { "id": "nodes", "label": "nodes[]", "kind": "doc", "region": "json",
+      "detail": "`id`, `label`, `kind` (agent · person · file · process · ui · doc · store · external · note), `detail` (Markdown), optional `region`, `x`, `y`." },
+    { "id": "edges", "label": "edges[]", "kind": "doc", "region": "json",
+      "detail": "`from`, `to`, optional `label`, optional `style: \"dashed\"` for async or feedback paths." },
+    { "id": "regions", "label": "regions[]", "kind": "doc", "region": "json",
+      "detail": "Continents. `id`, `label`, `tone` (teal · amber · violet · rose · blue · green). Drawn around their member nodes." },
+    { "id": "tour", "label": "tour[]", "kind": "doc", "region": "json",
+      "detail": "Ordered node ids. The **Tour** button flies the camera stop by stop and opens each node's detail." },
+    { "id": "layout", "label": "Auto-layout", "kind": "process", "region": "canvas",
+      "detail": "Longest-path layering on the edge graph; back-edges ignored so cycles still lay out." },
+    { "id": "pan", "label": "Pan & zoom", "kind": "ui", "region": "canvas",
+      "detail": "Drag, arrows/WASD, wheel or pinch to zoom at the cursor, `F` to fit, `Esc` to close." },
+    { "id": "minimap", "label": "Minimap", "kind": "ui", "region": "canvas",
+      "detail": "Bottom-right. Shows the whole map and your viewport; click or drag to travel." },
+    { "id": "panel", "label": "Detail panel", "kind": "ui", "region": "canvas",
+      "detail": "Click a node: its Markdown detail and every connection. Click a connection to fly there." }
+  ],
+  "edges": [
+    { "from": "nodes", "to": "layout" },
+    { "from": "edges", "to": "layout" },
+    { "from": "regions", "to": "layout" },
+    { "from": "layout", "to": "pan" },
+    { "from": "pan", "to": "minimap", "label": "synced" },
+    { "from": "nodes", "to": "panel", "label": "detail" },
+    { "from": "tour", "to": "panel", "label": "drives" }
+  ],
+  "tour": ["nodes", "edges", "regions", "layout", "pan", "minimap", "tour", "panel"]
+}
