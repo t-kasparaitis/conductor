@@ -12,7 +12,7 @@
   let home = null, homeVersion = null, state = null, version = null, project = null;
   let current = null, tab = "plan", view = "home", settingsScope = "main";
   let prevStatuses = new Map();
-  const ui = { feedbackFilter: "open", focus: {} };
+  const ui = { feedbackFilter: "all", focus: {} };
   // Home filters live in the link; null means "no filter". Sort and hidden columns are per browser.
   const homeUi = { q: "", focus: null, layout: "table", filters: {}, openMenu: null };
   const tablePrefs = { sort: { key: "status", dir: 1 }, hidden: ["branch", "type", "reviews"] };
@@ -199,7 +199,7 @@
     return h1 || t.metadata.description || (t.registry && t.registry.description) || t.id;
   }
   function openFeedbackFor(t, target) {
-    return t.feedback.filter((f) => f.status === "open" && f.target === target).length;
+    return t.feedback.filter((f) => f.status !== "resolved" && f.target === target).length;
   }
   // An open change request wins; once the agent resolves it, the last approval (if any) shows again.
   function decision(t, what) {
@@ -209,6 +209,7 @@
   }
   // The browser can't message the agent; it only writes feedback.md. Say what unblocks it.
   function waiting(d) {
+    if (d.status === "waiting") return `<button class="chip warn wf" data-tab="feedback" title="Answer it on the Feedback tab">the agent asked you something · ${esc(d.id)}</button>`;
     return d.status === "open"
       ? `<span class="chip wait" title="The agent reads feedback.md when it next replies. Say anything in chat (for example “check feedback”) to make that happen now.">waiting for the agent · say “check feedback” in chat</span>`
       : "";
@@ -282,7 +283,7 @@
     const here = view === "track" && project === p.id && current === t.id;
     return `<a class="track-link" href="${trackHref(p.id, t.id)}" data-track="${esc(t.id)}" data-project="${esc(p.id)}" aria-current="${here}">
         <span class="ring" style="--p:${pct(t.done, t.total)}" data-label="${pct(t.done, t.total)}%"></span>
-        <span class="tl-text"><div class="t-name">${esc(t.title)}</div><div class="t-id"><span class="mono">${esc(t.id)}</span></div></span></a>`;
+        <span class="tl-text"><div class="t-name">${esc(t.title)}</div><div class="t-id">${t.waiting_feedback ? `<span class="side-needs">${t.waiting_feedback} need${t.waiting_feedback === 1 ? "s" : ""} you · </span>` : ""}<span class="mono">${esc(t.id)}</span></div></span></a>`;
   }
   // The open project comes first.
   function activeSection(first) {
@@ -359,7 +360,7 @@
       <div class="trow-chips">
         <span class="chip type">${esc(t.type)}</span>
         ${reviewChip(t.spec, "Spec")}${reviewChip(t.plan, "Plan")}
-        ${t.open_feedback ? `<a class="chip warn" href="${trackHref(p.id, t.id, "feedback")}" title="Open feedback">${commentIcon}${t.open_feedback}</a>` : ""}
+        ${needsYouChip(p.id, t)}${t.open_feedback ? `<a class="chip warn" href="${trackHref(p.id, t.id, "feedback")}" title="Open feedback">${commentIcon}${t.open_feedback}</a>` : ""}
         ${safetyChip(g)}
         ${g && g.branch ? `<span class="chip mono" title="The track's branch">⎇ ${esc(g.branch)}</span>` : ""}
         ${g && g.last_activity ? `<span class="muted small" title="${esc(new Date(g.last_activity * 1000).toLocaleString())}">${esc(ago(g.last_activity))}</span>` : ""}
@@ -374,6 +375,8 @@
     restore: { verb: "Restore", done: "Restore requested" },
     delete: { verb: "Delete", done: "Delete requested" },
   };
+  const replyIcon = '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M10 6 4 12l6 6M4.5 12H15a5 5 0 0 1 5 5v1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const needsYouChip = (pid, t) => (t.waiting_feedback ? `<a class="chip warn needs-you" href="${trackHref(pid, t.id, "feedback")}" title="The agent asked you something">${replyIcon}${t.waiting_feedback} need${t.waiting_feedback === 1 ? "s" : ""} you</a>` : "");
   function requestChips(pid, t) {
     return (t.requests || []).map((r) => `<span class="chip wait req" title="The agent acts on it the next time it reads feedback. Say “check feedback” in chat.">${esc(REQ[r.kind].done)} · waiting for the agent</span>
       ${SNAPSHOT || LOCAL ? "" : `<button class="link-btn" data-withdraw="${esc(r.id)}" data-project="${esc(pid)}" data-track="${esc(t.id)}">Withdraw</button>`}`).join("");
@@ -452,8 +455,8 @@
     { key: "progress", label: "Progress", desc: true, sort: (t) => (t.total ? t.done / t.total : -1),
       cell: (p, t) => `<div class="tt-progress">${phaseBar(t)}<span class="mono small muted">${t.done}/${t.total}</span></div>` },
     { key: "reviews", label: "Spec / plan", sort: reviewScore, cell: (p, t) => `<span class="tt-chips">${reviewChip(t.spec, "Spec")}${reviewChip(t.plan, "Plan")}</span>` },
-    { key: "feedback", label: "Feedback", desc: true, sort: (t) => t.open_feedback + (t.requests || []).length,
-      cell: (p, t) => `<span class="tt-chips">${t.open_feedback ? `<a class="chip warn" href="${trackHref(p.id, t.id, "feedback")}" title="Open feedback">${commentIcon}${t.open_feedback}</a>` : `<span class="muted small">—</span>`}${requestChips(p.id, t)}</span>` },
+    { key: "feedback", label: "Feedback", desc: true, sort: (t) => 100 * (t.waiting_feedback || 0) + t.open_feedback + (t.requests || []).length,
+      cell: (p, t) => `<span class="tt-chips">${needsYouChip(p.id, t)}${t.open_feedback ? `<a class="chip" href="${trackHref(p.id, t.id, "feedback")}" title="Open feedback, with the agent">${commentIcon}${t.open_feedback}</a>` : t.waiting_feedback ? "" : `<span class="muted small">—</span>`}${requestChips(p.id, t)}</span>` },
     { key: "git", label: "Git", sort: (t) => SAFETY_ORDER[safetyOf(t)], filter: safetyOf, name: (v) => SAFETY_NAME[v] || v,
       values: Object.keys(SAFETY_ORDER), cell: (p, t) => safetyChip(t.git) || `<span class="muted small">—</span>` },
     { key: "branch", label: "Branch", sort: (t) => (t.git && t.git.branch) || "~",
@@ -625,6 +628,7 @@
     const { done, total, tasks } = trackTotals(t);
     const status = (t.registry && t.registry.status) || t.metadata.status || "new";
     const openFb = t.feedback.filter((f) => f.status === "open").length;
+    const needYou = t.feedback.filter((f) => f.status === "waiting").length;
     const dSpec = decision(t, "spec"), dPlan = decision(t, "plan");
     const badge = (d, what) => !d ? "" : d.kind === "approve"
       ? `<span class="chip ok">✓ ${what} approved</span>${waiting(d)}`
@@ -636,8 +640,8 @@
       ["plan", "Plan", `${done}/${total}`],
       ["spec", "Spec", ""],
       ["diagrams", "Diagrams", t.diagrams.length],
-      ["feedback", "Feedback", openFb ? `${openFb} open` : t.feedback.length || ""],
-    ].map(([id, label, count]) => `<button class="tab" role="tab" data-tab="${id}" aria-selected="${tab === id}">${label}${count !== "" ? `<span class="count${id === "feedback" && openFb ? " hot" : ""}">${count}</span>` : ""}</button>`).join("");
+      ["feedback", "Feedback", needYou ? `${needYou} need${needYou === 1 ? "s" : ""} you` : openFb ? `${openFb} open` : t.feedback.length || ""],
+    ].map(([id, label, count]) => `<button class="tab" role="tab" data-tab="${id}" aria-selected="${tab === id}">${label}${count !== "" ? `<span class="count${id === "feedback" && (openFb || needYou) ? " hot" : ""}">${count}</span>` : ""}</button>`).join("");
 
     let body = "";
     const sections = tab === "spec" ? specSections(t.spec) : [];
@@ -822,23 +826,41 @@
     }).join("") + `</div>`;
   }
 
+  // Each item is a conversation: the user's comment, then the agent's and the user's replies in order.
+  const FB_STATE = {
+    waiting: ["warn", "Needs your answer", "The agent asked you something. Reply below."],
+    open: ["wait", "With the agent", "The agent reads it the next time it replies. Say “check feedback” in chat to make that happen now."],
+    resolved: ["ok", "Resolved", ""],
+  };
+  const FB_KIND = { comment: "commented", revise: "requested changes", approve: "approved", archive: "asked to archive", restore: "asked to restore", delete: "asked to delete" };
+  function fbMessage(who, when, text, ctx, extra = "") {
+    const name = { you: "You", agent: "Agent", note: "Note" }[who];
+    return `<li class="fb-msg ${who}"><div class="fb-meta"><strong>${name}</strong>${extra}${when ? ` <span class="fb-when">${esc(when)}</span>` : ""}</div>
+      <div class="md">${md(text, ctx)}</div></li>`;
+  }
   function renderFeedback(t, ctx) {
-    const all = t.feedback.slice().reverse();
-    const items = ui.feedbackFilter === "open" ? all.filter((f) => f.status === "open") : all;
-    const toolbar = `<div class="fb-toolbar">
-      <button class="btn${ui.feedbackFilter === "open" ? " primary" : ""}" data-fbfilter="open">Open · ${all.filter((f) => f.status === "open").length}</button>
-      <button class="btn${ui.feedbackFilter === "all" ? " primary" : ""}" data-fbfilter="all">All · ${all.length}</button>
-      <span class="muted small" style="margin-left:auto">conductor/tracks/${esc(t.id)}/feedback.md</span></div>`;
-    if (!items.length) return toolbar + `<div class="empty"><strong>${all.length ? "Nothing open" : "No feedback yet"}</strong>Hover any phase, task or spec section and hit <em>Comment</em>. Then tell your agent “check feedback”.</div>`;
-    return toolbar + items.map((f) => `<article class="fb-item ${f.status}">
-      <div class="fb-head"><span class="fb-id">${esc(f.id)}</span>
-        <span class="chip ${f.status === "open" ? "warn" : "ok"}">${esc(f.status)}</span>
-        <span class="chip">${esc(f.kind)}</span>
-        <span class="fb-target">${esc(f.target)}</span>
-        <span class="fb-when">${esc(f.when)}</span></div>
-      <div class="md">${md(f.body, ctx)}</div>
-      ${f.reply ? `<div class="fb-reply"><div class="fb-reply-label">Agent</div><div class="md">${md(f.reply.replace(/^\*\*Agent:\*\*\s*/, ""), ctx)}</div></div>` : ""}
-    </article>`).join("");
+    const count = (st) => t.feedback.filter((f) => f.status === st).length;
+    // Newest first, but anything waiting on the user goes on top.
+    const all = t.feedback.slice().reverse().sort((a, b) => (b.status === "waiting") - (a.status === "waiting"));
+    const shown = ui.feedbackFilter === "all" ? all : all.filter((f) => f.status === ui.feedbackFilter);
+    const filters = [["all", "All", all.length], ["waiting", "Needs you", count("waiting")], ["open", "With the agent", count("open")], ["resolved", "Resolved", count("resolved")]];
+    const toolbar = `<div class="fb-toolbar" role="group" aria-label="Show feedback">
+      ${filters.map(([k, l, n]) => `<button class="fchip" data-fbfilter="${k}" aria-pressed="${ui.feedbackFilter === k}">${l} <span class="count">${n}</span></button>`).join("")}
+      <span class="muted small fb-file">conductor/tracks/${esc(t.id)}/feedback.md</span></div>`;
+    if (!shown.length) return toolbar + `<div class="empty"><strong>${all.length ? "Nothing here" : "No feedback yet"}</strong>Hover any phase, task or spec section and hit <em>Comment</em>. Then tell your agent “check feedback”.</div>`;
+    return toolbar + shown.map((f) => {
+      const [cls, label, hint] = FB_STATE[f.status] || FB_STATE.open;
+      const first = fbMessage("you", f.when, f.body === "_(no message)_" ? "" : f.body, ctx, ` <span class="muted small">${esc(FB_KIND[f.kind] || f.kind)}</span>`);
+      const rest = (f.thread || []).map((e) => fbMessage(e.who, e.when, e.text.replace(/^\*\*Agent:\*\*\s*/, ""), ctx)).join("");
+      const canReply = !readOnly && !SNAPSHOT;
+      return `<article class="fb-item ${esc(f.status)}" id="fb-${esc(f.id)}">
+        <div class="fb-head"><span class="fb-id">${esc(f.id)}</span><span class="chip ${cls}">${label}</span>
+          <span class="fb-target">${esc(f.target)}</span></div>
+        <ol class="fb-thread">${first}${rest}</ol>
+        ${canReply || hint ? `<div class="fb-foot">${hint ? `<span class="muted small">${hint}</span>` : ""}
+          ${canReply ? `<button class="btn${f.status === "waiting" ? " primary" : ""}" data-reply="${esc(f.id)}">${f.status === "resolved" ? "Reply (reopens it)" : "Reply"}</button>` : ""}</div>` : ""}
+      </article>`;
+    }).join("");
   }
 
   function highlightChanges(t) {
@@ -856,15 +878,15 @@
   /* ---------------- feedback composer ---------------- */
 
   let pending = null;
-  function compose(kind, target) {
-    pending = { kind, target };
-    const titles = { comment: "Comment", revise: "Request changes", approve: "Approve" };
+  function compose(kind, target, id) {
+    pending = { kind, target, id };
+    const titles = { comment: "Comment", revise: "Request changes", approve: "Approve", reply: `Reply to ${id}` };
     $("#composer-kind").textContent = titles[kind];
     $("#composer-target").textContent = target;
     $("#composer-file").textContent = LOCAL ? "your clipboard, to paste to your agent" : `${(projectById(project) || {}).name || ""}/conductor/tracks/${current}/feedback.md`;
     $("#composer-send").textContent = LOCAL ? "Copy" : "Send";
     $("#composer-text").value = "";
-    $("#composer-text").placeholder = kind === "approve" ? "Optional note for the agent…" : "What should the agent change, clarify or consider?";
+    $("#composer-text").placeholder = kind === "approve" ? "Optional note for the agent…" : kind === "reply" ? "Your answer, or what's still not right…" : "What should the agent change, clarify or consider?";
     $("#composer").showModal();
     $("#composer-text").focus();
   }
@@ -872,8 +894,16 @@
   async function send() {
     const text = $("#composer-text").value.trim();
     if (pending.kind !== "approve" && !text) { $("#composer-text").focus(); return; }
-    if (LOCAL) return copyForChat(window.ConductorLocal.feedbackForChat(current, pending.kind, pending.target, text));
+    if (LOCAL) return copyForChat(pending.kind === "reply" ? `Reply to ${pending.id} on track ${current}:\n\n${text}`
+      : window.ConductorLocal.feedbackForChat(current, pending.kind, pending.target, text));
     try {
+      if (pending.kind === "reply") {
+        await postJSON("api/feedback/reply", { project, track: current, id: pending.id, text });
+        $("#composer").close();
+        toast(`Replied on ${pending.id}. Tell your agent “check feedback”.`);
+        await loadProject(); render(true);
+        return;
+      }
       const j = await postJSON("api/feedback", { project, track: current, kind: pending.kind, target: pending.target, text });
       $("#composer").close();
       toast(`Saved ${j.id} to feedback.md — tell your agent “check feedback”.`);
@@ -1372,12 +1402,16 @@
   });
   document.addEventListener("click", (ev) => {
     if (homeUi.openMenu && !ev.target.closest(".th-filter")) closeMenus();
-    const el = ev.target.closest("[data-view],[data-setting],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter],[data-status],[data-forget],[data-restore],[data-dismiss],[data-dialog],[data-find],[data-close],[data-reset],[data-tidy],[data-follow],[data-port-clear],[data-request],[data-withdraw],[data-sort],[data-layout],[data-filter-set],[data-clear-filters]");
+    const el = ev.target.closest("[data-view],[data-setting],[data-tab],[data-diagram],[data-comment],[data-decide],[data-goto-phase],[data-goto-task],[data-focus],[data-show-all],[data-fbfilter],[data-status],[data-forget],[data-restore],[data-dismiss],[data-dialog],[data-find],[data-close],[data-reset],[data-tidy],[data-follow],[data-port-clear],[data-request],[data-withdraw],[data-reply],[data-sort],[data-layout],[data-filter-set],[data-clear-filters]");
     if (!el) return;
     if (el.dataset.dialog) return el.dataset.dialog === "find" ? findDialog(null) : addDialog();
     if ("find" in el.dataset) return runFind();
     if ("close" in el.dataset) return $("#dlg").close();
     if (el.dataset.request) return requestDialog(el.dataset.request, el.dataset.project, el.dataset.track);
+    if (el.dataset.reply) {
+      const t = state && state.tracks.find((x) => x.id === current), f = t && t.feedback.find((x) => x.id === el.dataset.reply);
+      return compose("reply", f ? f.target : "", el.dataset.reply);
+    }
     if (el.dataset.withdraw) return withdraw(el.dataset.project, el.dataset.track, el.dataset.withdraw);
     if (el.dataset.view) { view = el.dataset.view; settingsScope = project ? "project" : "main"; writeHash(); render(); window.scrollTo(0, 0); }
     else if (el.dataset.setting) { if (el.getAttribute("aria-checked") !== "true") saveSetting(el.dataset.setting, el.dataset.value, el.dataset.scope || "project"); }

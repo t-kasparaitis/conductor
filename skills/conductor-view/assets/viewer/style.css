@@ -596,3 +596,23 @@ main.wide { max-width: 1640px; }
 .tt-proj { max-width: 140px; }
 .tt-progress { min-width: 110px; }
 main.wide { padding-left: clamp(16px, 2.2vw, 28px); padding-right: clamp(16px, 2.2vw, 28px); }
+
+/* ---------- feedback as a conversation ---------- */
+.fb-toolbar { flex-wrap: wrap; }
+.fb-file { margin-left: auto; }
+.fb-item.resolved { opacity: 1; }
+.fb-item.waiting { border-color: color-mix(in srgb, var(--prog) 55%, transparent); box-shadow: inset 3px 0 0 var(--prog); }
+.fb-thread { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.fb-msg { padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-2); }
+.fb-msg.agent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 25%, transparent); margin-left: 24px; }
+.fb-msg.you + .fb-msg.you, .fb-msg.agent + .fb-msg.you { margin-left: 0; }
+.fb-msg.note { border-style: dashed; background: transparent; }
+.fb-meta { font-size: 12px; color: var(--text-2); margin-bottom: 2px; display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.fb-meta .fb-when { margin-left: auto; }
+.fb-msg.agent .fb-meta strong { color: var(--accent); }
+.fb-msg .md p:last-child { margin-bottom: 0; }
+.fb-msg .md p:first-child { margin-top: 0; }
+.fb-foot { display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; margin-top: 10px; }
+.fb-foot .muted { margin-right: auto; }
+@media (max-width: 640px) { .fb-msg.agent { margin-left: 10px; } }
+.side-needs { color: var(--prog); font-family: var(--sans); font-weight: 600; }
