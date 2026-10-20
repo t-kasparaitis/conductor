@@ -57,3 +57,4 @@
 - [x] Task: Home page as a table: one row per track across projects; sortable columns; Excel-style filters on Project, Status, Type and Git; show/hide columns; filters in the URL, sort and columns remembered in the browser; Cards kept as a second view, with browser tests 83b82d4
 - [x] Task: Each track once in the sidebar: pinned tracks only under Pinned, the project's list holds the rest (FB-007), with browser tests d1880f8
 - [x] Task: Remove pinning (user decision after trying it): no pins.json, /api/pins or ☆; the sidebar lists unfinished tracks (Now, Open) grouped by project, the open project first; done and archived tracks only in the home table, with browser tests e56c4bf
+- [ ] Task: Archive/delete buttons always visible; no status badges in the sidebar (the % ring says enough); "Now" renamed "In progress" in the table, chips and cards, with browser tests

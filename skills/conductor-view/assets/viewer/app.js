@@ -272,17 +272,17 @@
     return home.projects.slice().sort((a, b) => (b.active - a.active) || (projectActivity(b) - projectActivity(a)) || a.name.localeCompare(b.name));
   }
 
-  // The sidebar lists unfinished tracks (Now, Open), grouped by project. Done and
+  // The sidebar lists unfinished tracks (in progress or open), grouped by project. Done and
   // archived ones drop off; the home page table still has them.
   const ACTIVE = new Set(["now", "open"]);
-  const GROUP_LABEL = { now: "Now", open: "Open", done: "Done", archived: "Archived" };
+  const GROUP_LABEL = { now: "In progress", open: "Open", done: "Done", archived: "Archived" };
   const groupBadge = (g) => `<span class="gbadge g-${g}">${GROUP_LABEL[g] || g}</span>`;
 
   function sideTrack(p, t) {
     const here = view === "track" && project === p.id && current === t.id;
     return `<a class="track-link" href="${trackHref(p.id, t.id)}" data-track="${esc(t.id)}" data-project="${esc(p.id)}" aria-current="${here}">
         <span class="ring" style="--p:${pct(t.done, t.total)}" data-label="${pct(t.done, t.total)}%"></span>
-        <span class="tl-text"><div class="t-name">${esc(t.title)}</div><div class="t-id">${groupBadge(t.group)} <span class="mono">${esc(t.id)}</span></div></span></a>`;
+        <span class="tl-text"><div class="t-name">${esc(t.title)}</div><div class="t-id"><span class="mono">${esc(t.id)}</span></div></span></a>`;
   }
   // The open project comes first.
   function activeSection(first) {
@@ -309,7 +309,7 @@
         const now = p.tracks.filter((t) => t.group === "now").length;
         return `<a class="track-link" href="${projectHref(p.id)}" data-project-link="${esc(p.id)}" aria-current="${view === "home" && homeUi.focus === p.id}">
           <span class="ring" style="--p:${pct(done, total)}" data-label="${pct(done, total)}%"></span>
-          <span><div class="t-name">${esc(p.name)}</div><div class="t-id">${p.missing ? "not found" : `${live.length} track${live.length === 1 ? "" : "s"}${now ? ` · ${now} now` : ""}`}</div></span></a>`;
+          <span><div class="t-name">${esc(p.name)}</div><div class="t-id">${p.missing ? "not found" : `${live.length} track${live.length === 1 ? "" : "s"}${now ? ` · ${now} in progress` : ""}`}</div></span></a>`;
       }).join("") + `</details>`;
       return;
     }
@@ -325,7 +325,7 @@
 
   /* ---------------- home page ---------------- */
 
-  const GROUPS = [["now", "Now"], ["open", "Open"], ["done", "Done"], ["archived", "Archived"]];
+  const GROUPS = [["now", "In progress"], ["open", "Open"], ["done", "Done"], ["archived", "Archived"]];
   const SAFETY = {
     uncommitted: ["warn", (g) => `● ${g.uncommitted} uncommitted`, "Files in this track have changes that aren't committed. Deleting it would lose them."],
     unpushed: ["warn", (g) => `↑ ${g.unpushed} not pushed`, "Commits for this track exist only on this machine."],

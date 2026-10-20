@@ -496,8 +496,7 @@ details.tgroup[open] summary h3::before { content: "▾ "; }
 .port-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
 .port-input { width: 120px; }
 .trow.g-now .trow-sub, .fchip[aria-pressed="true"] .count { color: var(--text-2); }
-.row-actions { margin-left: auto; display: inline-flex; gap: 2px; opacity: 0; }
-.trow:hover .row-actions, .row-actions:focus-within { opacity: 1; }
+.row-actions { margin-left: auto; display: inline-flex; gap: 2px; }
 .link-btn.danger, .btn.danger { color: var(--danger); }
 .btn.primary.danger { background: var(--danger); border-color: var(--danger); color: var(--accent-ink); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -506,7 +505,6 @@ details.tgroup[open] summary h3::before { content: "▾ "; }
 .gitcheck ul { margin: 4px 0 0; padding-left: 18px; }
 .gitcheck ul ul { max-height: 120px; overflow: auto; }
 .gitcheck { margin: 0; }
-@media (max-width: 760px) { .row-actions { opacity: 1; } }
 .project { min-width: 0; flex: 0 1 auto; }
 .switch select { max-width: 100%; }
 @media (max-width: 760px) {
@@ -563,7 +561,6 @@ details.tgroup[open] summary h3::before { content: "▾ "; }
 .tt-progress { display: flex; align-items: center; gap: 8px; min-width: 140px; }
 .tt-progress .pbar { flex: 1 1 auto; }
 .tt-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.tracks-table tr:hover .row-actions, .tracks-table tr:focus-within .row-actions { opacity: 1; }
 .th { display: flex; align-items: center; gap: 2px; }
 .th-sort { border: 0; background: none; padding: 3px 4px; cursor: pointer; color: inherit; font: inherit; display: inline-flex; gap: 4px; align-items: center; border-radius: 6px; }
 .th-sort:hover { color: var(--text); background: var(--panel); }

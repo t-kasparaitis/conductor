@@ -182,7 +182,7 @@ not pushed, pushed, landed). It's a table with one row per track: sort by any
 column, filter Project, Status, Type and Git spreadsheet-style, and choose
 which columns to show. A Cards layout groups the same tracks by project.
 
--   **Sidebar.** Lists every unfinished track (Now, Open), grouped by
+-   **Sidebar.** Lists every unfinished track (in progress or open), grouped by
     project. Once a track is done or archived it leaves the sidebar; the
     table still has it.
 

@@ -144,7 +144,8 @@ class HomeBrowserTest(HomeFixture):
         self.assertEqual(sorted(self.js(self.SIDE)), sorted([f"{self.alpha}/now_1", f"{self.alpha}/open_1", f"{self.alpha}/shared_1",
                                                              "beta/b_only", "beta/shared_1"]))  # not done_1 or old_1
         self.assertEqual(self.js(self.SIDE)[0], f"{self.alpha}/now_1")  # Now first
-        self.assertEqual(self.js(f"document.querySelector('#sidebar [data-track=now_1] .gbadge').textContent"), "Now")
+        self.assertEqual(self.js("document.querySelectorAll('#sidebar .gbadge').length"), 0)  # % ring says enough
+        self.assertEqual(self.js("document.querySelector('.fchip[data-status=now]').firstChild.textContent.trim()"), "In progress")
         self.assertEqual(len(self.js("[...document.querySelectorAll('#sidebar .side-proj')]")), 2)
         self.assertEqual(self.js("document.querySelectorAll('.pin-btn, [data-pin]').length"), 0)
 
@@ -312,6 +313,8 @@ class HomeTableTest(HomeFixture):
 
     def test_row_actions_open_the_request_dialog(self):
         self.open(ready="document.querySelector('.tracks-table')")
+        row = f'tr[data-row="{self.alpha}/open_1"] .row-actions'
+        self.assertEqual(self.js(f"getComputedStyle(document.querySelector('{row}')).opacity"), "1")  # always visible
         self.b.click(f'tr[data-row="{self.alpha}/open_1"] [data-request=archive]')
         self.b.wait("document.querySelector('#dlg').open")
         self.assertIn("Archive", self.js("document.querySelector('#dlg-title').textContent"))
