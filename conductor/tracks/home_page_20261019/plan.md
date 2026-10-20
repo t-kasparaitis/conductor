@@ -71,3 +71,4 @@
 - [x] Task: Track overview as numbers (user request): one neutral button per phase with its number (✓ when done) and tasks done as X/Y, names shown for up to five phases; the per-task coloured segments removed, with browser tests 5a965be
 - [x] Task: Home progress as numbers too (user request): a small ring, tasks done as X/Y and "phase N of M" instead of the segmented bar; heavier, higher-contrast text in project cards and phase buttons, with browser tests e297334
 - [x] Task: Home progress rings show their percentage, like the sidebar's, with browser tests 44dd6c6
+- [ ] Task: Phase buttons at most five to a row, rows aligned, names always shown (user request), with browser tests

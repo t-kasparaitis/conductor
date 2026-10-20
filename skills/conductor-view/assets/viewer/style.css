@@ -146,10 +146,8 @@ h1.track-title { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; margin: 0
 
 .progress { margin: 0; }
 .progress-meta { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text-2); margin-bottom: 8px; }
-.progress-groups { display: flex; flex-wrap: wrap; gap: 6px; }
-.progress-groups.compact .pg { flex: 0 0 auto; min-width: 0; }
-.progress-groups.compact .pg-name { display: none; }
-.pg { flex: 1 1 0; min-width: 120px; display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px 0 5px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text-2); font: 550 12.5px/1 var(--sans); cursor: pointer; text-align: left; }
+.progress-groups { display: grid; grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr)); gap: 6px; }
+.pg { min-width: 0; display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px 0 5px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text-2); font: 550 12.5px/1 var(--sans); cursor: pointer; text-align: left; }
 .pg:hover { border-color: var(--line-2); color: var(--text); }
 .pg-num { flex: none; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line-2); color: var(--muted); font: 600 10.5px/1 var(--mono); }
 .pg-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -398,7 +396,7 @@ h1.track-title { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; margin: 0
 .pager .btn { max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 640px) {
   .pg-name { display: none; }
-  .pg { flex: 0 0 auto; min-width: 0; padding: 0 8px 0 4px; gap: 5px; }
+  .pg { padding: 0 6px 0 4px; gap: 4px; }
 }
 @media (min-width: 761px) {
   .sidebar { position: sticky; top: 52px; align-self: start; height: calc(100vh - 52px); overflow-y: auto; }

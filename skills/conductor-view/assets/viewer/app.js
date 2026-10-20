@@ -614,7 +614,7 @@
         <div class="progress">
           <div class="progress-meta"><span><strong class="ov-title">${esc(trackTitle(t))}</strong> · ${done} of ${total} tasks done · ${total ? Math.round((done / total) * 100) : 0}%</span>
             ${tab === "plan" && t.plan.phases.length > 1 ? `<button class="link-btn" data-show-all="plan">${showAll.plan ? "Show one phase" : "Show all phases"}</button>` : ""}</div>
-          <div class="progress-groups${t.plan.phases.length > 5 ? " compact" : ""}">${progressGroups(t)}</div>
+          <div class="progress-groups" style="--cols:${Math.min(Math.max(t.plan.phases.length, 1), 5)}">${progressGroups(t)}</div>
         </div>
         <div class="tabs" role="tablist">${tabs}</div>
         ${tab === "spec" && sections.filter((x) => x.title).length > 1 ? specNav(t, sections) : ""}
@@ -636,9 +636,8 @@
     return s ? requestButtons(project, s) : "";
   }
 
-  // One button per phase: its number (✓ when done), name and tasks done as X/Y;
-  // with more than five phases, only the number and X/Y (the name is the tooltip).
-  // Each jumps to that phase in the plan.
+  // One button per phase: its number (✓ when done), name and tasks done as X/Y,
+  // at most five to a row. Each jumps to that phase in the plan.
   function progressGroups(t) {
     const clean = (s) => s.replace(/^Phase\s*\d+\s*:\s*/i, "").replace(/\(diagram:[^)]*\)/g, "").trim();
     return t.plan.phases.map((p, i) => `

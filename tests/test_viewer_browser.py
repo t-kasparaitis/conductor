@@ -86,7 +86,19 @@ class ViewerBrowserTest(ServerTest):
         self.assertEqual(len(counts), 3)
         self.assertTrue(all(c.count("/") == 1 and all(n.isdigit() for n in c.split("/")) for c in counts), counts)
         self.assertIsNone(self.b.js("document.querySelector('.pg-task')"))
-        # A short plan names its phases; past five phases only the numbers show.
+        self.assertGreater(self.b.js("document.querySelector('.pg-name').offsetWidth"), 0)
+
+    def test_phase_buttons_wrap_five_to_a_row(self):
+        plan = "# P\n\n" + "".join(f"## Phase {i}: Step {i}\n\n- [ ] Task: t{i}\n\n" for i in range(1, 9))
+        self.write("conductor/tracks/demo_1/plan.md", plan)
+        self.open()
+        self.b.wait("document.querySelectorAll('.progress-groups .pg').length === 8")
+        tops = self.b.js("[...document.querySelectorAll('.progress-groups .pg')].map((p) => Math.round(p.getBoundingClientRect().top))")
+        self.assertEqual(len(set(tops[:5])), 1, tops)
+        self.assertEqual(len(set(tops[5:])), 1, tops)
+        self.assertGreater(tops[5], tops[0])
+        lefts = self.b.js("[...document.querySelectorAll('.progress-groups .pg')].map((p) => Math.round(p.getBoundingClientRect().left))")
+        self.assertEqual(lefts[5:], lefts[:3])  # the second row lines up under the first
         self.assertGreater(self.b.js("document.querySelector('.pg-name').offsetWidth"), 0)
 
     def test_pager_moves_between_phases(self):
