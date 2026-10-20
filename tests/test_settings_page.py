@@ -87,6 +87,20 @@ class SettingsPageTest(UserHome, ServerTest):
         self.assertEqual(self.js("location.hash"), f"#/{self.pid}/settings")
 
 
+    def test_header_gear_opens_settings_and_no_live_pill(self):
+        self.write("conductor/tracks/t_1/plan.md", "# P\n\n## Phase 1: A\n\n- [ ] Task: x\n")
+        for start in ("#/", f"#/{self.pid}/t_1/plan"):
+            self.open(start, ready="document.querySelector('#settings-btn') && document.querySelector('.track-link')")
+            self.assertTrue(self.js("document.querySelector('#live').hidden"), start)
+            self.assertFalse(self.js("document.querySelector('#settings-btn').hidden"), start)
+            self.b.click("#settings-btn")
+            self.b.wait("document.querySelector('#port-form')")
+            self.assertEqual(self.js("location.hash"), "#/settings")
+            self.assertEqual(self.js("document.querySelector('#settings-btn').getAttribute('aria-current')"), "page")
+        # The main rules moved to the header; the home sidebar no longer repeats them.
+        self.open("#/", ready="document.querySelector('.track-link')")
+        self.assertIsNone(self.js("document.querySelector('.sidebar a[href=\"#/settings\"]')"))
+
     def test_port_can_be_saved_and_cleared(self):
         self.open("#/settings", ready="document.querySelector('#port-form')")
         self.assertIn(f"now: {self.port}", self.js("document.querySelector('#port').textContent"))

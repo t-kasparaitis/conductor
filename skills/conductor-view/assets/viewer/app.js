@@ -171,11 +171,10 @@
   function setLive(mode) {
     const el = $("#live"), txt = $("#live-text");
     el.classList.remove("off", "flash", "snap");
-    if (mode === "off") { el.classList.add("off"); txt.textContent = "disconnected"; }
+    el.hidden = mode === "on" || mode === "flash";
+    if (mode === "off") { el.classList.add("off"); txt.textContent = "disconnected"; el.title = "Can't reach the viewer server; retrying"; }
     else if (mode === "snap") { el.classList.add("snap"); txt.textContent = "snapshot"; }
     else if (mode === "local") { el.classList.add("snap"); txt.textContent = state ? "from disk · reopen" : "from disk"; el.title = "Read from the folder you picked. Click to pick it again for changes."; }
-    else if (mode === "flash") { el.classList.add("flash"); txt.textContent = "updated"; clearTimeout(setLive.t); setLive.t = setTimeout(() => setLive("on"), 1800); }
-    else if (!el.classList.contains("flash")) txt.textContent = "live";
   }
 
   /* ---------------- helpers ---------------- */
@@ -247,6 +246,9 @@
   const trackHref = (pid, tid, tabName = "plan") => `#/${enc(pid)}/${enc(tid)}/${tabName}`;
 
   function renderTopbar() {
+    const gear = $("#settings-btn");
+    gear.hidden = !!(SNAPSHOT || LOCAL);
+    gear.setAttribute("aria-current", view === "settings" ? "page" : "false");
     const el = $("#project");
     const projects = (home && home.projects) || [];
     if (SNAPSHOT || LOCAL || !projects.length) { el.textContent = state && state.project ? `~/${state.project}` : ""; return; }
@@ -314,8 +316,6 @@
       const projects = home ? sortedProjects() : [];
       sb.innerHTML = `<a class="track-link" href="#/" aria-current="${view === "home" && !homeUi.focus}">
           <span class="gear">${homeIcon}</span><span><div class="t-name">All projects</div><div class="t-id">${projects.length} project${projects.length === 1 ? "" : "s"}</div></span></a>
-        ${SNAPSHOT || LOCAL ? "" : `<a class="track-link settings-link" href="#/settings" aria-current="${view === "settings"}">
-          <span class="gear">${gearIcon}</span><span><div class="t-name">Main workflow rules</div><div class="t-id">for every project</div></span></a>`}
         ${activeSection(null)}
         <details class="side-archive side-projects" data-side-section="projects"${isOpen("projects", projects.length <= 6) ? " open" : ""}><summary><h2>Projects · ${projects.length}</h2></summary>` + projects.map((p) => {
         const live = p.tracks.filter((t) => !t.archived);

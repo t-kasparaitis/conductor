@@ -67,6 +67,13 @@ class SkillsObeySettingsTest(unittest.TestCase):
         self.assertIn("**Follow the main rules**", setup)
         self.assertIn("only the keys that differ from the main rules", setup)
 
+    def test_setup_offers_to_set_main_rules_when_there_are_none(self):
+        setup = section(skill("conductor-setup"), "### 2.6 Repository Workflow")
+        for choice in ("**Use the built-in defaults**", "**Set my own main rules**", "**Only this repo**"):
+            self.assertIn(choice, setup)
+        self.assertIn("only the keys that differ from the built-in defaults", setup)
+        self.assertIn("a sandbox", setup)
+
     def test_workflow_lists_where_the_main_rules_live(self):
         from helpers import serve
         workflow = (SKILLS / "conductor-setup" / "assets" / "workflow.md").read_text(encoding="utf-8")

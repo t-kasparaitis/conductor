@@ -96,6 +96,9 @@ button { font: inherit; color: inherit; }
 .live.flash { color: var(--done); border-color: var(--done); }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(76,195,138,.5); } 70% { box-shadow: 0 0 0 7px rgba(76,195,138,0); } 100% { box-shadow: 0 0 0 0 rgba(76,195,138,0); } }
 .icon-btn { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--text-2); cursor: pointer; }
+.live[hidden], .icon-btn[hidden] { display: none; }
+.icon-btn[aria-current="page"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+a.icon-btn { text-decoration: none; }
 .icon-btn:hover { background: var(--panel-2); color: var(--text); }
 
 /* ---------- layout ---------- */

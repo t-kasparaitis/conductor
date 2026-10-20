@@ -149,9 +149,10 @@ Whatever the settings, the agent never force-pushes or merges into `main`:
 when a track is verified it stops at "branch ready" and shows you the
 commands. Without a `settings.json`, Conductor behaves exactly as upstream.
 
-**Main rules and exceptions.** If you use Conductor in several repos, set
-your **main rules** once on the viewer's settings page: they apply to every
-project on your machine and are never committed. A repo's
+**Main rules and exceptions.** Your **main rules** are your own defaults for
+every project on your machine, never committed. Setup offers to set them the
+first time (or keep the built-in defaults above), and you can change them any
+time on the viewer's settings page (the gear at the top right). A repo's
 `conductor/settings.json` then only holds its **exceptions**, the settings
 where it differs, and those are shared with everyone who works on that repo.
 For each setting the repo's value wins, then your main rule, then the
@@ -189,7 +190,7 @@ name.
     goes back to the agent.
 -   **Sidebar.** Lists every unfinished track (in progress or open), grouped by
     project. Once a track is done or archived it leaves the sidebar; the
-    table still has it.
+    home page still has it.
 
 -   **Registering projects.** Starting the viewer in a project registers it;
     starting it in a second project adds that one to the viewer already
