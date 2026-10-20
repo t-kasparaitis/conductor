@@ -29,6 +29,10 @@ PAIRS = [
     ("prog", "panel", None), ("prog", "panel-2", None), ("accent", "panel-2", None), ("text-2", "panel-2", None),
     ("prog", "bg-2", None),
     ("prog", "prog-soft", "bg-2"), ("done", "done-soft", "bg-2"), ("text-2", "bg-2", None),
+    # Attention (needs you, not pushed, changes requested, warning banners) has its own colour.
+    ("warn", "warn-soft", "panel"), ("warn", "warn-soft", "bg"), ("warn", "warn-soft", "bg-2"),
+    ("warn", "warn-soft", "panel-2"), ("warn", "panel", None), ("warn", "bg-2", None),
+    ("text", "warn-soft", "panel"), ("text-2", "warn-soft", "panel"), ("accent-ink", "warn", None),
 ]
 
 
