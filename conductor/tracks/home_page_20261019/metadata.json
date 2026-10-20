@@ -1,8 +1,8 @@
 {
   "track_id": "home_page_20261019",
   "type": "feature",
-  "status": "in_progress",
+  "status": "done",
   "description": "Home page: every registered project and its tracks (current, done, archived) at one URL, with archive/delete requests and a configurable port",
   "created_at": "2026-10-19T00:00:00Z",
-  "updated_at": "2026-10-19T00:00:00Z"
+  "updated_at": "2026-10-20T00:00:00Z"
 }

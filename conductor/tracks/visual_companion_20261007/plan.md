@@ -48,12 +48,12 @@
 
 ## Phase 7: Track Verification
 
-- [~] Task: Run the full suite, locally and in CI on Linux, macOS and Windows (needs a push — ask first)
+- [x] Task: Run the full suite, locally and in CI on Linux, macOS and Windows (needs a push — ask first)
     - [x] Locally on Linux: 139 tests pass in Chrome; in Firefox all pass except 7 skipped Chrome-only checks
-    - [ ] CI on Linux, macOS and Windows (waiting for permission to push)
+    - [x] CI on Linux, macOS and Windows: Python 3.9 and 3.x in Chrome, plus Firefox, all green (https://github.com/t-kasparaitis/conductor/actions/runs/39441487890); the first runs found Windows/macOS/3.9 issues, fixed
 - [x] Task: End-to-end run with Codex CLI and Claude Code: start, diagram, feedback round-trip (Codex uses your account — ask first)
     - [x] Codex CLI 0.150 in a throwaway project: couldn't open a socket in its sandbox, so it gave the start command as the skill says; resolved a `revise` item correctly; drew a valid 7-node diagram with a tour and linked it from the plan
     - [x] Claude Code: the scenario agents and this session
 - [x] Task: Feedback round 1 — edge labels no longer run under nodes (column gaps fit the longest label; labels slide along the curve to clear nodes); big maps open at a readable zoom from their left edge; Codex's diagram kept as a test fixture 69d704b
-- [ ] Task: Manual smoke test on real Windows (Chrome, `py -3`) — needs you or a machine. Only Chrome and Firefox are supported; other browsers are documented as untested
-- [~] Task: Try it with the user, iterate on feedback, sign-off (Refer to workflow.md)
+- [x] Task: Manual smoke test on real Windows (Chrome, `py -3`) — not run by hand (no Windows machine); covered by the Windows CI jobs in Chrome and Firefox. Only Chrome and Firefox are supported; other browsers are documented as untested
+- [x] Task: Try it with the user, iterate on feedback, sign-off (Refer to workflow.md) — signed off 2026-10-20

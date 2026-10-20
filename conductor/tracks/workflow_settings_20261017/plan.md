@@ -34,9 +34,9 @@
 
 ## Phase 5: Track Verification
 
-- [ ] Task: Full automated suite on Linux, macOS and Windows CI (needs a push — ask first)
+- [x] Task: Full automated suite on Linux, macOS and Windows CI (needs a push — ask first) — green (https://github.com/t-kasparaitis/conductor/actions/runs/39441487890)
 - [x] Task: Scenario run in a scratch repo: trunk + tests with each task + verification at track end (plan shape, branch, commits, no pushes)
 - [x] Task: Backward-compatibility run: a project with no `settings.json` behaves exactly as upstream
 - [x] Task: Fix the instructions the scenario agents found unclear (branch creation, rebase points, when `ask` asks, checkpoint SHA, metadata status, settings path) 1a74344
 - [x] Task: Feedback round 1 — progress bar grouped by phase with clickable phase bars and task segments; change requests badge only while open (FB-003) fba2a93
-- [~] Task: You try it, leave feedback in the viewer, we iterate; sign-off (Refer to workflow.md)
+- [x] Task: You try it, leave feedback in the viewer, we iterate; sign-off (Refer to workflow.md) — signed off 2026-10-20
