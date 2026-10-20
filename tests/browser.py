@@ -289,7 +289,16 @@ class Firefox:
                 time.sleep(0.2)
         self._id = 0
         self.call("session.new", capabilities={})
-        self.context = self.call("browsingContext.getTree")["contexts"][0]["context"]
+        # Right after start the window can still be missing (seen on Windows CI): wait for it.
+        self.context = None
+        while not self.context:
+            contexts = self.call("browsingContext.getTree").get("contexts") or []
+            self.context = contexts[0].get("context") if contexts else None
+            if not self.context:
+                if time.time() > deadline:
+                    self.close()
+                    raise TimeoutError("Firefox opened no window")
+                time.sleep(0.2)
         self.call("browsingContext.setViewport", context=self.context, viewport={"width": width, "height": height})
         # Without this the headless window never has focus, so key presses go nowhere.
         self.call("browsingContext.activate", context=self.context)
