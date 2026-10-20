@@ -40,8 +40,10 @@ looks good, we can iterate more after it is fleshed out and it's easy to see wha
 
 > **Agent:** Thanks, starting implementation with Phase 1. I'll commit task by task and come back once the home page is usable enough to iterate on.
 
-### FB-006 · open · comment
+### FB-006 · resolved · comment
 - **Target:** plan › Phase 6: Track Verification › Try it with the user across this repo and the user's other Conductor projects, iterate on feedback, sign-off (Refer to workflow.md)
 - **When:** 2026-10-20 01:46
 
 I like how tracks appear on the left-hand side, and maybe we can have some way to make it clear whether they are archived etc. Obviously if you have a lot of projects it doesn't work well. But how they are listed on the main page i don't like. is there other ways of listing them out we could try? Even a table format more like excel with filters so you can show hide ones you want to see works. And then left-hand side can be something like where we have ones we 'bookmark' or save to show for quick reference. By default any new track we start shows up there and any complete track disappears, something like that.
+
+> **Agent:** Done, try it now. **Home is a table**: one row per track across all projects, Now first. Click a header to sort; the funnel icons on Project, Status and Git (and Type, if you show that column) open spreadsheet-style checkbox filters with counts. **Columns** shows or hides columns (Spec/plan, Branch and Type start hidden to fit a laptop screen). Archived tracks are hidden until you tick Archived under Status or click the Archived chip. Filters are in the link, so they survive a reload; sort and columns are remembered by the browser. **Cards** (top right) is the old layout if you want to compare. **Sidebar = pinned tracks**: new and open tracks are pinned automatically and drop off once done or archived. The ☆ on any row, sidebar entry or track page pins or unpins it, and that choice sticks (in `pins.json` in your config folder). Each sidebar entry has a Now/Open/Done/Archived badge, and so does each track in a project's own list. Commits 38d9324, b02cfd7, 83b82d4.
