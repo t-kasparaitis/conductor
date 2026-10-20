@@ -200,8 +200,8 @@ track, or the viewer was started in the one that does.
 
 | Link | Opens |
 | --- | --- |
-| `#/` | Home. Filters: `?q=<search>`, and comma lists `status=now,open,done,archived`, `project=<ids>`, `type=<types>`, `git=uncommitted,unpushed,committed,nogit,pushed,landed`. Without `status`, archived tracks are hidden. `?layout=table\|cards` picks the layout (remembered per browser). |
-| `#/<project>` | Home, showing only that project |
+| `#/` | Home. Filters: `?q=<search>`, and comma lists `status=now,open,done,archived`, `project=<ids>`, `git=uncommitted,unpushed,committed,nogit,pushed,landed`. Without `status`, archived tracks are hidden. |
+| `#/<project>` | Home, showing only that project's card |
 | `#/settings` | Main workflow rules and every project's exceptions |
 | `#/<project>/settings` | One project's workflow settings |
 | `#/<project>/<id>/plan/phase-<n>` | One phase (`phase-all` for the whole plan) |

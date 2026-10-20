@@ -616,3 +616,41 @@ main.wide { padding-left: clamp(16px, 2.2vw, 28px); padding-right: clamp(16px, 2
 .fb-foot .muted { margin-right: auto; }
 @media (max-width: 640px) { .fb-msg.agent { margin-left: 10px; } }
 .side-needs { color: var(--prog); font-family: var(--sans); font-weight: 600; }
+
+/* ---------- home: one card per project, aligned track columns ---------- */
+.home-head { margin-bottom: 14px; align-items: center; }
+.home-tools .fchips { align-items: center; }
+.th-filter > summary.fchip { list-style: none; }
+.th-filter > summary.fchip.on { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+.sort { display: inline-flex; gap: 6px; align-items: center; font-size: 12.5px; color: var(--text-2); }
+.sort select { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px; padding: 4px 8px; }
+.proj-counts { margin: 6px 0 0; gap: 12px; }
+.pc.g-now strong { color: var(--prog); }
+.trow, .trow-head {
+  display: grid; grid-template-areas: none;
+  grid-template-columns: minmax(0, 1fr) 170px 150px 140px 82px 64px;
+  gap: 12px; align-items: center; padding: 9px 10px;
+}
+.trow + .trow { border-top: 1px dashed var(--line); border-radius: 0; }
+.trow.g-now { background: none; border: 0; border-left: 0; box-shadow: inset 3px 0 0 var(--prog); border-radius: 0; }
+.trow.g-now + .trow { border-top: 1px dashed var(--line); }
+.trow-head { padding-top: 12px; padding-bottom: 4px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--line); }
+.trow > div { min-width: 0; }
+.trow .c-track a.trow-title { display: block; text-decoration: none; }
+.trow .c-track a.trow-title:hover { text-decoration: underline; }
+.trow .c-progress { display: flex; align-items: center; gap: 8px; }
+.trow .c-feedback { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.trow .c-actions { display: flex; justify-content: flex-end; }
+.trow .row-actions { margin: 0; }
+.tgroup { margin-top: 8px; }
+.tgroup h3 { padding: 6px 10px 0; margin: 0 0 2px; }
+.proj-more { margin: 8px 10px 4px; }
+@media (max-width: 900px) {
+  .trow-head { display: none; }
+  .trow { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "track actions" "progress progress" "meta meta"; gap: 6px 10px; }
+  .trow .c-track { grid-area: track; }
+  .trow .c-actions { grid-area: actions; }
+  .trow .c-progress { grid-area: progress; }
+  .trow .c-feedback, .trow .c-git, .trow .c-activity { grid-column: 1 / -1; display: inline-flex; }
+  .trow .c-feedback:has(> .muted:only-child) { display: none; }
+}

@@ -33,8 +33,8 @@ containing this `SKILL.md`.
         viewer's settings page). If it's taken by something else, the viewer
         moves to the next free port and prints which.
     -   `--open` opens the user's default system browser, not an IDE preview.
-    -   Tell the user the URL it prints. The home page (`#/`) is a table of
-        every registered project's tracks, and the sidebar lists the
+    -   Tell the user the URL it prints. The home page (`#/`) shows every
+        registered project and its tracks, and the sidebar lists the
         unfinished ones.
 4.  **If you can't run a long-lived process** (sandboxed agent): give the user
     that command to run themselves.

@@ -57,10 +57,11 @@ class AccessibilityTest(ServerTest):
         self.open("#/")
         self.b.js("document.querySelector('#home-search').focus()")
         self.b.key("Tab", key_code=9)
-        self.assertEqual(self.b.js("document.activeElement.dataset.status"), "all")
+        self.assertEqual(self.b.js("document.activeElement.dataset.status"), "now")
         self.b.js("document.querySelector('.fchip[data-status=done]').focus()")
-        self.b.key("Enter", key_code=13)
-        self.b.wait("location.hash === '#/?status=done'")
+        self.b.key("Enter", key_code=13)  # toggles Done off
+        self.b.wait("location.hash === '#/?status=now%2Copen'")
+        self.assertEqual(self.b.js("document.activeElement.dataset.status"), "done")  # focus stays put
         self.b.js("document.querySelector('[data-dialog=add]').focus()")
         self.b.key("Enter", key_code=13)
         self.b.wait("document.querySelector('#dlg').open")

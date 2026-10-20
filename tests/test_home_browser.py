@@ -17,13 +17,9 @@ REGISTRY = ("- [~] **Track: Alpha now**\n*Link: [x](./tracks/now_1/index.md)*\n"
 
 
 class HomeFixture(UserHome, ServerTest):
-    LAYOUT = "cards"
-
     @classmethod
     def setUpClass(cls):
         cls.b = Browser(width=1300, height=900)
-        # Each test's server is a new origin, so set the remembered layout before every page.
-        cls.b.init_script(f"try {{ localStorage.setItem('conductor-view-layout', '{cls.LAYOUT}') }} catch (e) {{}}")
 
     @classmethod
     def tearDownClass(cls):
@@ -59,7 +55,7 @@ class HomeFixture(UserHome, ServerTest):
 
 @unittest.skipUnless(find_browser(), "test browser not installed")
 class HomeBrowserTest(HomeFixture):
-    """The Cards layout, plus the sidebar and routes."""
+    """Project cards, the sidebar and routes."""
 
     def test_home_lists_every_project_active_first(self):
         self.open(ready="document.querySelector('.proj-card')")
@@ -69,17 +65,16 @@ class HomeBrowserTest(HomeFixture):
         self.assertEqual(self.js("[...document.querySelectorAll('#sidebar [data-project-link]')].map(a => a.dataset.projectLink)"),
                          [self.alpha, "beta"])
 
-    def test_tracks_are_grouped_with_now_first_and_archive_collapsed(self):
+    def test_tracks_are_grouped_with_in_progress_first(self):
         self.open(ready="document.querySelector('.proj-card')")
         groups = self.js("""[...document.querySelector('.proj-card').querySelectorAll('.tgroup')]
             .map(g => [g.className.match(/g-(\\w+)/)[1], g.querySelectorAll('.trow').length])""")
-        self.assertEqual(groups, [["now", 1], ["open", 2], ["done", 1], ["archived", 1]])
+        self.assertEqual(groups, [["now", 1], ["open", 2], ["done", 1]])  # archived only when its status is on
         self.assertIn("Wire the widget", self.js("document.querySelector('.trow.g-now').textContent"))
-        self.assertFalse(self.js("document.querySelector('details.g-archived').open"))
 
     def test_clicking_a_row_opens_the_track_with_the_project_in_the_link(self):
         self.open(ready="document.querySelector('.trow.g-now a')")
-        self.b.click(".trow.g-now a.trow-main")
+        self.b.click(".trow.g-now a.trow-title")
         self.b.wait("document.querySelector('.overview')")
         self.assertEqual(self.js("location.hash"), f"#/{self.alpha}/now_1/plan/phase-1")
         self.assertEqual(self.js("document.querySelector('h1').textContent"), "Now Spec")
@@ -119,12 +114,11 @@ class HomeBrowserTest(HomeFixture):
         self.assertEqual(self.js("[...document.querySelectorAll('.proj-card')].map(c => c.id)"), ["proj-beta"])
         self.assertEqual(self.js("document.activeElement.id"), "home-search")  # typing keeps focus
         self.open("#/?status=archived", ready="document.querySelector('.proj-card')")
-        self.assertTrue(self.js("document.querySelector('details.g-archived').open"))
-        self.assertEqual(self.js("document.querySelectorAll('.trow').length"), 1)
+        self.assertEqual(self.js("document.querySelectorAll('.trow[data-row]').length"), 1)
         self.assertEqual(self.js("document.querySelector('.fchip[aria-pressed=true]').dataset.status"), "archived")
         self.b.click('.fchip[data-status="now"]')
-        self.assertEqual(self.js("location.hash"), "#/?status=now")
-        self.assertEqual(self.js("[...document.querySelectorAll('.trow')].map(r => r.querySelector('.mono').textContent)"), ["now_1"])
+        self.assertEqual(self.js("location.hash"), "#/?status=archived%2Cnow")
+        self.assertEqual(sorted(self.js("[...document.querySelectorAll('.trow[data-row]')].map(r => r.querySelector('.mono').textContent)")), ["now_1", "old_1"])
         self.open("#/?q=zzz", ready="document.querySelector('.empty')")
         self.assertIn("No tracks match", self.js("document.querySelector('.empty').textContent"))
 
@@ -219,10 +213,9 @@ if __name__ == "__main__":
 
 
 @unittest.skipUnless(find_browser(), "test browser not installed")
-class HomeTableTest(HomeFixture):
-    """The Table layout: one row per track, Excel-style filters, sorting and columns."""
-    LAYOUT = "table"
-    ROWS = "[...document.querySelectorAll('.tracks-table tbody tr')].map(r => r.dataset.row)"
+class HomeFiltersTest(HomeFixture):
+    """Status toggles, the Project and Git menus, sorting, and row actions."""
+    ROWS = "[...document.querySelectorAll('.trow[data-row]')].map(r => r.dataset.row)"
 
     def rows(self):
         return self.js(self.ROWS)
@@ -231,101 +224,64 @@ class HomeTableTest(HomeFixture):
         self.b.click(f'.th-filter[data-menu="{key}"] summary')
         self.b.wait(f'document.querySelector(\'.th-filter[data-menu="{key}"][open]\')')
 
-    def test_one_row_per_track_now_first_archive_hidden(self):
-        self.open(ready="document.querySelector('.tracks-table')")
-        rows = self.rows()
-        self.assertEqual(rows[0], f"{self.alpha}/now_1")
-        self.assertEqual(sorted(rows), sorted([f"{self.alpha}/{t}" for t in ("now_1", "open_1", "done_1", "shared_1")]
-                                              + ["beta/shared_1", "beta/b_only"]))
-        self.assertIn("Wire the widget", self.js("document.querySelector('.tracks-table tr.g-now').textContent"))
-        self.assertEqual(self.js("document.querySelector('.fchip[aria-pressed=true]').dataset.status"), "all")
+    def test_columns_line_up_across_rows(self):
+        self.open(ready="document.querySelector('.trow[data-row]')")
+        lefts = self.js("[...document.querySelectorAll('.trow[data-row] .c-progress')].map(c => c.getBoundingClientRect().left)")
+        self.assertLessEqual(max(lefts) - min(lefts), 1)
 
-    def test_status_menu_shows_archived_and_lives_in_the_link(self):
-        self.open(ready="document.querySelector('.tracks-table')")
-        self.menu("status")
-        counts = self.js("Object.fromEntries([...document.querySelectorAll('[data-filter=status]')].map(i => [i.value, [i.checked, i.closest('label').querySelector('.count').textContent]]))")
-        self.assertEqual(counts, {"now": [True, "1"], "open": [True, "4"], "done": [True, "1"], "archived": [False, "1"]})
-        self.b.click('[data-filter=status][value=archived]')
+    def test_status_toggles_and_archived_off_by_default(self):
+        self.open(ready="document.querySelector('.trow[data-row]')")
+        self.assertNotIn(f"{self.alpha}/old_1", self.rows())
+        self.assertIn("1 more hidden by the status filter (archived)", self.js(f"document.querySelector('#proj-{self.alpha}').textContent"))
+        self.b.click('.fchip[data-status="archived"]')
         self.assertEqual(self.js("location.hash"), "#/?status=now%2Copen%2Cdone%2Carchived")
         self.assertIn(f"{self.alpha}/old_1", self.rows())
-        self.assertTrue(self.js("!!document.querySelector('.th-filter[data-menu=status][open]')"))  # stays open while you tick
-        self.assertEqual(self.js("document.activeElement.value"), "archived")
-        self.b.click('[data-filter-set="status:none"]')
-        self.assertEqual(self.rows(), [])
-        self.b.click('[data-filter=status][value=done]')
-        self.assertEqual(self.rows(), [f"{self.alpha}/done_1"])
-        self.b.click('[data-filter-set="status:reset"]')
+        self.b.click('.fchip[data-status="archived"]')
         self.assertEqual(self.js("location.hash"), "#/")
-        self.open("#/?status=archived", ready="document.querySelector('.tracks-table tbody tr')")
-        self.assertEqual(self.rows(), [f"{self.alpha}/old_1"])
-        self.assertEqual(self.js("document.querySelector('.fchip[aria-pressed=true]').dataset.status"), "archived")
+        self.b.click('.fchip[data-status="open"]')
+        self.b.click('.fchip[data-status="done"]')
+        self.assertEqual(self.rows(), [f"{self.alpha}/now_1"])
+        self.assertEqual(self.js("[...document.querySelectorAll('.fchip[aria-pressed=true]')].map(b => b.dataset.status)"), ["now"])
 
-    def test_project_filter_and_project_links(self):
-        self.open(ready="document.querySelector('.tracks-table')")
+    def test_project_menu(self):
+        self.open(ready="document.querySelector('.trow[data-row]')")
         self.menu("project")
         self.b.click('[data-filter=project][value=beta]')
         self.assertEqual(self.js("location.hash"), f"#/?project={self.alpha}")
         self.assertTrue(all(r.startswith(self.alpha + "/") for r in self.rows()))
-        self.assertTrue(self.js("document.querySelector('.th-filter[data-menu=project] summary').classList.contains('on')"))
-        self.assertEqual(self.js("document.querySelector('.proj-strip').id"), f"proj-{self.alpha}")
-        self.open("#/beta", ready="document.querySelector('.tracks-table tbody tr')")
-        self.assertEqual(sorted(self.rows()), ["beta/b_only", "beta/shared_1"])
-        self.assertEqual(self.js("document.querySelector('h1').textContent"), "beta")
+        self.assertTrue(self.js("!!document.querySelector('.th-filter[data-menu=project][open]')"))  # stays open while you tick
+        self.b.click("h1")
+        self.b.wait("!document.querySelector('.th-filter[open]')")
         self.b.click("[data-clear-filters]")
         self.assertEqual(self.js("location.hash"), "#/")
         self.assertEqual(len(self.rows()), 6)
 
-    def test_search_covers_project_names(self):
-        self.open("#/?q=beta", ready="document.querySelector('.tracks-table')")
-        self.assertEqual(sorted(self.rows()), ["beta/b_only", "beta/shared_1"])
-        self.open("#/?q=zzz", ready="document.querySelector('.tracks-table')")
-        self.assertIn("No tracks match", self.js("document.querySelector('.table-wrap .empty').textContent"))
-
-    def test_sorting_is_remembered(self):
-        self.open(ready="document.querySelector('.tracks-table')")
-        self.b.click("[data-sort=track]")
-        titles = self.js("[...document.querySelectorAll('.tt-title')].map(a => a.textContent)")
-        self.assertEqual(titles, sorted(titles, key=str.lower))
-        self.assertEqual(self.js("document.querySelector('th.c-track').getAttribute('aria-sort')"), "ascending")
-        self.b.click("[data-sort=track]")
-        self.assertEqual(self.js("document.querySelector('th.c-track').getAttribute('aria-sort')"), "descending")
-        self.open(ready="document.querySelector('.tracks-table')")
-        self.assertEqual(self.js("document.querySelector('th.c-track').getAttribute('aria-sort')"), "descending")
-
-    def test_columns_can_be_hidden_and_shown(self):
-        self.open(ready="document.querySelector('.tracks-table')")
-        self.assertEqual(self.js("document.querySelectorAll('td.c-reviews').length"), 0)  # hidden by default
-        self.menu("columns")
-        self.b.click("[data-col=git]")
-        self.b.click("[data-col=reviews]")
-        self.assertEqual(self.js("document.querySelectorAll('td.c-git').length"), 0)
-        self.assertGreater(self.js("document.querySelectorAll('td.c-reviews').length"), 0)
+    def test_git_menu(self):
+        self.open(ready="document.querySelector('.trow[data-row]')")
+        self.menu("git")
+        self.assertEqual(self.js("[...document.querySelectorAll('[data-filter=git]')].map(i => i.value)"), ["nogit"])
         self.b.key("Escape")
         self.b.wait("!document.querySelector('.th-filter[open]')")
-        self.open(ready="document.querySelector('.tracks-table')")
-        self.assertEqual(self.js("document.querySelectorAll('td.c-git').length"), 0)
 
-    def test_menu_closes_on_a_click_elsewhere(self):
-        self.open(ready="document.querySelector('.tracks-table')")
-        self.menu("status")
-        self.b.click("h1")
-        self.b.wait("!document.querySelector('.th-filter[open]')")
+    def test_sort_is_remembered(self):
+        self.open(ready="document.querySelector('#home-sort')")
+        self.js("const s = document.querySelector('#home-sort'); s.value = 'name'; s.dispatchEvent(new Event('change', {bubbles: true}))")
+        titles = self.js(f"[...document.querySelectorAll('#proj-{self.alpha} .tgroup.g-open .trow-title')].map(a => a.textContent)")
+        self.assertEqual(titles, sorted(titles, key=str.lower))
+        self.open(ready="document.querySelector('#home-sort')")
+        self.assertEqual(self.js("document.querySelector('#home-sort').value"), "name")
 
-    def test_row_actions_open_the_request_dialog(self):
-        self.open(ready="document.querySelector('.tracks-table')")
-        row = f'tr[data-row="{self.alpha}/open_1"] .row-actions'
-        self.assertEqual(self.js(f"getComputedStyle(document.querySelector('{row}')).opacity"), "1")  # always visible
-        self.b.click(f'tr[data-row="{self.alpha}/open_1"] [data-request=archive]')
+    def test_search_covers_project_names(self):
+        self.open("#/?q=beta", ready="document.querySelector('.proj-card')")
+        self.assertEqual(sorted(self.rows()), ["beta/b_only", "beta/shared_1"])
+
+    def test_row_actions_always_visible_and_open_the_dialog(self):
+        self.open(ready="document.querySelector('.trow[data-row]')")
+        row = f'.trow[data-row="{self.alpha}/open_1"] .row-actions'
+        self.assertEqual(self.js(f"getComputedStyle(document.querySelector('{row}')).opacity"), "1")
+        self.b.click(f'.trow[data-row="{self.alpha}/open_1"] [data-request=archive]')
         self.b.wait("document.querySelector('#dlg').open")
         self.assertIn("Archive", self.js("document.querySelector('#dlg-title').textContent"))
-
-    def test_switch_to_cards_and_back(self):
-        self.open(ready="document.querySelector('.tracks-table')")
-        self.b.click("[data-layout=cards]")
-        self.assertTrue(self.js("!!document.querySelector('.proj-card')"))
-        self.assertEqual(self.js("localStorage.getItem('conductor-view-layout')"), "cards")
-        self.b.click("[data-layout=table]")
-        self.assertTrue(self.js("!!document.querySelector('.tracks-table')"))
 
 
 @unittest.skipUnless(find_browser(), "test browser not installed")

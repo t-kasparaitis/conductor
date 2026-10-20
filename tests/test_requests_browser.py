@@ -28,7 +28,7 @@ class RequestsBrowserTest(UserHome, ServerTest):
         self.write("conductor/archive/old_1/spec.md", "# Old One\n")
         self.pid = serve._project_id(self.root, set())
 
-    def open(self, hash_="#/", ready="document.querySelector('.tracks-table tbody tr')"):
+    def open(self, hash_="#/", ready="document.querySelector('.trow[data-row]')"):
         self.b.goto("about:blank")
         self.b.goto(f"http://127.0.0.1:{self.port}/{hash_}", ready=ready)
 
@@ -49,7 +49,7 @@ class RequestsBrowserTest(UserHome, ServerTest):
         self.js("document.querySelector('#req-note').value = 'shipped'")
         self.b.click("#req-form [type=submit]")
         self.b.wait("document.querySelector('.chip.req')")
-        self.assertIn("Archive requested", self.js("document.querySelector('tr .chip.req').textContent"))
+        self.assertIn("Archive requested", self.js("document.querySelector('.trow .chip.req').textContent"))
         self.assertFalse(self.js("!!document.querySelector('[data-request=archive][data-track=live_1]')"))
         [item] = self.feedback("conductor/tracks/live_1/feedback.md")
         self.assertEqual((item["kind"], item["status"]), ("archive", "open"))

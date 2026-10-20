@@ -82,7 +82,7 @@ class FeedbackLogTest(UserHome, ServerTest):
     def test_needs_you_shows_on_home_and_sidebar(self):
         self.open("#/")
         self.b.wait("document.querySelector('.needs-you')")
-        self.assertIn("1 needs you", self.js("document.querySelector('.tracks-table .needs-you').textContent"))
+        self.assertIn("1 needs you", self.js("document.querySelector('.trow .needs-you').textContent"))
         self.assertIn("1 needs you", self.js("document.querySelector('#sidebar [data-track=t_1]').textContent"))
 
     def test_archived_threads_are_read_only(self):
