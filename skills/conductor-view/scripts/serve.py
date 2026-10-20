@@ -140,7 +140,10 @@ def parse_plan(text: str) -> dict:
     return plan
 
 
-FB_HEAD = re.compile(r"^###\s+(FB-\d+)\s*·\s*(open|resolved)\s*·\s*([\w-]+)\s*$", re.I)
+FB_HEAD = re.compile(r"^###\s+(FB-\d+)\s*·\s*(open|waiting|resolved)\s*·\s*([\w-]+)\s*$", re.I)
+# One entry of an item's thread: "**Agent · 2026-10-20 14:02:** text" or "**You · …:** text".
+# The older "**Agent:** text" (no time) reads the same.
+REPLY_HEAD = re.compile(r"^\*\*(Agent|You)(?:\s*·\s*([^*]*?))?:\*\*\s?(.*)$")
 
 
 def parse_feedback(text: str) -> list[dict]:
@@ -165,8 +168,27 @@ def parse_feedback(text: str) -> list[dict]:
             cur["body"].append(line)
     for it in items:
         it["body"] = "\n".join(it["body"]).strip()
+        it["thread"] = _thread(it["reply"])
         it["reply"] = "\n".join(it["reply"]).strip()
     return items
+
+
+def _thread(lines: list[str]) -> list[dict]:
+    """The reply lines of an item as entries: who ("agent", "you", or "note" for
+    anything else, like a withdrawn request), when, and the Markdown text."""
+    entries: list[dict] = []
+    for line in lines:
+        m = REPLY_HEAD.match(line)
+        if m:
+            entries.append({"who": "agent" if m.group(1) == "Agent" else "you", "when": (m.group(2) or "").strip(),
+                            "text": [m.group(3)]})
+        elif entries:
+            entries[-1]["text"].append(line)
+        elif line:
+            entries.append({"who": "note", "when": "", "text": [line]})
+    for e in entries:
+        e["text"] = "\n".join(e["text"]).strip()
+    return entries
 
 
 def next_feedback_id(text: str) -> str:
@@ -497,6 +519,7 @@ def summarize_track(t: dict) -> dict:
         "phases": [{"title": _clean_title(p["title"]), "status": p["status"], "done": p["done"], "total": p["total"],
                     "tasks": [x["status"] for x in p["tasks"]]} for p in phases],
         "open_feedback": sum(1 for f in t["feedback"] if f["status"] == "open" and f["kind"] not in REQUEST_KINDS),
+        "waiting_feedback": sum(1 for f in t["feedback"] if f["status"] == "waiting"),
         "requests": [{"id": f["id"], "kind": f["kind"]} for f in t["feedback"]
                      if f["status"] == "open" and f["kind"] in REQUEST_KINDS],
         "spec": _decision(t["feedback"], "spec"),
@@ -629,6 +652,39 @@ def withdraw_request(root: Path, payload: dict) -> dict:
         return _rewrite(fb, build)
 
 
+def reply_feedback(root: Path, payload: dict) -> dict:
+    """Add the user's reply to an item's thread and hand it back to the agent (status open)."""
+    tid, fid = str(payload.get("track", "")), str(payload.get("id", ""))
+    tdir, archived = _track_dir(root, tid)
+    if archived:
+        raise ValueError("archived tracks are read-only: restore it first")
+    text = str(payload.get("text", "")).strip()[:20000]
+    if not text:
+        raise ValueError("empty reply")
+    when = datetime.now().strftime("%Y-%m-%d %H:%M")
+    # Every line is quoted, so it can't start a heading; a line that looks like an entry start is escaped.
+    body = ["\\" + l if REPLY_HEAD.match(l) else l for l in text.splitlines()]
+    quoted = [f"> **You · {when}:** {body[0]}"] + [f"> {l}".rstrip() for l in body[1:]]
+
+    def build(existing):
+        lines = (existing or "").split("\n")
+        for i, line in enumerate(lines):
+            h = FB_HEAD.match(line.strip())
+            if h and h.group(1) == fid:
+                lines[i] = f"### {fid} · open · {h.group(3).lower()}"
+                j = i + 1
+                while j < len(lines) and not lines[j].startswith("### "):
+                    j += 1
+                while j > i + 1 and not lines[j - 1].strip():
+                    j -= 1
+                lines[j:j] = ["", *quoted]
+                return "\n".join(lines), {"id": fid, "status": "open"}
+        raise LookupError("no such feedback item")
+
+    with WRITE_LOCK:
+        return _rewrite(tdir / "feedback.md", build)
+
+
 def _umask() -> int:
     # Read without a race: only called under WRITE_LOCK, and set straight back.
     current = os.umask(0o022)
@@ -677,7 +733,8 @@ def _append_item(fb: Path, tid: str, kind: str, target: str, text: str) -> dict:
             existing = (
                 f"# Feedback: {tid}\n\n"
                 "<!-- Written by the Conductor viewer. Agents: address each `open` item, then\n"
-                "     change `open` to `resolved` in its heading and add a `> **Agent:** ...` reply. -->\n"
+                "     change `open` to `resolved` (or `waiting` if you asked a question) and add a\n"
+                "     `> **Agent · <time>:** ...` reply. -->\n"
             )
         fid = next_feedback_id(existing)
         when = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -1156,6 +1213,8 @@ class Handler(BaseHTTPRequestHandler):
         """Route a POST. Returns (result, status)."""
         if path == "/api/feedback":
             return append_feedback(self._root_for(payload.get("project")), payload), HTTPStatus.CREATED
+        if path == "/api/feedback/reply":
+            return reply_feedback(self._root_for(payload.get("project")), payload), HTTPStatus.OK
         if path == "/api/feedback/withdraw":
             return withdraw_request(self._root_for(payload.get("project")), payload), HTTPStatus.OK
         if path == "/api/settings":
@@ -1269,7 +1328,8 @@ def _open_items(root: Path) -> dict[str, dict]:
         for tdir in _track_dirs(root / "conductor" / sub):
             for it in parse_feedback(_read(tdir / "feedback.md") or ""):
                 if it["status"] == "open":
-                    out.setdefault(f"{tdir.name}/{it['id']}", {**it, "track": tdir.name})
+                    # A reply reopens an item: keyed on the thread length, so it's announced again.
+                    out.setdefault(f"{tdir.name}/{it['id']}/{len(it['thread'])}", {**it, "track": tdir.name})
     return out
 
 
@@ -1309,9 +1369,11 @@ def watch(root: Path | None, interval: float = 1.0, everything: bool = False) ->
                     key = f"{r}/{key}"
                     if key in seen:
                         continue
-                    body = " ".join(it["body"].split())
+                    last = it["thread"][-1] if it["thread"] else None
+                    reply = last is not None and last["who"] == "you"  # reopened by the user's reply
+                    body = " ".join((last["text"] if reply else it["body"]).split())
                     body = body if len(body) <= 100 else body[:97] + "..."
-                    print(f"feedback {it['id']} · {it['kind']} · {tag}track {it['track']} · "
+                    print(f"feedback {it['id']}{' · reply' if reply else ''} · {it['kind']} · {tag}track {it['track']} · "
                           f"target {it['target'] or '-'}" + (f" · {body}" if body and body != "_(no message)_" else ""),
                           flush=True)
                     seen.add(key)  # only once it was actually reported

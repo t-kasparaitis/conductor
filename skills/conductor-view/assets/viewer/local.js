@@ -99,7 +99,21 @@
     return plan;
   }
 
-  const FB_HEAD = /^###\s+(FB-\d+)\s*·\s*(open|resolved)\s*·\s*([\w-]+)\s*$/i;
+  const FB_HEAD = /^###\s+(FB-\d+)\s*·\s*(open|waiting|resolved)\s*·\s*([\w-]+)\s*$/i;
+  const REPLY_HEAD = /^\*\*(Agent|You)(?:\s*·\s*([^*]*?))?:\*\*\s?(.*)$/;
+
+  // Mirrors serve.py's _thread: who ("agent", "you" or "note"), when, text.
+  function thread(replyLines) {
+    const entries = [];
+    for (const line of replyLines) {
+      const m = line.match(REPLY_HEAD);
+      if (m) entries.push({ who: m[1] === "Agent" ? "agent" : "you", when: (m[2] || "").trim(), text: [m[3]] });
+      else if (entries.length) entries[entries.length - 1].text.push(line);
+      else if (line) entries.push({ who: "note", when: "", text: [line] });
+    }
+    for (const e of entries) e.text = e.text.join("\n").trim();
+    return entries;
+  }
 
   function parseFeedback(text) {
     const items = [];
@@ -117,7 +131,7 @@
       else if (line.startsWith(">")) cur.reply.push(line.slice(1).trim());
       else cur.body.push(line);
     }
-    for (const it of items) { it.body = it.body.join("\n").trim(); it.reply = it.reply.join("\n").trim(); }
+    for (const it of items) { it.body = it.body.join("\n").trim(); it.thread = thread(it.reply); it.reply = it.reply.join("\n").trim(); }
     return items;
   }
 
@@ -189,6 +203,7 @@
       done: tasks.filter((x) => x.status === "done").length, total: tasks.length,
       phases: phases.map((p) => ({ title: cleanTitle(p.title), status: p.status, done: p.done, total: p.total, tasks: p.tasks.map((x) => x.status) })),
       open_feedback: t.feedback.filter((f) => f.status === "open" && !REQUEST_KINDS.includes(f.kind)).length,
+      waiting_feedback: t.feedback.filter((f) => f.status === "waiting").length,
       requests: t.feedback.filter((f) => f.status === "open" && REQUEST_KINDS.includes(f.kind)).map((f) => ({ id: f.id, kind: f.kind })),
       spec: decision(t.feedback, "spec"), plan: decision(t.feedback, "plan"),
       created: String(meta.created_at || "").slice(0, 10),

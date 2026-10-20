@@ -58,3 +58,9 @@
 - [x] Task: Each track once in the sidebar: pinned tracks only under Pinned, the project's list holds the rest (FB-007), with browser tests d1880f8
 - [x] Task: Remove pinning (user decision after trying it): no pins.json, /api/pins or ☆; the sidebar lists unfinished tracks (Now, Open) grouped by project, the open project first; done and archived tracks only in the home table, with browser tests e56c4bf
 - [x] Task: Archive/delete buttons always visible; no status badges in the sidebar (the % ring says enough); "Now" renamed "In progress" in the table, chips and cards, with browser tests ff9dfe7
+
+## Phase 8: Feedback as a conversation
+
+- [ ] Task: Threads in `feedback.md`: replies as `> **Agent · <when>:**` / `> **You · <when>:**` entries (old `> **Agent:**` still reads), a `waiting` status for "the agent asked you something", `/api/feedback/reply` that appends your reply and reopens the item, `--watch` announces replies; server and `local.js`, with tests
+- [ ] Task: Feedback tab as a log: each item a thread with who and when, Reply on any item, "Needs you" filter and counts on the tab, home table and sidebar, with browser tests
+- [ ] Task: Agent side: SKILL.md and file-contract describe threads, asking with `waiting`, and reading the whole thread; the four core skills' feedback steps match, with skill-doc tests

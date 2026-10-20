@@ -28,6 +28,21 @@ _(no message)_
 
 > **Agent:** Thanks.
 > Second reply line.
+
+### FB-003 · waiting · comment
+- **Target:** spec › Scope
+- **When:** 2026-10-19 12:00
+
+Should this cover Windows?
+
+> **Agent · 2026-10-19 12:05:** Which Windows versions?
+>
+> Just 11, or 10 too?
+
+> **You · 2026-10-19 12:10:** Both.
+> \\**Agent · fake:** not an entry
+
+> **Withdrawn** in the viewer before the agent acted on it.
 """
 
 REGISTRY = """# Tracks

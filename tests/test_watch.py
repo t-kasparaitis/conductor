@@ -58,6 +58,17 @@ class WatchTest(TempProject):
         self.append(ITEM.format(id="FB-003", status="open", body="new one"))
         self.assertIn("FB-003", self.next_line())
 
+    def test_a_reply_reopens_and_is_announced_with_its_text(self):
+        self.start()
+        self.next_line()
+        # The agent asks; nothing to announce while it waits on the user.
+        path = self.root / self.fb
+        text = path.read_text(encoding="utf-8").replace("FB-002 · resolved", "FB-002 · waiting")
+        path.write_text(text + "\n> **Agent · now:** Which one?\n", encoding="utf-8")
+        self.assert_quiet()
+        serve.reply_feedback(self.root, {"track": "demo_1", "id": "FB-002", "text": "The second."})
+        self.assertEqual(self.next_line(), "feedback FB-002 · reply · comment · track demo_1 · target plan · The second.")
+
     def test_resolved_items_and_repeats_are_not_reported(self):
         self.start()
         self.next_line()
