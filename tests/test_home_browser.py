@@ -235,6 +235,14 @@ class HomeFiltersTest(HomeFixture):
         self.b.click(f'.th-filter[data-menu="{key}"] summary')
         self.b.wait(f'document.querySelector(\'.th-filter[data-menu="{key}"][open]\')')
 
+    def test_progress_is_numbers_not_bars(self):
+        self.open("#/", ready="document.querySelector('.trow[data-row] .prog-count')")
+        cells = self.js("[...document.querySelectorAll('.trow[data-row] .c-progress')].map((c) => [c.querySelector('.prog-count').textContent, c.querySelector('.prog-phase').textContent])")
+        for count, phase in cells:
+            self.assertRegex(count, r"^\d+/\d+ tasks$")
+            self.assertRegex(phase, r"^(phase \d+ of \d+|all \d+ phases? done|no plan yet)$")
+        self.assertIsNone(self.js("document.querySelector('.pbar, .pseg')"))
+
     def test_columns_line_up_across_rows(self):
         self.open(ready="document.querySelector('.trow[data-row]')")
         lefts = self.js("[...document.querySelectorAll('.trow[data-row] .c-progress')].map(c => c.getBoundingClientRect().left)")

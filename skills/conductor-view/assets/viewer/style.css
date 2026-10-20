@@ -145,15 +145,15 @@ h1.track-title { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; margin: 0
 .btn svg { flex: none; }
 
 .progress { margin: 0; }
-.progress-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.progress-meta { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text-2); margin-bottom: 8px; }
 .progress-groups { display: flex; flex-wrap: wrap; gap: 6px; }
 .progress-groups.compact .pg { flex: 0 0 auto; min-width: 0; }
 .progress-groups.compact .pg-name { display: none; }
-.pg { flex: 1 1 0; min-width: 120px; display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px 0 5px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text-2); font: 12px/1 var(--sans); cursor: pointer; text-align: left; }
+.pg { flex: 1 1 0; min-width: 120px; display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px 0 5px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text-2); font: 550 12.5px/1 var(--sans); cursor: pointer; text-align: left; }
 .pg:hover { border-color: var(--line-2); color: var(--text); }
 .pg-num { flex: none; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line-2); color: var(--muted); font: 600 10.5px/1 var(--mono); }
 .pg-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pg-count { flex: none; margin-left: auto; color: var(--muted); font: 11.5px/1 var(--mono); }
+.pg-count { flex: none; margin-left: auto; color: var(--text); font: 600 12px/1 var(--mono); }
 .pg.done .pg-num { border-color: var(--done); color: var(--done); }
 .pg.in_progress .pg-num { border-color: var(--prog); color: var(--prog); }
 .pg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -463,11 +463,6 @@ details.tgroup[open] summary h3::before { content: "▾ "; }
 .trow-progress { grid-area: progress; display: flex; align-items: center; gap: 8px; }
 .trow-chips { grid-area: chips; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .chip.review { font-size: 11px; }
-.pbar { flex: 1; display: flex; gap: 2px; height: 8px; min-width: 60px; }
-.pbar.empty { background: var(--line); border-radius: 4px; }
-.pseg { flex-basis: 0; background: var(--line-2); border-radius: 3px; overflow: hidden; }
-.pseg i { display: block; height: 100%; background: var(--done); }
-.pseg.in_progress { box-shadow: inset 0 0 0 1px var(--prog); }
 .banner { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; border: 1px solid var(--line-2); background: var(--panel); border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; }
 .banner.warn { border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); background: var(--warn-soft); }
 .banner code { word-break: break-all; }
@@ -562,7 +557,6 @@ details.tgroup[open] summary h3::before { content: "▾ "; }
 .tt-proj { color: var(--text-2); text-decoration: none; white-space: nowrap; }
 .tt-proj:hover { color: var(--text); text-decoration: underline; }
 .tt-progress { display: flex; align-items: center; gap: 8px; min-width: 140px; }
-.tt-progress .pbar { flex: 1 1 auto; }
 .tt-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .th { display: flex; align-items: center; gap: 2px; }
 .th-sort { border: 0; background: none; padding: 3px 4px; cursor: pointer; color: inherit; font: inherit; display: inline-flex; gap: 4px; align-items: center; border-radius: 6px; }
@@ -632,16 +626,32 @@ main.wide { padding-left: clamp(16px, 2.2vw, 28px); padding-right: clamp(16px, 2
 .trow, .trow-head {
   display: grid; grid-template-areas: none;
   grid-template-columns: minmax(0, 1fr) 170px 150px 140px 82px 64px;
-  gap: 12px; align-items: center; padding: 9px 10px;
+  gap: 14px; align-items: center; padding: 12px 10px;
 }
 .trow + .trow { border-top: 1px dashed var(--line); border-radius: 0; }
 .trow.g-now { background: none; border: 0; border-left: 0; box-shadow: inset 3px 0 0 var(--prog); border-radius: 0; }
 .trow.g-now + .trow { border-top: 1px dashed var(--line); }
-.trow-head { padding-top: 12px; padding-bottom: 4px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--line); }
+.trow-head { padding-top: 14px; padding-bottom: 6px; font-size: 11px; font-weight: 650; color: var(--text-2); text-transform: uppercase; letter-spacing: .7px; border-bottom: 1px solid var(--line); }
+.proj-card { padding: 20px 22px 14px; }
+.proj-name { font-size: 20px; font-weight: 700; }
+.proj-counts { font-size: 13px; font-weight: 500; }
+.trow-title { font-size: 14.5px; font-weight: 650; }
+.trow .trow-sub { font-size: 12.5px; color: var(--text-2); margin-top: 2px; }
+.trow .trow-sub .mono { color: var(--muted); font-size: 11.5px; }
+.trow .c-activity { font-size: 13px; font-weight: 500; color: var(--text-2); }
+.trow .chip { font-size: 12px; font-weight: 550; padding: 3px 10px; }
+.tgroup h3 { font-size: 11.5px; font-weight: 700; letter-spacing: .9px; }
 .trow > div { min-width: 0; }
 .trow .c-track a.trow-title { display: block; text-decoration: none; }
 .trow .c-track a.trow-title:hover { text-decoration: underline; }
-.trow .c-progress { display: flex; align-items: center; gap: 8px; }
+.trow .c-progress { display: flex; align-items: center; gap: 10px; }
+.ring.sm { width: 26px; height: 26px; flex: none; }
+.ring.sm::after { content: ""; width: 18px; height: 18px; background: var(--panel); }
+.trow:hover .ring.sm::after { background: var(--panel-2); }
+.prog-text { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.prog-count { font: 600 13px/1.25 var(--mono); color: var(--text); }
+.prog-unit { font: 400 12px var(--sans); color: var(--text-2); }
+.prog-phase { font-size: 12px; color: var(--text-2); white-space: nowrap; }
 .trow .c-feedback { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .trow .c-actions { display: flex; justify-content: flex-end; }
 .trow .row-actions { margin: 0; }

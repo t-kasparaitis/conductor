@@ -358,9 +358,14 @@
     return d.kind === "approve" ? `<span class="chip review ok" title="${what} approved (${esc(d.id)})">${what} ✓</span>`
       : `<span class="chip review warn" title="${what}: changes requested (${esc(d.id)})">${what} ↺</span>`;
   }
-  function phaseBar(t) {
-    if (!t.phases.length) return `<span class="pbar empty" aria-hidden="true"></span>`;
-    return `<span class="pbar" role="img" aria-label="${t.done} of ${t.total} tasks done">${t.phases.map((p, i) => `<span class="pseg ${p.status}" style="flex-grow:${Math.max(p.total, 1)}" title="Phase ${i + 1}: ${esc(p.title)} — ${p.done}/${p.total}"><i style="width:${pct(p.done, p.total)}%"></i></span>`).join("")}</span>`;
+  // A track's progress as numbers: a ring (as in the sidebar), tasks done as X/Y,
+  // and which phase it's on.
+  function progressCell(t) {
+    const n = t.phases.length;
+    const at = t.phases.findIndex((p) => p.status !== "done");
+    const phase = !n ? "no plan yet" : at < 0 ? `all ${n} phase${n === 1 ? "" : "s"} done` : `phase ${at + 1} of ${n}`;
+    return `<span class="ring sm" style="--p:${pct(t.done, t.total)}" role="img" aria-label="${pct(t.done, t.total)}% done"></span>
+      <span class="prog-text"><span class="prog-count">${t.done}/${t.total}<span class="prog-unit"> tasks</span></span><span class="prog-phase">${phase}</span></span>`;
   }
   const REQ = {
     archive: { verb: "Archive", done: "Archive requested" },
@@ -461,7 +466,7 @@
     return `<li class="trow g-${t.group}" data-row="${esc(p.id)}/${esc(t.id)}">
       <div class="c-track"><a class="trow-title" href="${trackHref(p.id, t.id)}">${esc(t.title)}</a>
         <div class="trow-sub"><span class="mono">${esc(t.id)}</span>${t.current && t.group === "now" ? ` · <span class="trow-now">${t.current.next ? "next:" : "▶"} ${esc(t.current.text)}</span>` : ""}</div></div>
-      <div class="c-progress">${phaseBar(t)}<span class="mono small muted">${t.done}/${t.total}</span></div>
+      <div class="c-progress">${progressCell(t)}</div>
       <div class="c-feedback">${fb || `<span class="muted small" aria-label="No open feedback">—</span>`}</div>
       <div class="c-git">${safetyChip(g)}</div>
       <div class="c-activity small">${g && g.last_activity ? `<span title="${esc(new Date(g.last_activity * 1000).toLocaleString())}">${esc(ago(g.last_activity))}</span>` : `<span class="muted">—</span>`}</div>
