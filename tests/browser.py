@@ -259,16 +259,8 @@ _WD_KEYS = {"Enter": "\ue006", "Escape": "\ue00c", "Tab": "\ue004", "ArrowLeft":
 class Firefox:
     name = "firefox"
 
-    def __init__(self, width=1300, height=800):
-        exe = find_firefox()
-        if not exe:
-            raise FileNotFoundError("no Firefox found")
-        # A snap-packaged Firefox can only use a profile inside its own folder.
-        # Ubuntu's /usr/bin/firefox is a shell script that hands over to the snap.
-        snap = "/snap/" in os.path.realpath(exe) or _is_snap_wrapper(exe)
-        base = os.path.expanduser("~/snap/firefox/common") if snap else None
-        if base:
-            os.makedirs(base, exist_ok=True)
+    def _start(self, exe, base, width, height):
+        """Launch Firefox and open a session on its first window."""
         self.profile = tempfile.mkdtemp(prefix="conductor-firefox-", dir=base)
         with socket.socket() as s:
             s.bind(("127.0.0.1", 0))
@@ -302,6 +294,27 @@ class Firefox:
         self.call("browsingContext.setViewport", context=self.context, viewport={"width": width, "height": height})
         # Without this the headless window never has focus, so key presses go nowhere.
         self.call("browsingContext.activate", context=self.context)
+
+    def __init__(self, width=1300, height=800):
+        exe = find_firefox()
+        if not exe:
+            raise FileNotFoundError("no Firefox found")
+        # A snap-packaged Firefox can only use a profile inside its own folder.
+        # Ubuntu's /usr/bin/firefox is a shell script that hands over to the snap.
+        snap = "/snap/" in os.path.realpath(exe) or _is_snap_wrapper(exe)
+        base = os.path.expanduser("~/snap/firefox/common") if snap else None
+        if base:
+            os.makedirs(base, exist_ok=True)
+        # Firefox on Windows CI sometimes loses or never opens its first window while
+        # starting; a fresh start on a new profile and port gets past it.
+        for attempt in (1, 2, 3):
+            try:
+                self._start(exe, base, width, height)
+                return
+            except (RuntimeError, TimeoutError, OSError):
+                self.close()
+                if attempt == 3:
+                    raise
 
     def call(self, method, **params):
         self._id += 1
@@ -353,6 +366,9 @@ class Firefox:
             except Exception:
                 pass
             self.ws.close()
+            self.ws = None
+        else:
+            self.proc.terminate()  # never connected: nothing to ask
         try:
             self.proc.wait(timeout=15)
         except subprocess.TimeoutExpired:
