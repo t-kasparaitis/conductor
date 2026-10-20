@@ -242,6 +242,9 @@ class HomeFiltersTest(HomeFixture):
             self.assertRegex(count, r"^\d+/\d+ tasks$")
             self.assertRegex(phase, r"^(phase \d+ of \d+|all \d+ phases? done|no plan yet)$")
         self.assertIsNone(self.js("document.querySelector('.pbar, .pseg')"))
+        # The ring carries its percentage, like the sidebar's.
+        labels = self.js("[...document.querySelectorAll('.trow[data-row] .c-progress .ring')].map((r) => getComputedStyle(r, '::after').content)")
+        self.assertTrue(labels and all(l.strip('"').endswith("%") for l in labels), labels)
 
     def test_columns_line_up_across_rows(self):
         self.open(ready="document.querySelector('.trow[data-row]')")

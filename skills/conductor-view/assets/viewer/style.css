@@ -645,9 +645,9 @@ main.wide { padding-left: clamp(16px, 2.2vw, 28px); padding-right: clamp(16px, 2
 .trow .c-track a.trow-title { display: block; text-decoration: none; }
 .trow .c-track a.trow-title:hover { text-decoration: underline; }
 .trow .c-progress { display: flex; align-items: center; gap: 10px; }
-.ring.sm { width: 26px; height: 26px; flex: none; }
-.ring.sm::after { content: ""; width: 18px; height: 18px; background: var(--panel); }
-.trow:hover .ring.sm::after { background: var(--panel-2); }
+.ring.in-card { flex: none; }
+.ring.in-card::after { background: var(--panel); }
+.trow:hover .ring.in-card::after { background: var(--panel-2); }
 .prog-text { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
 .prog-count { font: 600 13px/1.25 var(--mono); color: var(--text); }
 .prog-unit { font: 400 12px var(--sans); color: var(--text-2); }

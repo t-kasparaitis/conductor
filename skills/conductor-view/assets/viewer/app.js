@@ -364,7 +364,7 @@
     const n = t.phases.length;
     const at = t.phases.findIndex((p) => p.status !== "done");
     const phase = !n ? "no plan yet" : at < 0 ? `all ${n} phase${n === 1 ? "" : "s"} done` : `phase ${at + 1} of ${n}`;
-    return `<span class="ring sm" style="--p:${pct(t.done, t.total)}" role="img" aria-label="${pct(t.done, t.total)}% done"></span>
+    return `<span class="ring in-card" style="--p:${pct(t.done, t.total)}" data-label="${pct(t.done, t.total)}%" role="img" aria-label="${pct(t.done, t.total)}% done"></span>
       <span class="prog-text"><span class="prog-count">${t.done}/${t.total}<span class="prog-unit"> tasks</span></span><span class="prog-phase">${phase}</span></span>`;
   }
   const REQ = {
