@@ -519,33 +519,21 @@ details.tgroup[open] summary h3::before { content: "▾ "; }
   .brand-dim, #live-text { display: none; }
 }
 
-/* ---------- pinned tracks and status badges ---------- */
-.side-item { display: flex; align-items: center; gap: 2px; }
-.side-item .track-link { flex: 1 1 auto; min-width: 0; }
+/* ---------- active tracks in the sidebar, status badges ---------- */
 .tl-text { min-width: 0; }
 .tl-text .t-name { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .tl-text .t-id { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side-proj { font-size: 12px; font-weight: 600; margin: 10px 8px 2px; }
 .side-proj a { color: var(--text-2); text-decoration: none; }
 .side-proj a:hover { color: var(--text); text-decoration: underline; }
-.side-proj-head { margin-top: 18px !important; }
 .side-empty { font-size: 12px; color: var(--muted); margin: 0 8px 12px; }
 .side-projects { margin-top: 14px; }
-.pin-btn { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; padding: 0; }
-.pin-btn svg { fill: none; }
-.pin-btn:hover { color: var(--text); border-color: var(--line-2); background: var(--panel); }
-.pin-btn[aria-pressed="true"] { color: var(--prog); }
-.pin-btn[aria-pressed="true"] svg { fill: currentColor; }
-.side-item .pin-btn { opacity: 0; }
-.side-item:hover .pin-btn, .side-item .pin-btn:focus-visible, .side-item.pinned .pin-btn { opacity: 1; }
 .gbadge { display: inline-block; font-family: var(--sans); font-size: 10px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; padding: 0 5px; border-radius: 4px; border: 1px solid var(--line-2); color: var(--text-2); vertical-align: 1px; margin-right: 2px; }
 .gbadge.g-now { color: var(--prog); border-color: color-mix(in srgb, var(--prog) 45%, transparent); background: var(--prog-soft); }
 .gbadge.g-done { color: var(--done); border-color: color-mix(in srgb, var(--done) 45%, transparent); background: var(--done-soft); }
 .gbadge.g-archived { border-style: dashed; }
 @media (max-width: 760px) {
   .side-proj, .side-empty, .side-projects { display: none; }
-  .side-item { flex: none; }
-  .side-item .pin-btn { opacity: 1; }
 }
 
 /* ---------- home table ---------- */
@@ -565,7 +553,6 @@ details.tgroup[open] summary h3::before { content: "▾ "; }
 .tracks-table tr.g-now td:first-child { box-shadow: inset 3px 0 0 var(--prog); }
 .tracks-table tr.g-archived .tt-title { color: var(--text-2); }
 .tracks-table td.c-track { min-width: 220px; max-width: 420px; }
-.tracks-table .c-pin { width: 34px; padding-left: 8px; }
 .tracks-table .c-actions, .tracks-table .c-git, .tracks-table .c-activity, .tracks-table .c-reviews { white-space: nowrap; }
 .tracks-table td.c-feedback { min-width: 90px; }
 .tt-title { font-weight: 600; color: var(--text); text-decoration: none; }
@@ -604,8 +591,6 @@ main.wide { max-width: 1640px; }
 .tracks-table td.c-track { max-width: 300px; }
 .tt-sub { max-width: 300px; }
 .tt-proj { display: inline-block; max-width: 160px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
-.tracks-table th.c-pin .th > span { display: grid; place-items: center; width: 28px; color: var(--muted); }
-.tracks-table th.c-pin svg { fill: none; }
 .icon-act { width: 28px; height: 28px; display: inline-grid; place-items: center; border: 1px solid transparent; border-radius: 7px; background: none; color: var(--text-2); cursor: pointer; padding: 0; }
 .icon-act:hover { border-color: var(--line-2); background: var(--panel); color: var(--text); }
 .icon-act.danger { color: var(--danger); }

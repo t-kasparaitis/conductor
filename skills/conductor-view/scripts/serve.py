@@ -728,15 +728,7 @@ def _check_projects(data) -> str | None:
     return None
 
 
-def _check_pins(data) -> str | None:
-    if not isinstance(data, dict) or not all(isinstance(data.get(k, []), list) and all(isinstance(x, str) for x in data.get(k, []))
-                                             for k in ("pinned", "unpinned")):
-        return 'must be an object with "pinned" and "unpinned" lists of "<project>/<track>"'
-    return None
-
-
-USER_FILES = {"projects.json": _check_projects, "config.json": _check_object, "settings.json": _check_object,
-              "pins.json": _check_pins}
+USER_FILES = {"projects.json": _check_projects, "config.json": _check_object, "settings.json": _check_object}
 
 
 def _json_problem(text: str, check) -> str | None:
@@ -869,45 +861,6 @@ def forget_project(pid: str) -> dict:
         return {"forgotten": pid}
 
     return _update_user_json("projects.json", change)
-
-
-# Pinned tracks show in the sidebar. New and open tracks are pinned automatically and
-# drop off once done or archived; pins.json only records the exceptions you made by hand.
-AUTO_PINNED = {"now", "open"}
-
-
-def load_pins() -> dict:
-    data = load_user_json("pins.json")
-    return {"pinned": list(data.get("pinned", [])), "unpinned": list(data.get("unpinned", []))}
-
-
-def pin_state(pins: dict, pid: str, track: dict) -> dict:
-    """Whether a track is in the sidebar, and why: "pinned" or "unpinned" by hand, else "auto"."""
-    key = f"{pid}/{track['id']}"
-    if key in pins["pinned"]:
-        return {"pinned": True, "pin": "pinned"}
-    if key in pins["unpinned"]:
-        return {"pinned": False, "pin": "unpinned"}
-    return {"pinned": track.get("group") in AUTO_PINNED, "pin": "auto"}
-
-
-def set_pin(pid: str, tid: str, pinned) -> dict:
-    """pinned True or False records a choice; None goes back to automatic."""
-    if not PROJECT_ID_RE.match(pid or "") or not tid or "/" in tid or "\\" in tid:
-        raise ValueError("project and track ids are required")
-    if pinned is not None and not isinstance(pinned, bool):
-        raise ValueError("pinned must be true, false or null")
-    key = f"{pid}/{tid}"
-
-    def change(data):
-        for name in ("pinned", "unpinned"):
-            data[name] = [k for k in data.get(name, []) if k != key]
-        if pinned is not None:
-            data["pinned" if pinned else "unpinned"].append(key)
-        data.setdefault("version", 1)
-        return {"key": key, "pin": "auto" if pinned is None else "pinned" if pinned else "unpinned"}
-
-    return _update_user_json("pins.json", change)
 
 
 SCAN_SKIP = {"node_modules", "__pycache__", "site-packages", "venv", "env", "virtualenv", "dist", "build", "target",
@@ -1188,9 +1141,6 @@ class Handler(BaseHTTPRequestHandler):
         # Projects are independent and mostly wait on git, so build their cards side by side.
         with ThreadPoolExecutor(max_workers=8) as pool:
             projects = list(pool.map(project_summary, project_list(self.root)))
-        pins = load_pins()
-        # Summaries are cached and shared, so pin facts go on copies.
-        projects = [{**p, "tracks": [{**t, **pin_state(pins, p["id"], t)} for t in p["tracks"]]} for p in projects]
         return {
             "projects": projects,
             "problems": [{"name": k, **v} for k, v in sorted(CONFIG_PROBLEMS.items())],
@@ -1225,8 +1175,6 @@ class Handler(BaseHTTPRequestHandler):
             if roots is not None and (not isinstance(roots, list) or not all(isinstance(r, str) for r in roots)):
                 raise ValueError("roots must be a list of folder paths")
             return scan_projects(roots or None, payload.get("depth", 4)), HTTPStatus.OK
-        if path == "/api/pins":
-            return set_pin(str(payload.get("project", "")), str(payload.get("track", "")), payload.get("pinned")), HTTPStatus.OK
         if path == "/api/config":
             return set_config(str(payload.get("key", "")), payload.get("value")), HTTPStatus.OK
         if path == "/api/config/restore":

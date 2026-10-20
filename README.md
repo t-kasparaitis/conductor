@@ -182,9 +182,9 @@ not pushed, pushed, landed). It's a table with one row per track: sort by any
 column, filter Project, Status, Type and Git spreadsheet-style, and choose
 which columns to show. A Cards layout groups the same tracks by project.
 
--   **Pinned tracks.** The sidebar keeps the tracks you care about one click
-    away. New and open tracks are pinned automatically and drop off once
-    they're done or archived; pin or unpin any track with its ☆.
+-   **Sidebar.** Lists every unfinished track (Now, Open), grouped by
+    project. Once a track is done or archived it leaves the sidebar; the
+    table still has it.
 
 -   **Registering projects.** Starting the viewer in a project registers it;
     starting it in a second project adds that one to the viewer already
