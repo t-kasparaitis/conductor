@@ -62,5 +62,5 @@
 ## Phase 8: Feedback as a conversation
 
 - [x] Task: Threads in `feedback.md`: replies as `> **Agent · <when>:**` / `> **You · <when>:**` entries (old `> **Agent:**` still reads), a `waiting` status for "the agent asked you something", `/api/feedback/reply` that appends your reply and reopens the item, `--watch` announces replies; server and `local.js`, with tests 21031bc
-- [ ] Task: Feedback tab as a log: each item a thread with who and when, Reply on any item, "Needs you" filter and counts on the tab, home table and sidebar, with browser tests
+- [x] Task: Feedback tab as a log: each item a thread with who and when, Reply on any item, "Needs you" filter and counts on the tab, home table and sidebar, with browser tests 5e81f88
 - [ ] Task: Agent side: SKILL.md and file-contract describe threads, asking with `waiting`, and reading the whole thread; the four core skills' feedback steps match, with skill-doc tests
