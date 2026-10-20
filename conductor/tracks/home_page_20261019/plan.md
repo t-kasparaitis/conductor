@@ -65,4 +65,4 @@
 - [x] Task: Feedback tab as a log: each item a thread with who and when, Reply on any item, "Needs you" filter and counts on the tab, home table and sidebar, with browser tests 5e81f88
 - [x] Task: Agent side: SKILL.md and file-contract describe threads, asking with `waiting`, and reading the whole thread; the four core skills' feedback steps match, with skill-doc tests aace6cb
 - [x] Task: One home view (user decision): project cards whose tracks sit in aligned columns, grouped by status; status toggles (archived off by default), Project and Git filters, sort by activity/progress/name; the table, column picker and layout switch removed, with browser tests a61fd40
-- [ ] Task: Sidebar sections Active tracks (with its count) and Projects both collapse, remembered per browser, with browser tests
+- [x] Task: Sidebar sections Active tracks (with its count) and Projects both collapse, remembered per browser, with browser tests b07e8a7
